@@ -1,0 +1,128 @@
+{
+  "name": "jotta-edit",
+  "productName": "Jotta Edit",
+  "version": "1.1.0",
+  "description": "Jotta Edit 1.1.0: GitHub repository sync, conflict review, project settings and safer web saving",
+  "author": "Jo\u00e3o Jotta",
+  "license": "GPL-2.0-or-later",
+  "private": true,
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "desktop": "npm run build:web && electron .",
+    "build:web": "npm run licenses:generate && vite build",
+    "dist": "npm run dist:flatpak",
+    "check": "npm run check:config && node --check electron/launch-paths.cjs && node --check electron/session-store.cjs && node --check electron/main.cjs && node --check electron/live-preview.cjs && node --check electron/preload.cjs && node --check shared/github-sync.mjs && node --check shared/github-workspace.mjs && node --check electron/github-workspace.cjs && node --check src/github-panel.js && node --check shared/local-history.mjs && node --check electron/local-history.cjs && node --check src/local-history-panel.js && node --check src/workspace-preferences.js && node --check src/recent-workspaces.js && node --check src/editor-layout.js && node --check src/project-search.js && node --check src/project-search-panel.js && node --check src/main.js && node --check src/i18n.js && node --check src/tag-matching.js && node --check src/syntax-themes.js && node --check src/custom-syntax-themes.js && node --check src/interface-theme.js && node --check src/explorer-icon-palettes.js && node --check src/settings-tabs.js && node --check vite.config.mjs && node --check electron/lsp.cjs && node --check src/emmet.js && node --check src/formatting.js && node --check src/editor-behaviour.js && node --check src/path-completion.js && node --check electron/path-completion.cjs && node --check src/color-utils.js && node --check src/color-picker.js && node --check src/language-detection.js && node --check electron/file-operations.cjs && node --check electron/trash.cjs && node --check src/font-menu.js && node --check src/dom-guards.js && node scripts/check-node-version.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "install:check": "node scripts/check-install.cjs",
+    "dist:flatpak": "npm run build:web && electron-builder --linux flatpak --x64",
+    "check:config": "node scripts/validate-build-config.cjs",
+    "dist:windows": "npm run build:web && electron-builder --win portable --x64",
+    "dev:web": "vite --config vite.web.config.mjs --host 127.0.0.1",
+    "build:pwa": "npm run licenses:generate && vite build --config vite.web.config.mjs && node scripts/verify-web-build.cjs",
+    "preview:pwa": "vite preview --config vite.web.config.mjs --host 127.0.0.1",
+    "check:web": "node --check web/browser-api.js && node --check web/storage.js && node --check web/zip.js && node --check src/web-entry.js && node --check vite.web.config.mjs && node --check web/github-workspace.js",
+    "verify:pwa": "node scripts/verify-web-build.cjs",
+    "licenses:generate": "node scripts/generate-license-notices.cjs",
+    "build:source": "bash scripts/build-source.sh"
+  },
+  "dependencies": {
+    "monaco-editor": "0.55.1",
+    "emmet": "2.4.11",
+    "prettier": "3.9.6",
+    "@prettier/plugin-php": "0.25.0",
+    "@fontsource/rubik": "^5.0.0"
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.0.12",
+    "vite": "7.3.5"
+  },
+  "build": {
+    "appId": "pt.jotta.edit",
+    "productName": "Jotta Edit",
+    "files": [
+      "electron/**/*",
+      "shared/**/*",
+      "dist/**/*",
+      "assets/icon.png",
+      "package.json",
+      "LICENSE",
+      "!**/*.map",
+      "licenses/**/*",
+      "THIRD-PARTY-NOTICES.md"
+    ],
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "linux": {
+      "target": [
+        "flatpak"
+      ],
+      "category": "Development",
+      "icon": "assets/icons",
+      "executableName": "jotta-edit",
+      "synopsis": "Code editor with Emmet, IntelliSense and formatting"
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "sdk": "org.freedesktop.Sdk",
+      "runtimeVersion": "25.08",
+      "base": "org.electronjs.Electron2.BaseApp",
+      "baseVersion": "25.08",
+      "branch": "stable",
+      "useWaylandFlags": false,
+      "artifactName": "Jotta-Edit-${version}-linux-${arch}.flatpak",
+      "finishArgs": [
+        "--socket=x11",
+        "--share=ipc",
+        "--device=dri",
+        "--share=network",
+        "--filesystem=home",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--env=XDG_SESSION_TYPE=x11",
+        "--env=WAYLAND_DISPLAY=",
+        "--env=WAYLAND_SOCKET="
+      ],
+      "files": [
+        [
+          "assets/linux/pt.jotta.edit.metainfo.xml",
+          "/share/metainfo/pt.jotta.edit.metainfo.xml"
+        ],
+        [
+          "LICENSE",
+          "/share/licenses/pt.jotta.edit/LICENSE"
+        ],
+        [
+          "licenses",
+          "/share/licenses/pt.jotta.edit/other-licenses"
+        ],
+        [
+          "THIRD-PARTY-NOTICES.md",
+          "/share/licenses/pt.jotta.edit/THIRD-PARTY-NOTICES.md"
+        ]
+      ]
+    },
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}",
+      "executableName": "Jotta Edit"
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "allowScripts": {
+    "electron@44.9.0": true,
+    "app-builder-bin": true,
+    "electron-winstaller": true,
+    "@electron/node-gyp": true,
+    "esbuild@0.27.7": true
+  },
+  "type": "module",
+  "desktopName": "pt.jotta.edit.desktop"
+}

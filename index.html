@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.github.com">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <title>Jotta Edit</title>
+</head>
+<body>
+  <div id="app">
+    <header class="titlebar">
+      <div class="brand drag-zone"><img class="logo" src="/icon.png" alt="" draggable="false"><span class="brand-name">JOTTA</span><span class="brand-sub">EDIT</span></div>
+      <div class="title-project drag-zone" id="window-title">Untitled workspace</div>
+      <div class="window-actions no-drag">
+        <button id="btn-minimize" class="win-action" title="Minimize" aria-label="Minimize">─</button>
+        <button id="btn-maximize" class="win-action" title="Maximize" aria-label="Maximize">□</button>
+        <button id="btn-close" class="win-action close-action" title="Close" aria-label="Close">×</button>
+      </div>
+    </header>
+    <nav id="custom-menubar" class="custom-menubar" aria-label="Application menu">
+      <button data-menu="File">File</button><button data-menu="Edit">Edit</button><button data-menu="Selection">Selection</button><button data-menu="View">View</button><button data-menu="Go">Go</button><button data-menu="Tools">Tools</button><button data-menu="Help">Help</button>
+    </nav>
+    <div id="menu-layer" class="menu-layer hidden" aria-hidden="true"></div>
+    <div class="workbench">
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header"><div class="sidebar-views" role="group" aria-label="Sidebar view"><button id="btn-explorer" class="section-caption" type="button" aria-pressed="true">EXPLORER</button><button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-github" type="button" aria-pressed="false" title="GitHub sync" aria-label="GitHub sync">Git</button></div><div class="sidebar-actions"><button id="btn-add-folder" title="Open folder" aria-label="Open folder"><img class="button-icon" src="/ui-icons/folder-add.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-reload" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+<section id="github-panel" class="github-panel" aria-label="GitHub sync" hidden>
+  <strong id="github-account">Not connected</strong><button id="github-disconnect" type="button" hidden>Disconnect</button>
+  <div id="github-connect-form"><label>GitHub access token<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="Fine-grained token"></label><p>Use a token restricted to your repositories with Contents read/write access. The token stays in memory until you disconnect or close the app.</p><button id="github-token-help" type="button">Create a token…</button><button id="github-connect" type="button">Connect GitHub</button></div>
+  <label>Repository<input id="github-repository" type="text" list="github-repositories" placeholder="owner/repository" autocomplete="off" spellcheck="false"></label><datalist id="github-repositories"></datalist>
+  <button id="github-load-branches" type="button">Load branches</button><label>Branch<select id="github-branch"></select></label>
+  <p id="github-workspace" class="github-workspace"></p><button id="github-new-checkout" type="button">New checkout…</button>
+  <button id="github-refresh" type="button">Review changes</button><div id="github-status" role="status" aria-live="polite"></div>
+  <div id="github-changes" class="github-changes"></div>
+  <section id="github-preview" class="github-preview" hidden><strong id="github-preview-title"></strong><label>GitHub version<pre id="github-preview-remote" tabindex="0"></pre></label><label>Local version<pre id="github-preview-local" tabindex="0"></pre></label></section>
+  <label>Commit message<input id="github-message" type="text" maxlength="1000" placeholder="Describe your changes"></label>
+  <div class="github-actions"><button id="github-pull" type="button" disabled>Pull updates</button><button id="github-sync" type="button" disabled>Commit &amp; sync selected</button></div>
+</section>
+        <section id="project-search" class="project-search" aria-label="Search and replace in project" hidden>
+          <div class="project-search-fields">
+            <label>Search<input id="project-search-query" type="text" maxlength="300" spellcheck="false" autocomplete="off"></label>
+            <label>Replace with<input id="project-search-replace" type="text" maxlength="1000" spellcheck="false" autocomplete="off"></label>
+            <div class="project-search-options"><label><input id="project-search-case" type="checkbox"> Match case</label><label><input id="project-search-word" type="checkbox"> Whole word</label></div>
+            <button id="project-search-run" type="button">Search project</button>
+            <div class="project-search-selection"><button id="project-search-all" type="button">Select all files</button><button id="project-search-none" type="button">Select no files</button></div>
+            <button id="project-search-apply" class="primary" type="button" disabled>Replace selected</button>
+            <div class="project-search-selection"><button id="project-search-undo" type="button" disabled>Undo replacement</button><button id="project-search-save" type="button" disabled>Save changed files</button></div>
+          </div>
+          <p id="project-search-status" class="project-search-status" role="status" aria-live="polite">Enter text to search.</p>
+          <div id="project-search-results" class="project-search-results"></div>
+        </section>
+        <div id="explorer-view" class="explorer-view">
+        <div class="project-header"><div id="project-name" class="project-name">NO FOLDER OPEN</div><button id="btn-close-project" class="folder-remove root-remove hidden" type="button" title="Remove folder from Explorer" aria-label="Remove folder from Explorer"><img class="button-icon" src="/ui-icons/close.svg" alt="" aria-hidden="true" draggable="false"></button></div>
+        <div id="file-tree" class="file-tree"></div>
+        <div class="sidebar-footer"><button id="btn-open-file" class="open-folder"><img class="button-icon" src="/ui-icons/file.svg" alt="" draggable="false"><span>Open a file</span></button><button id="btn-folder" class="open-folder"><img class="button-icon" src="/ui-icons/folder.svg" alt="" draggable="false"><span>Open a folder</span></button></div>
+        </div>
+      </aside>
+      <div id="splitter" class="splitter" role="separator" aria-label="Resize sidebar"></div>
+      <main id="main-area" class="main-area">
+        <div class="tabs-bar"><div id="tabs" class="tabs"></div><div class="tab-tools"><button id="btn-split" title="Split editor (Ctrl+&#92;)" aria-label="Split editor">◫</button><button id="btn-compare" title="Compare with saved version" aria-label="Compare with saved version">⇄</button><button id="btn-preview" title="Open Live Preview" aria-label="Open Live Preview"><img id="preview-toolbar-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-format" title="Format document (Shift+Alt+F)" aria-label="Format document"><img class="button-icon" src="/ui-icons/formatter.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-quick" title="Quick open (Ctrl+P)" aria-label="Quick open"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-palette" title="Command palette (Ctrl+Shift+P)" aria-label="Command palette"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+        <div id="breadcrumbs" class="breadcrumbs">START</div>
+        <div id="editor-wrap" class="editor-wrap"><div id="editor" class="editor"></div>
+          <div id="welcome" class="welcome"><img class="welcome-mark" src="/icon.png" alt="Jotta Edit" draggable="false"><h1>Jotta Edit</h1><p>A clean space for code.</p><div class="welcome-shortcuts"><div><kbd>Ctrl</kbd> + <kbd>P</kbd><span>Quick open</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd><span>Commands</span></div><div><kbd>Ctrl</kbd> + <kbd>O</kbd><span>Open file</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd><span>Open folder</span></div><div><kbd>Ctrl</kbd> + <kbd>N</kbd><span>New file</span></div></div><section id="welcome-recents" class="welcome-recents" hidden><h2>Recent Workspaces</h2><div id="welcome-recents-list"></div></section></div>
+        </div>
+      </main>
+    </div>
+    <footer class="statusbar"><div class="status-left"><button id="btn-sidebar" type="button" title="Hide sidebar (Ctrl+B)" aria-label="Hide sidebar (Ctrl+B)" aria-controls="sidebar" aria-expanded="true"><img id="sidebar-toggle-icon" class="sidebar-toggle-icon" src="/ui-icons/sidebar-fold.svg" alt="" aria-hidden="true" draggable="false"></button><span id="status-message">Ready</span></div><div class="status-right"><button id="status-position">Ln 1, Col 1</button><button id="status-indent">Spaces: 2</button><button id="status-encoding">UTF-8</button><button id="status-format" title="Toggle format on save">Fmt Save: On</button><button id="status-language">Plain Text</button><button id="status-theme" title="Toggle theme" aria-label="Toggle light and dark theme"><img class="button-icon" src="/ui-icons/theme.svg" alt="" aria-hidden="true" draggable="false"></button></div></footer>
+  </div>
+  <div id="overlay" class="jotta-modal-overlay hidden" aria-hidden="true"><div class="palette-dialog" role="dialog" aria-modal="true"><div class="palette-top"><span id="palette-symbol">⌕</span><input id="palette-input" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." aria-label="Search"></div><div id="palette-list" class="palette-list"></div><div class="palette-hint"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>Enter</kbd> Select</span><span><kbd>Esc</kbd> Close</span></div></div></div>
+
+  <div id="recent-workspaces-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true"><section class="recent-workspaces-dialog" role="dialog" aria-modal="true" aria-labelledby="recent-workspaces-title"><header><h2 id="recent-workspaces-title">Recent Workspaces</h2><button type="button" id="recent-workspaces-close" aria-label="Close recent workspaces">×</button></header><p id="recent-workspaces-empty">No recent workspaces yet.</p><p id="recent-workspaces-status" role="status" aria-live="polite"></p><div id="recent-workspaces-list" class="recent-workspaces-list"></div><button type="button" id="recent-workspaces-clear">Clear recent list</button></section></div>
+  <div id="history-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="history-title">
+      <header><h2 id="history-title">Local History</h2><button id="history-close" type="button" aria-label="Close local history">×</button></header>
+      <p id="history-file" class="history-file"></p>
+      <p class="history-note">Versions stay on this device for up to 30 days: 30 per file, 300 total, 20 MB total. Files up to 1 MB. Browser history is removed if site data is cleared.</p>
+      <div class="history-body"><div id="history-list" class="history-list" role="group" aria-label="Saved versions"></div><pre id="history-preview" class="history-preview" tabindex="0" aria-label="Version contents"></pre></div>
+      <footer><span>Restore creates unsaved changes. Use Undo to go back, or Save to keep them.</span><button id="history-compare" type="button" disabled>Compare with current</button><button id="history-restore" type="button" class="primary" disabled>Restore into editor</button></footer>
+    </section>
+  </div>
+  <div id="confirm-overlay" class="jotta-modal-overlay hidden" aria-hidden="true"><div class="confirm-dialog" role="alertdialog" aria-modal="true"><h2 id="confirm-title">Save changes?</h2><p id="confirm-description"></p><div class="confirm-actions"><button id="confirm-cancel">Cancel</button><button id="confirm-discard">Don't Save</button><button id="confirm-save" class="primary">Save</button></div></div></div>
+  <div id="explorer-menu" class="explorer-context hidden" role="menu" aria-hidden="true">
+    <button type="button" id="explorer-new-file" role="menuitem">New File…</button>
+    <button type="button" id="explorer-new-folder" role="menuitem">New Folder…</button>
+    <button type="button" id="explorer-rename" role="menuitem">Rename…</button>
+    <button type="button" id="explorer-delete" class="danger-item" role="menuitem">Move to Trash…</button>
+  </div>
+  <div id="explorer-action-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="confirm-dialog explorer-action-dialog" role="dialog" aria-modal="true" aria-labelledby="explorer-action-title">
+      <h2 id="explorer-action-title">Rename</h2>
+      <p id="explorer-action-message"></p>
+      <label id="explorer-action-name-wrap" class="explorer-action-name">New name<input id="explorer-action-name" type="text" autocomplete="off" spellcheck="false" maxlength="255"></label>
+      <div class="confirm-actions"><button type="button" id="explorer-action-cancel">Cancel</button><button type="button" id="explorer-action-confirm" class="primary">Rename</button></div>
+    </section>
+  </div>
+  <div id="settings-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="settings-dialog" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div id="settings-drag-handle" class="modal-header settings-drag-handle"><div><h2 id="settings-title">Preferences</h2><p>Editor and window settings</p></div><button id="settings-close" class="modal-close" aria-label="Close settings">×</button></div>
+      <div id="settings-tabs" class="settings-tabs" role="tablist" aria-label="Preferences sections">
+        <button type="button" id="settings-tab-editor" class="settings-tab" role="tab" aria-controls="settings-pane-editor" aria-selected="true" tabindex="0" data-settings-tab="editor">Editor</button>
+        <button type="button" id="settings-tab-themes" class="settings-tab" role="tab" aria-controls="settings-pane-themes" aria-selected="false" tabindex="-1" data-settings-tab="themes">Themes</button>
+        <button type="button" id="settings-tab-explorer" class="settings-tab" role="tab" aria-controls="settings-pane-explorer" aria-selected="false" tabindex="-1" data-settings-tab="explorer">Explorer</button>
+        <button type="button" id="settings-tab-general" class="settings-tab" role="tab" aria-controls="settings-pane-general" aria-selected="false" tabindex="-1" data-settings-tab="general">General</button>
+      </div>
+      <div class="settings-fields">
+        <div id="settings-pane-editor" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-editor" tabindex="0">
+        <label>Editor font <span class="jotta-font-combo"><input id="setting-font" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="font-menu" spellcheck="false" autocomplete="off" placeholder="Choose or type a font" maxlength="65"><button id="font-toggle" type="button" aria-label="Show installed fonts" title="Show installed fonts">⌄</button></span></label>
+        <label>Interface font <span class="jotta-font-combo"><input id="setting-ui-font" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ui-font-menu" autocomplete="off" spellcheck="false" placeholder="Choose a system font" maxlength="65"><button id="ui-font-toggle" type="button" aria-label="Show installed fonts" title="Show installed fonts">⌄</button></span></label>
+        <div class="settings-two"><label>Editor font size <input id="setting-size" type="number" min="10" max="36" step="1"></label>
+        <label>UI font size <input id="setting-ui-size" type="number" min="11" max="22" step="1" title="Interface size; editor font size is separate"></label></div>
+        <label>Line spacing <select id="setting-leading"><option value="1.35">Compact</option><option value="1.55">Comfortable</option><option value="1.75">Spacious</option></select></label>
+        <section class="project-settings"><label class="setting-check"><input id="setting-project-settings" type="checkbox"> Use project-specific editor settings</label><p id="setting-project-path"></p><p>Applies to indentation, tab width, word wrap and formatting in this workspace. Themes and interface preferences stay global. Turn off to use global defaults.</p></section>
+        <div class="settings-two"><label>Indentation <select id="setting-indent"><option value="spaces">Spaces</option><option value="tabs">Tabs</option></select></label>
+        <label>Tab width <select id="setting-tab-size"><option value="2">2</option><option value="4">4</option><option value="8">8</option></select></label></div>
+        <label class="setting-check"><input id="setting-word-wrap" type="checkbox"> Word wrap (fit to editor width)</label>
+        <label>Colour display
+          <select id="setting-color-display" aria-label="Colour display">
+            <option value="swatch">Colour square before value (default)</option>
+            <option value="background">Colour value background</option>
+          </select>
+        </label>
+        <label>Plain Text matching words
+          <select id="setting-plaintext-highlights" aria-label="Plain Text matching words">
+            <option value="selection">Only when a word is selected</option>
+            <option value="cursor">When cursor is inside a word</option>
+            <option value="off">Off</option>
+          </select>
+        </label>
+        <label>Formatting line width
+          <select id="setting-format-width" aria-label="Formatting line width">
+            <option value="none">No preferred limit (default)</option>
+            <option value="80">80 columns</option>
+            <option value="100">100 columns</option>
+            <option value="120">120 columns</option>
+          </select>
+        </label>
+        <label class="setting-check"><input id="setting-format-save" type="checkbox"> Format document when saving</label>
+        </div>
+        <div id="settings-pane-themes" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-themes" tabindex="0" hidden>
+        <label>Code syntax theme <select id="setting-syntax-theme" aria-label="Code syntax theme"></select></label>
+        <div id="setting-syntax-preview" class="syntax-theme-preview" aria-label="Syntax colour preview" role="img">
+          <code><span data-token="keyword">const</span> <span data-token="variable">greeting</span> <span data-token="operator">=</span> <span data-token="string">"Hello"</span><span data-token="operator">;</span> <span data-token="comment">// preview</span></code>
+          <code><span data-token="function">print</span>(<span data-token="variable">greeting</span>, <span data-token="number">42</span>);</code>
+          <code>&lt;<span data-token="tag">div</span> <span data-token="attribute">class</span>=<span data-token="string">"demo"</span>&gt;…&lt;/<span data-token="tag">div</span>&gt;</code>
+        </div>
+        <section id="custom-theme-editor" class="custom-theme-editor" aria-labelledby="custom-theme-heading">
+          <div class="theme-editor-heading">
+            <div><h3 id="custom-theme-heading">Theme editor</h3>
+              <p>Create editable copies of built-in syntax themes. Built-in themes remain unchanged.</p></div>
+            <button id="theme-duplicate" type="button">Duplicate selected</button>
+          </div>
+          <div id="theme-editor-fields" class="theme-editor-fields" hidden>
+            <div class="theme-editor-meta">
+              <label>Theme name <input id="theme-custom-name" type="text" maxlength="64" spellcheck="false"></label>
+              <label>Appearance <select id="theme-custom-mode"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+            </div>
+            <div id="theme-colour-grid" class="theme-colour-grid" aria-label="Theme colour settings"></div>
+            <div class="theme-editor-actions">
+              <button id="theme-reset" type="button">Reset colours to original</button>
+              <button id="theme-export" type="button">Export JSON</button>
+              <button id="theme-delete" type="button" class="theme-delete-button">Delete theme</button>
+            </div>
+            <p id="theme-delete-confirm" class="theme-delete-confirm" hidden>
+              Delete this custom theme?
+              <button id="theme-delete-yes" type="button">Delete permanently</button>
+              <button id="theme-delete-no" type="button">Cancel</button>
+            </p>
+          </div>
+          <div class="theme-import-row">
+            <button id="theme-import" type="button">Import theme JSON…</button>
+            <input id="theme-import-file" type="file" accept=".json,application/json" hidden>
+            <span id="theme-editor-status" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+        <section class="custom-theme-editor" aria-labelledby="interface-theme-heading">
+          <div class="theme-editor-heading">
+            <div><h3 id="interface-theme-heading">Interface colours</h3>
+              <p>Customise the current light or dark interface independently of syntax themes.</p></div>
+            <button type="button" id="theme-ui-reset">Reset interface</button>
+          </div>
+          <p id="theme-ui-mode-note" class="theme-ui-mode-note"></p>
+          <div id="theme-ui-colours" class="theme-colour-grid" aria-label="Interface colour settings"></div>
+        </section>
+        </div>
+        <div id="settings-pane-explorer" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-explorer" tabindex="0" hidden>
+        <label class="setting-check"><input id="setting-hidden-files" type="checkbox"> Show hidden files in Explorer</label>
+        <div class="icon-colour-settings">
+          <label>Explorer icon palette <select id="setting-icon-palette" aria-label="Explorer icon palette"></select></label>
+          <div id="setting-icon-palette-preview" class="icon-palette-preview" aria-label="Icon palette preview" role="img"></div>
+          <label>Explorer icon colours <select id="setting-icon-type" aria-label="Explorer icon type"></select></label>
+          <div class="icon-colour-actions"><span id="setting-icon-preview" aria-hidden="true"></span><button id="setting-icon-colour" type="button">Choose colour…</button><button id="setting-icon-reset" type="button">Automatic</button><span id="setting-icon-colour-value" class="icon-colour-value" aria-live="polite"></span></div>
+          <p class="icon-colour-note">Automatic colours follow the code syntax theme. Individual icon colours override the selected palette; Automatic resets that icon to its palette default.</p>
+        </div>
+        </div>
+        <div id="settings-pane-general" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-general" tabindex="0" hidden>
+        <label>Live preview browser <span class="preview-browser-choice"><img id="preview-browser-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"><select id="setting-preview-browser"><option value="default">System default</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option></select></span></label>
+        <label>Window decoration <select id="setting-frame"><option value="native">System window frame (KDE/GNOME)</option><option value="custom">Jotta Edit custom frame</option></select></label>
+        <label>Language <select id="setting-language"><option value="system">System default</option><option value="pt-PT">Português (Portugal)</option><option value="en">English</option></select></label>
+        <p id="frame-note" class="settings-note hidden">Restart Jotta Edit to apply your window decoration change.</p>
+        </div>
+      </div>
+      <div class="modal-actions"><button id="settings-restart" class="primary hidden">Restart to apply</button><button id="settings-done" class="primary">Done</button></div>
+    </section>
+  </div>
+  <div id="about-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
+      <div class="modal-header"><h2 id="about-title">About Jotta Edit</h2><button id="about-close" class="modal-close" aria-label="Close About">×</button></div>
+      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.1.0</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
+      <div class="modal-actions"><button id="about-done" class="primary">Close</button></div>
+    </section>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

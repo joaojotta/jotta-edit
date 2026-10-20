@@ -1,0 +1,21 @@
+.jotta-web .web-toolbar {display:flex;align-items:center;gap:18px;justify-content:space-between;flex:0 0 auto;min-height:54px;padding:7px 15px;background:var(--surface);border-bottom:1px solid var(--line)}
+.jotta-web .web-identity {display:flex;align-items:center;gap:9px;min-width:138px}
+.jotta-web .web-identity img {width:30px;height:30px;border-radius:7px;object-fit:contain}
+.jotta-web .web-identity div {display:flex;flex-direction:column;gap:1px}
+.jotta-web .web-identity strong {font-weight:650;font-size:var(--ui-font-size)}
+.jotta-web .web-identity small {font-size:calc(var(--ui-font-size) - 2px);color:var(--muted);white-space:nowrap}
+.jotta-web .web-workspace-actions {display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.jotta-web .web-workspace-actions button {border:1px solid var(--line);border-radius:5px;padding:7px 9px;background:var(--surface-alt);white-space:nowrap;font-size:calc(var(--ui-font-size) - 1px)}
+.jotta-web .web-workspace-actions button:hover {background:var(--hover)}
+.jotta-web .web-workspace-actions .web-strong {border-color:var(--accent);color:var(--ink)}
+.jotta-web .web-workspace-actions button:disabled {opacity:.5}
+.jotta-web #setting-frame {pointer-events:none;opacity:.5}
+.jotta-web #setting-frame ~ .settings-note {display:none}
+.jotta-web .titlebar, .jotta-web.custom-frame .titlebar {display:none}
+.jotta-web .workbench {min-height:0}
+@media (max-width:850px) { .jotta-web .web-toolbar {flex-wrap:wrap;gap:7px;} .jotta-web .web-workspace-actions {justify-content:flex-start;} .jotta-web .web-workspace-actions button {font-size:12px;padding:5px 7px} .jotta-web .web-identity small {display:none} }
+@media (max-width:600px) { .jotta-web .web-workspace-actions {flex-wrap:nowrap;width:100%;overflow-x:auto;padding-bottom:4px} .jotta-web .web-identity {min-width:auto} .jotta-web .web-toolbar {padding:8px} .jotta-web .sidebar {max-width:55vw} }
+
+.jotta-web label:has(> #setting-frame) { display:none }
+.jotta-web #frame-note, .jotta-web #settings-restart { display:none !important }
+.web-save-location { font-size: 11px; color: var(--muted); align-self: center; }
