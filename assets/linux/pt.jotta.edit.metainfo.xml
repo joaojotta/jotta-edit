@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>pt.jotta.edit</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Jotta Edit</name>
+  <summary>Code editor with Emmet, syntax themes and formatting</summary>
+  <summary xml:lang="pt">Editor de código com Emmet, temas de sintaxe e formatação</summary>
+  <developer id="pt.jotta">
+    <name>João Jotta</name>
+  </developer>
+  <description>
+    <p>Jotta Edit is a code editor for working with local files and web projects. It combines syntax highlighting, code completion, Emmet abbreviations and document formatting in a customisable desktop interface.</p>
+    <p xml:lang="pt">O Jotta Edit é um editor de código para trabalhar com ficheiros locais e projetos web. Combina realce de sintaxe, sugestões de código, abreviaturas Emmet e formatação de documentos numa interface personalizável.</p>
+    <p>Choose your editor and interface themes, organise files in the Explorer, and preview HTML and PHP projects in your browser. PHP previews require PHP installed on the host system.</p>
+    <p xml:lang="pt">Escolha os temas do editor e da interface, organize ficheiros no Explorador e pré-visualize projetos HTML e PHP no navegador. A pré-visualização PHP requer o PHP instalado no sistema anfitrião.</p>
+  </description>
+  <url type="homepage">https://edit.jotta.pt/</url>
+  <launchable type="desktop-id">pt.jotta.edit.desktop</launchable>
+  <provides>
+    <binary>jotta-edit</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+    <category>IDE</category>
+    <category>TextEditor</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.1.0" date="2026-10-20"><description><p>GitHub repository sync with reviewed commits, pull updates and conflict resolution, alongside project settings and safer web saving.</p></description></release>
+    <release version="1.0.2" date="2026-10-19">
+      <description>
+        <p>Live web previews, Explorer file creation, colour display preferences and browser workspace downloads.</p>
+      </description>
+    </release>
+  </releases>
+</component>
