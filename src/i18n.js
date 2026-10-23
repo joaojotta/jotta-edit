@@ -1,6 +1,30 @@
 // UI strings are stored in English; pt-PT is available without remote services.
 // Electron supplies the actual operating-system locale (navigator is fallback).
 const PT = {
+  'Document and connection panels':'Painéis do documento e das ligações',
+  'Document outline':'Estrutura do documento','Outline':'Estrutura','Connections':'Ligações','Remote connections':'Ligações remotas',
+  'Refresh outline':'Atualizar estrutura','Filter outline':'Filtrar estrutura','Find a heading or symbol…':'Procurar um título ou símbolo…',
+  'Open a document to see its outline.':'Abra um documento para ver a sua estrutura.',
+  'Document symbols':'Símbolos do documento','Loading outline…':'A carregar a estrutura…',
+  'Outline supports Markdown, JavaScript, TypeScript, PHP, Python and CSS.':'A estrutura suporta Markdown, JavaScript, TypeScript, PHP, Python e CSS.',
+  'This document is too large for the outline.':'Este documento é demasiado grande para a estrutura.',
+  'Showing the first 1,000 outline entries.':'A mostrar as primeiras 1 000 entradas da estrutura.',
+  'Select an entry to jump to it.':'Selecione uma entrada para saltar para a respetiva posição.',
+  'No headings, functions or selectors found.':'Não foram encontrados títulos, funções ou seletores.',
+  'No outline entries match.':'Nenhuma entrada da estrutura corresponde à pesquisa.',
+  'Could not load outline. Try Refresh.':'Não foi possível carregar a estrutura. Tente Atualizar.',
+  'Function':'Função','Class':'Classe','Selector':'Seletor','Symbol':'Símbolo','Line':'Linha',
+  'Connect…':'Ligar…','Connect a server to see its status and file activity.':'Ligue a um servidor para ver o estado e a atividade dos ficheiros.',
+  'Servers':'Servidores','File activity':'Atividade dos ficheiros','Clear completed':'Limpar concluídas','No file operations yet.':'Ainda não há operações de ficheiros.',
+  'Remote file operations':'Operações de ficheiros remotos','Reconnect':'Voltar a ligar','Connected':'Ligado','Disconnected':'Desligado','Failed':'Falhou',
+  'Connecting…':'A ligar…','Queued':'Em espera','In progress':'Em curso','Completed':'Concluída','List folder':'Listar pasta','Download':'Transferir','Create':'Criar','Move':'Mover','Move to remote trash':'Mover para o lixo remoto','Operation':'Operação',
+  'Waiting':'Em espera','Working':'A trabalhar','Checking server':'A verificar o servidor','Downloading':'A transferir','Uploading':'A enviar','Verifying':'A verificar','Complete':'Concluída',
+  'Retry':'Tentar novamente','Retry save':'Tentar guardar novamente','Dismiss':'Dispensar',
+  'Review this operation in Explorer before repeating it.':'Reveja esta operação no Explorador antes de a repetir.',
+  'Could not load connection activity.':'Não foi possível carregar a atividade das ligações.',
+  'Open the affected file before retrying its save.':'Abra o ficheiro afetado antes de tentar guardá-lo novamente.',
+  'Reconnect using Open Remote Folder and enter your credentials.':'Volte a ligar através de Abrir pasta remota e introduza as suas credenciais.',
+  'Remote operation failed. Check the connection and server permissions.':'A operação remota falhou. Verifique a ligação e as permissões do servidor.',
   'Export Markdown as HTML':'Exportar Markdown como HTML',
   'Export Markdown as PDF':'Exportar Markdown como PDF',
   'Open a Markdown file to export.':'Abra um ficheiro Markdown para exportar.',
@@ -478,7 +502,7 @@ const PT = {
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
   'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
-  'untitled':'sem-título', 'Version 1.1.3':'Versão 1.1.3'
+  'untitled':'sem-título', 'Version 1.1.4':'Versão 1.1.4'
 };
 
 const originalTexts = new WeakMap();

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4 — Document outline and remote connections (24 Oct 2026)
+
+- Add a Document outline sidebar for Markdown headings, JavaScript/TypeScript symbols, PHP/Python function and class declarations, and CSS/SCSS/Less selectors. Follow the focused editor and unsaved edits, filter entries, highlight the current section and jump to its source line.
+- Add a desktop Remote connections sidebar with server state, queued operations, upload/download byte progress, verification phases and recent failures. Reconnect an existing session without re-entering its credentials, retry downloads and listings, and retry saves through the editor's existing conflict checks.
+- Expose both panels through sidebar controls, the View menu and command palette, with English and Portuguese labels. Keep Explorer, Search, Outline and Connections as separate sidebar views; the browser build includes the document outline.
+- Update desktop and web version metadata and release filenames to 1.1.4, and display the version prominently in the GitHub README.
+
 ## 1.1.3 — Reliable Markdown export (23 Oct 2026)
 
 - Export HTML and PDF even when individual images are missing, inaccessible or too large. Keep available images, insert labelled placeholders for unavailable ones, and report their references without changing the Markdown source.

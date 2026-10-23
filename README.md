@@ -5,6 +5,10 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
+  <strong>Version 1.1.4</strong> &nbsp;·&nbsp; Document outline &amp; remote connections
+</p>
+
+<p align="center">
   <strong>A focused editor for code, Markdown and web projects.</strong>
 </p>
 
@@ -28,6 +32,7 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 | :--- | :--- |
 | **Tabs & split editing** | Work with multiple files in two resizable panes and compare a document with its saved version. |
 | **Quick navigation** | Jump to files or lines, switch languages and find commands through the command palette. |
+| **Document outline** | Filter and jump between Markdown headings, JavaScript/TypeScript symbols, PHP/Python declarations and CSS selectors from the sidebar. |
 | **Project search & replace** | Search across files and unsaved drafts, preview replacements and choose which files to change. |
 | **Code assistance** | Use syntax highlighting, automatic language detection, multiple cursors, Emmet expansion and optional language-server completion on desktop. |
 | **Formatting** | Format code with Prettier, enable format on save and choose your indentation and line-width preferences. |
@@ -52,6 +57,7 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 - **Local history** — Browse saved versions, compare them with your current draft and restore changes with Undo support.
 - **Recent workspaces & favourites** — Return to recent projects and save favourite local folders or remote servers.
 - **Remote folders** — Edit directly over **FTP, SFTP or SMB** on desktop, with optional encrypted credential saving and checks for server-side changes before saving.
+- **Connection activity** — See server state, transfer progress and failed operations in the Connections sidebar. Reconnect sessions and retry supported operations without leaving the editor. See [sidebar panels](docs/sidebar-panels.md).
 
 ## Desktop or browser
 

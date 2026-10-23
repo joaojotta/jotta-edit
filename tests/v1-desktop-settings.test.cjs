@@ -9,7 +9,7 @@ const source = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 test('Release candidate Flatpak identity, app data and desktop integration', () => {
   assert.equal(pkg.name, 'jotta-edit');
-  assert.equal(pkg.version, '1.1.3');
+  assert.equal(pkg.version, '1.1.4');
   assert.equal(pkg.build.appId, 'pt.jotta.edit');
   assert.equal(pkg.desktopName, 'pt.jotta.edit.desktop');
   assert.equal(pkg.build.linux.executableName, 'jotta-edit');

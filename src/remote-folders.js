@@ -19,14 +19,12 @@ export function installRemoteFolders({api,show,close,open,changed=()=>{},report=
   $('remote-save-favourite').onchange=()=>{if(!$('remote-save-favourite').checked)$('remote-save-credentials').checked=false;controls();};
   function edited(){favourite=null;$('remote-saved-credentials').hidden=true;}
   $('remote-location').addEventListener('input',edited);$('remote-username').addEventListener('input',edited);
-  async function connect(event){
-    event.preventDefault();if(busy)return;
+  async function attempt(task){
+    if(busy)return;
     busy=true;controls();clearTrust();const run=++generation;
     $('remote-status').textContent=tr('Connecting to server…');
     try{
-      const credentials={username:$('remote-username').value,password:$('remote-password').value};
-      const options={favouriteId:favourite?.id,saveFavourite:$('remote-save-favourite').checked,saveCredentials:$('remote-save-credentials').checked};
-      const pending=api.connectRemoteFolder($('remote-location').value,credentials,options);
+      const pending=task();
       $('remote-password').value='';
       const result=await pending;
       if(run!==generation)return;
@@ -40,13 +38,23 @@ export function installRemoteFolders({api,show,close,open,changed=()=>{},report=
     }catch(error){if(run===generation)$('remote-status').textContent=tr(error.message.replace(/^Error invoking remote method '[^']+': Error: /,''));}
     finally{if(run===generation){$('remote-password').value='';clearTrust();busy=false;controls();}}
   }
-  $('remote-form').addEventListener('submit',connect);
+  $('remote-form').addEventListener('submit',event=>{
+    event.preventDefault();
+    const credentials={username:$('remote-username').value,password:$('remote-password').value};
+    const options={favouriteId:favourite?.id,saveFavourite:$('remote-save-favourite').checked,saveCredentials:$('remote-save-credentials').checked};
+    return attempt(()=>api.connectRemoteFolder($('remote-location').value,credentials,options));
+  });
   $('remote-close').onclick=close;$('remote-cancel').onclick=close;
-  controls();return {hide,async open(entry){
+  controls();return {hide,reconnect(entry){
+    show('remote-overlay');favourite=null;$('remote-password').value='';$('remote-location').value=entry.uri;
+    $('remote-username').value=decodeURIComponent(new URL(entry.uri).username);$('remote-saved-credentials').hidden=true;
+    $('remote-save-favourite').checked=false;$('remote-save-credentials').checked=false;secureStorage=false;$('remote-storage-help').textContent='';
+    return attempt(()=>api.reconnectRemoteFolder(entry.root));
+  },async open(entry){
     if(!api.connectRemoteFolder)return;
     show('remote-overlay');const run=++generation;favourite=entry?.id?entry:null;
     $('remote-status').textContent='';$('remote-password').value='';
-    $('remote-save-favourite').checked=!!entry;
+    $('remote-save-favourite').checked=!!entry?.id;
     $('remote-save-credentials').checked=false;
     $('remote-saved-credentials').hidden=!entry?.hasCredentials;
     if(entry?.location){$('remote-location').value=entry.location;$('remote-username').value=decodeURIComponent(new URL(entry.location).username);}

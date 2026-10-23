@@ -29,7 +29,7 @@ test('Preferences tabs retain all controls, roles and a draggable title bar', ()
   const css = read('src/style.css');
   const js = read('src/main.js');
   const initial = require('../package.json');
-  assert.equal(initial.version, '1.1.3', 'current release version');
+  assert.equal(initial.version, '1.1.4', 'current release version');
   for (const id of ['editor','themes','explorer','general']) {
     assert.match(html, new RegExp(`id="settings-tab-${id}"[^>]*role="tab"`));
     assert.match(html, new RegExp(`id="settings-pane-${id}"[^>]*role="tabpanel"`));

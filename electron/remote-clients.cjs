@@ -7,21 +7,25 @@ function missing(){return Object.assign(new Error('Remote entry does not exist.'
 function attributes({name='',dir=false,link=false,file=!dir&&!link,size=0,mtimeMs=0,mode=dir?0o755:0o644,linkTarget}={}){
   return {name,size,mtimeMs,mode,linkTarget,isDirectory:()=>dir,isFile:()=>file&&!link,isSymbolicLink:()=>link};
 }
-function boundedSink(){
+function boundedSink(onProgress=()=>{}){
   const chunks=[];let size=0;
-  const stream=new Writable({write(chunk,_encoding,done){size+=chunk.length;if(size>MAX_BYTES)return done(new Error('File exceeds the 5 MB editor limit'));chunks.push(chunk);done();}});
+  const stream=new Writable({write(chunk,_encoding,done){size+=chunk.length;if(size>MAX_BYTES)return done(new Error('File exceeds the 5 MB editor limit'));chunks.push(chunk);onProgress(size);done();}});
   return {stream,bytes:()=>Buffer.concat(chunks)};
+}
+function uploadStream(bytes,onProgress=()=>{}){
+  return Readable.from((function*(){for(let offset=0;offset<bytes.length;offset+=65536){const end=Math.min(offset+65536,bytes.length);yield bytes.subarray(offset,end);onProgress(end);}})(),{objectMode:false});
 }
 
 // These clients speak to the server from Electron. No processes, mount drivers,
 // desktop services, native dialogs or shell credential handoffs are involved.
-async function createRemoteClient(location,credentials,{verifyHostKey,registerClose=()=>{}}={}){
+async function createRemoteClient(location,credentials,{verifyHostKey,registerClose=()=>{},onDisconnect=()=>{}}={}){
   const url=new URL(location.uri),username=decodeURIComponent(url.username);
   const host=url.hostname.replace(/^\[|\]$/g,'');
   if(location.protocol==='ftp'){
     const {Client}=require('basic-ftp'),client=new Client(30000);
     registerClose(()=>client.close());
     await client.access({host,port:Number(url.port)||21,user:username||'anonymous',password:credentials.password||''});
+    client.ftp.socket.once('close',onDisconnect);
     const inDirectory=async(dir,operation)=>{
       const previous=await client.pwd();
       if(dir===previous)return operation();
@@ -67,8 +71,8 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
       },
       async readlink(file){const entry=(await list(path.dirname(file))).find(x=>x.name===path.basename(file));if(!entry)throw missing();return entry.linkTarget;},
       stat,
-      async read(file){const sink=boundedSink();await client.downloadTo(sink.stream,file);return sink.bytes();},
-      write:(file,bytes)=>client.uploadFrom(Readable.from([bytes]),file),
+      async read(file,progress){const sink=boundedSink(progress);await client.downloadTo(sink.stream,file);return sink.bytes();},
+      write:(file,bytes,_mode,progress)=>client.uploadFrom(uploadStream(bytes,progress),file),
       mkdir:async file=>{await client.send('MKD '+file);},
       rename:(from,to)=>client.rename(from,to),
       remove:file=>client.remove(file),
@@ -79,6 +83,7 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
     if(!username)throw new Error('Enter a username for this server.');
     const Client=require('ssh2-sftp-client'),client=new Client('Jotta Edit', {error:()=>{},end:()=>{},close:()=>{}});
     registerClose(()=>client.client.destroy());
+    client.client.once('close',onDisconnect);
     await client.connect({host,port:Number(url.port)||22,username,password:credentials.password||undefined,
       readyTimeout:30000,keepaliveInterval:10000,keepaliveCountMax:2,
       hostHash:'sha256',hostVerifier:(hash,callback)=>{Promise.resolve(verifyHostKey?.(hash)).then(value=>callback(value===true),()=>callback(false));}});
@@ -87,8 +92,8 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
       stat,
       readlink:file=>new Promise((resolve,reject)=>client.sftp.readlink(file,(error,target)=>error?reject(error):resolve(target))),
       list:async dir=>(await client.list(dir)).map(x=>attributes({name:x.name,dir:x.type==='d',link:x.type==='l',file:x.type==='-',size:x.size,mtimeMs:x.modifyTime})),
-      async read(file){const sink=boundedSink();await client.get(file,sink.stream);return sink.bytes();},
-      write:(file,bytes,mode)=>client.put(bytes,file,{writeStreamOptions:{flags:'wx',mode}}),
+      async read(file,progress){const sink=boundedSink(progress);await client.get(file,sink.stream);return sink.bytes();},
+      write:(file,bytes,mode,progress)=>client.put(uploadStream(bytes,progress),file,{writeStreamOptions:{flags:'wx',mode}}),
       mkdir:file=>client.mkdir(file),
       rename:(from,to,replace)=>replace?client.posixRename(from,to):client.rename(from,to),
       remove:file=>client.delete(file),
@@ -102,13 +107,14 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
   const close=()=>{closed=true;client.destroy();};
   registerClose(close);
   await client.connect();if(closed){client.destroy();throw new Error('Connection cancelled.');}
+  client.conn?.transport?.socket?.once('close',onDisconnect);
   const file=value=>location.parts[0]+(value==='/'?'':value);
   const stats=s=>attributes({dir:s.isDirectory,link:!!(s.attributes&0x400),size:s.size,mtimeMs:s.mtime.getTime()});
   return {
     stat:async value=>stats(await client.stat(file(value))),
     list:async value=>(await client.readdir(file(value),{withFileTypes:true})).map(x=>attributes({name:x.name,dir:x.isDirectory()})),
-    async read(value){const sink=boundedSink();await require('node:stream/promises').pipeline(client.createReadStream(file(value)),sink.stream);return sink.bytes();},
-    write:(value,bytes)=>client.writeExclusive(file(value),bytes),
+    async read(value,progress){const sink=boundedSink(progress);await require('node:stream/promises').pipeline(client.createReadStream(file(value)),sink.stream);return sink.bytes();},
+    write:(value,bytes,_mode,progress)=>client.writeExclusive(file(value),bytes,progress),
     mkdir:value=>client.mkdir(file(value)),
     rename:(from,to,replace)=>client.renameReplace(file(from),file(to),replace),
     remove:value=>client.rm(file(value)),

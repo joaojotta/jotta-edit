@@ -8,8 +8,8 @@ const read = name => fs.readFileSync(path.join(root,name),'utf8');
 const pkg = require('../package.json');
 
 test('final version, About and build artifact names are consistent', () => {
-  assert.equal(pkg.version, '1.1.3');
-  assert.match(read('index.html'), /Version 1\.1\.3/);
+  assert.equal(pkg.version, '1.1.4');
+  assert.match(read('index.html'), /Version 1\.1\.4/);
   assert.match(read('VERSION_HISTORY.md'), /1\.1\.0 — Remote folders/);
   assert.match(read('package.json'), /Jotta-Edit-\$\{version\}-linux-\$\{arch\}\.flatpak/);
   assert.match(read('scripts/build-flatpak.sh'), /node -p.*package\.json/);

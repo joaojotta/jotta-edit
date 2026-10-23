@@ -1,5 +1,11 @@
 # Version history — Jotta Edit
 
+## 1.1.4 — Document outline and remote connections (24 Oct 2026)
+
+- Navigate Markdown headings, code symbols and CSS selectors from a document outline that follows the focused editor and unsaved edits.
+- Monitor desktop remote connections, transfer progress and failures, reconnect sessions and retry supported operations with existing save conflict checks.
+- Add sidebar controls, View menu and command palette entries in English and Portuguese, and display version 1.1.4 in the README.
+
 ## 1.1.3 — Reliable Markdown export (23 Oct 2026)
 
 - Save Markdown HTML/PDF exports with labelled placeholders for unavailable images and persistent feedback showing the destination and any missing references.

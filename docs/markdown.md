@@ -1,4 +1,4 @@
-# Markdown in Jotta Edit 1.1.3
+# Markdown in Jotta Edit 1.1.4
 
 Open a `.md` or `.markdown` file, choose **File → New Markdown file**, or select **Markdown** from the status-bar language picker. A formatting toolbar appears and the preview opens beside the source. New Markdown drafts retain their language while you type, save and reopen them.
 

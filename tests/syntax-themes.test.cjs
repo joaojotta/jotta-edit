@@ -75,5 +75,5 @@ test('settings theme is independent of UI theme, persists and applies without re
   assert.match(css, /\.syntax-theme-preview/);
   assert.match(i18n, /'Code syntax theme':'Tema de realce de sintaxe'/);
   assert.doesNotMatch(main, /window\.location\.reload\(\)/);
-  assert.equal(require('../package.json').version, '1.1.3');
+  assert.equal(require('../package.json').version, '1.1.4');
 });

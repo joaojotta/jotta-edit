@@ -16,7 +16,9 @@ export class SmbClient extends Client {
     finally{try{await open.close();}catch(error){if(!failed)throw error;}}
   }
   stat(file){return this.withFile(file,{desiredAccess:FileAccess.FILE_READ_ATTRIBUTES,createDisposition:CreateDisposition.OPEN,createOptions:0x00200000},open=>metaToStat(open.meta));}
-  writeExclusive(file,bytes){return this.withFile(file,{desiredAccess:FileAccess.FILE_WRITE_DATA|FileAccess.FILE_READ_ATTRIBUTES,createDisposition:CreateDisposition.CREATE,createOptions:CreateOptions.NON_DIRECTORY_FILE|CreateOptions.WRITE_THROUGH},open=>writeAll(open,0n,bytes));}
+  writeExclusive(file,bytes,onProgress=()=>{}){return this.withFile(file,{desiredAccess:FileAccess.FILE_WRITE_DATA|FileAccess.FILE_READ_ATTRIBUTES,createDisposition:CreateDisposition.CREATE,createOptions:CreateOptions.NON_DIRECTORY_FILE|CreateOptions.WRITE_THROUGH},async open=>{
+    for(let offset=0;offset<bytes.length;offset+=65536){const end=Math.min(offset+65536,bytes.length);await writeAll(open,BigInt(offset),bytes.subarray(offset,end));onProgress(end);}
+  });}
   renameReplace(from,to,replace){
     if(!replace)return super.rename(from,to);
     const source=splitSharePath(from),target=splitSharePath(to);

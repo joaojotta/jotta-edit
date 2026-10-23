@@ -7,10 +7,10 @@ const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const pkg = require('../package.json');
 test('final release About text, localisation and package metadata', () => {
-  assert.equal(pkg.version, '1.1.3');
+  assert.equal(pkg.version, '1.1.4');
   assert.equal(pkg.author, 'João Jotta');
   const html = read('index.html');
-  assert.match(html, /Version 1\.1\.3/);
+  assert.match(html, /Version 1\.1\.4/);
   assert.match(html, /Developed by João Jotta/);
   assert.doesNotMatch(html, /Application ID:|Domain namespace:/);
   assert.match(read('src/i18n.js'), /'Developed by João Jotta':'Desenvolvido por João Jotta'/);

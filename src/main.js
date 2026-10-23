@@ -23,6 +23,9 @@ import { installMarkdownPanel } from './markdown-panel.js';
 import { installLocalHistory } from './local-history-panel.js';
 import { installEditorLayout } from './editor-layout.js';
 import { installProjectSearch } from './project-search-panel.js';
+import { installSidebarViews } from './sidebar-views.js';
+import { installDocumentOutline } from './document-outline-panel.js';
+import { installRemoteConnectionPanel } from './remote-connection-panel.js';
 import { projectPathContains } from './project-search.js';
 import { installColorEditor } from './color-picker.js';
 import { detectLanguage } from './language-detection.js';
@@ -95,6 +98,7 @@ let colorEditor;
 let projectSearch;
 let localHistoryPanel;
 let remoteFoldersPanel, folderPicker;
+let sidebarViews,outlinePanel,remoteConnectionPanel;
 let markdownPanel;
 let settingsDrag = null;
 let editor;
@@ -272,6 +276,7 @@ function activateEditor(target, doc) {
   document.title = doc ? `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit` : 'Jotta Edit';
   renderTabs(); renderTree(); updateStatus(); persist();
   markdownPanel?.activate(doc,target);
+  outlinePanel?.activate(doc,target);
 }
 function attachDocumentListener(doc) {
   doc.listener?.dispose();
@@ -331,7 +336,8 @@ async function openFile(file, opts = {}) {
       if (opts.length) editor.setSelection(new monaco.Range(line, column, line, Math.min(column + opts.length, getEditorModel().getLineMaxColumn(line))));
       editor.focus();
     }
-  } catch (err) { showStatus(`Cannot open: ${err.message}`, 6500); }
+    return true;
+  } catch (err) { showStatus(`Cannot open: ${err.message}`, 6500);return false; }
 }
 async function restoreSavedSession(saved) {
   if (saved.root) await openFolder(saved.root);
@@ -882,6 +888,24 @@ async function refreshFolder({ restoreFolders = false } = {}) {
   renderTree();
   if (listing.truncated) showStatus('Explorer limited to first 8,000 files', 6000);
 }
+async function retryRemoteOperation(operation){
+  if(operation.kind==='save'){
+    const doc=state.tabs.find(doc=>doc.path===operation.file);
+    if(!doc)throw new Error(tr('Open the affected file before retrying its save.'));
+    return save(doc);
+  }
+  if(operation.kind==='read'){
+    const data=await api.readFile(operation.file),existing=state.tabs.find(doc=>doc.path===operation.file);
+    if(existing)setActive(existing.id);else addDocument(data.path,data.content,data.mtimeMs);
+    return true;
+  }
+  if(operation.kind==='list'){
+    await api.scanFolder(operation.file,{showHidden:state.showHidden});
+    if(state.root===operation.root)await refreshFolder();
+    return true;
+  }
+  return false;
+}
 async function openFolder(folder = null, {isCurrent=()=>true}={}) {
   const previousRoot = state.root;
   try {
@@ -1219,6 +1243,8 @@ function fuzzyScore(text, query) {
   return score - text.length * .12;
 }
 const commands = [
+  {label:'Document outline',description:'',run:()=>outlinePanel.show()},
+  ...(api.getRemoteActivity?[{label:'Remote connections',description:'',run:()=>remoteConnectionPanel.show()}]:[]),
   ...(api.startPreview ? [{ label: 'Open Live Preview', description: '', run: startLivePreview }] : []),
   ...(api.stopPreview ? [{ label: 'Stop Live Preview', description: '', run: stopLivePreview }] : []),
   ...(api.downloadFile ? [{ label: 'Download file', description: '', run: downloadActiveFile }] : []),
@@ -1574,6 +1600,8 @@ const menuSpecs = {
     { label: 'Add Cursor Below', command: 'cursor-down', accelerator: 'Ctrl+Alt+↓' }
   ],
   View: [
+    {label:'Document outline',command:'document-outline'},
+    ...(api.getRemoteActivity?[{label:'Remote connections',command:'remote-connections'}]:[]),
     { label:'Markdown preview',command:'markdown-preview',accelerator:'Ctrl+Shift+V',disabled:()=>activeDocument()?.model.getLanguageId()!=='markdown' },
     { label: 'Split Editor', command: 'split-editor', accelerator: 'Ctrl+\\' },
     { label: 'Compare with Saved Version', command: 'compare-saved' },
@@ -2035,6 +2063,7 @@ function setupDialogs() {
 function handleMenuCommand(name) {
   const run = {
     'new': () => addDocument(null), 'open-file': chooseFile, 'open-folder': () => openFolder(),
+    'document-outline':()=>outlinePanel?.show(),'remote-connections':()=>remoteConnectionPanel?.show(),
     'new-markdown':newMarkdown,'markdown-preview':()=>markdownPanel.toggle(),
     'markdown-export-html':()=>markdownPanel.export('html'),'markdown-export-pdf':()=>markdownPanel.export('pdf'),
     'open-remote-folder':()=>remoteFoldersPanel?.open(),
@@ -2126,7 +2155,7 @@ function setupProjectSearch() {
     getDocuments:() => state.tabs.map(doc => ({path:doc.path, text:doc.model.getValue()})),
     openMatch:(path, match) => openFile(path, {line:match.line, column:match.column, length:match.end - match.start}),
     applyChanges:applyProjectChanges, undoChanges:undoProjectChanges, saveChanges:saveProjectChanges,
-    revealSidebar:() => { if (!state.sidebarOpen) toggleSidebar(); }, focusEditor:() => editor.focus()});
+    revealSidebar:() => { if (!state.sidebarOpen) toggleSidebar(); }, focusEditor:() => editor.focus(),showView:view=>sidebarViews.show(view)});
 }
 function wireButtons() {
   const rootContext = event => { if (state.root) showExplorerContext(event, {path:state.root, dir:true}); };
@@ -2239,6 +2268,8 @@ async function initialize() {
   colorEditor = colorEditors.get(editor);
   editorLayout = installEditorLayout({monaco, primary:editor, host:$('editor'),
     getDocuments:() => state.tabs, options:editorOptions, configure:configureEditor, activate:activateEditor, tr, displayPath});
+  sidebarViews=installSidebarViews({reveal:()=>{if(!state.sidebarOpen)toggleSidebar();}});
+  outlinePanel=installDocumentOutline({monaco,sidebar:sidebarViews});outlinePanel.activate(activeDocument(),editor);
   markdownPanel=installMarkdownPanel({monaco,api,getRoot:()=>state.root,getEditor:()=>editor,getDocument:activeDocument,getDocuments:()=>state.tabs,
     openFile,layout:()=>editorLayout.layout(),format:formatDocument,notify:message=>showStatus(message,6500)});
   // Dynamic root: set its destination at drop time, because projects can change.
@@ -2266,6 +2297,7 @@ async function initialize() {
   recentWorkspaces = installRecentWorkspaces({preferences:workspacePrefs, open:openFolder, show:showModal, close:closeModals});
   if(api.browseFolders){folderPicker=installFolderPicker({api,show:showModal,close:closeModals});api.chooseFolder=()=>folderPicker.choose();}
   remoteFoldersPanel=installRemoteFolders({api,show:showModal,close:closeModals,open:(root,isCurrent)=>openFolder(root,{isCurrent}),changed:()=>favouritesPanel?.refresh(),report:message=>showStatus(message,8000)});
+  remoteConnectionPanel=installRemoteConnectionPanel({api,sidebar:sidebarViews,retry:retryRemoteOperation,notify:message=>showStatus(message,8000),reconnect:entry=>!entry?remoteFoldersPanel.open():entry.canReconnect?remoteFoldersPanel.reconnect(entry):remoteFoldersPanel.open({location:entry.uri})});
   favouritesPanel=installFavourites({api:api.listFavourites?api:{...api,...browserFavourites(localStorage)},show:showModal,close:closeModals,open:openFolder,choose:()=>api.chooseFolder(),current:()=>state.root,remote:entry=>remoteFoldersPanel.open(entry),report:message=>showStatus(message,6500)});
   $('btn-favourites').onclick=()=>favouritesPanel.open();
   $('btn-remote-folder').hidden=!api.connectRemoteFolder;

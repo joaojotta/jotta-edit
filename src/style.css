@@ -404,6 +404,43 @@ html,body,button,input,select,textarea,.jotta-color-editor,.jotta-font-menu { fo
 .tab-tools button:disabled:hover, .menu-item:disabled:hover { background:transparent; }
 
 /* Project search shares the sidebar and keeps replacement previews next to file selection. */
+.sidebar-panel-tabs { display:flex; flex-shrink:0; gap:4px; padding:0 10px 8px; border-bottom:1px solid var(--line); }
+.sidebar-panel-tabs button { display:flex; align-items:center; justify-content:center; gap:5px; flex:1; min-width:0; padding:6px 4px; border-radius:4px; color:var(--muted); font-size:calc(var(--ui-font-size) - 2px); }
+.sidebar-panel-tabs button[hidden] { display:none; }
+.sidebar-panel-tabs button[aria-pressed="true"] { color:var(--ink); background:var(--surface-alt); }
+.sidebar-panel-tabs .button-icon { width:14px; height:14px; }
+.sidebar-panel-tabs button span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-panel { flex:1; min-height:0; overflow:auto; }
+.sidebar-panel[hidden] { display:none; }
+.sidebar-panel-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; padding:10px; }
+.sidebar-panel-heading h2,.sidebar-panel-heading h3 { margin:0; font-size:calc(var(--ui-font-size) - 1px); font-weight:500; }
+.sidebar-panel-heading .button-icon { width:15px; height:15px; }
+.sidebar-panel-heading > button { padding:4px; border-radius:4px; }
+.panel-document,.panel-status { margin:0 10px 10px; color:var(--muted); font-size:calc(var(--ui-font-size) - 2px); line-height:1.5; overflow-wrap:anywhere; }
+.panel-document { color:var(--ink); }
+.outline-filter-label { display:grid; gap:5px; margin:0 10px 10px; font-size:calc(var(--ui-font-size) - 2px); color:var(--muted); }
+.outline-filter-label input { min-width:0; width:100%; border:1px solid var(--line); border-radius:4px; padding:6px; color:var(--ink); background:var(--surface); font:inherit; }
+.outline-list,.remote-connection-list,.remote-operation-list { margin:0; padding:0 0 10px; list-style:none; }
+.outline-entry { display:flex; align-items:center; width:100%; gap:6px; padding:6px 10px; text-align:left; font-size:calc(var(--ui-font-size) - 1px); }
+.outline-entry span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.outline-entry small { color:var(--muted); font-size:calc(var(--ui-font-size) - 3px); }
+.outline-entry:hover,.outline-entry.current { background:var(--surface-alt); }
+.outline-entry.current { box-shadow:inset 2px 0 var(--accent); }
+.remote-connection-card,.remote-operation { padding:10px; border-bottom:1px solid var(--line); font-size:calc(var(--ui-font-size) - 2px); }
+.remote-address,.remote-operation-path { margin:0 0 7px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere; user-select:text; }
+.remote-connection-card { display:flex; align-items:center; flex-wrap:wrap; gap:7px; }
+.remote-address { width:100%; }
+.remote-state { color:var(--muted); font-size:calc(var(--ui-font-size) - 3px); }
+.remote-state[data-state="connected"] { color:var(--accent); }
+.remote-operation-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:5px; }
+.remote-phase,.remote-operation-error { margin:5px 0; color:var(--muted); line-height:1.5; overflow-wrap:anywhere; }
+.remote-operation[data-state="failed"] { border-inline-start:2px solid var(--accent); }
+.remote-operation-error { color:var(--ink); user-select:text; }
+.remote-progress { width:100%; height:7px; accent-color:var(--accent); }
+.remote-bytes { color:var(--muted); }
+.panel-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.panel-action { padding:4px 6px; border:1px solid var(--line); border-radius:4px; color:var(--ink); background:var(--surface); font:inherit; }
+.sidebar-panel button:disabled { opacity:.45; cursor:default; }
 .sidebar-header { gap:4px; }
 .sidebar-views { display:flex; align-items:center; min-width:0; flex:1; gap:5px; }
 .sidebar-views button { border-radius:4px; padding:4px; min-width:0; }

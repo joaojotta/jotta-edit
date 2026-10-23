@@ -1,7 +1,7 @@
 import {tr} from './i18n.js';
 import {projectPathContains, searchProjectFiles, replacementPlans, replaceProjectMatches} from './project-search.js';
 
-export function installProjectSearch({api, getRoot, getDocuments, openMatch, applyChanges, undoChanges, saveChanges, revealSidebar, focusEditor}) {
+export function installProjectSearch({api, getRoot, getDocuments, openMatch, applyChanges, undoChanges, saveChanges, revealSidebar, focusEditor,showView}) {
   const $ = id => document.getElementById(id);
   const panel = $('project-search'), input = $('project-search-query'), replacement = $('project-search-replace');
   let results = [], selected = new Set(), valid = false, busy = false, request = 0, timer, searchedRoot = null, batch = null;
@@ -123,12 +123,13 @@ export function installProjectSearch({api, getRoot, getDocuments, openMatch, app
     finally { busy = false; controls(); }
   });
   function showSearch(replace = false) {
+    if(showView)showView('search');
     revealSidebar(); panel.hidden = false; $('explorer-view').hidden = true;
     $('btn-project-search').setAttribute('aria-pressed','true'); $('btn-explorer').setAttribute('aria-pressed','false');
     (replace ? replacement : input).focus(); (replace ? replacement : input).select();
     if (!results.length) status(tr(getRoot() ? 'Enter text to search.' : 'Open a project folder to search.'));
   }
-  function showExplorer() { panel.hidden = true; $('explorer-view').hidden = false; $('btn-project-search').setAttribute('aria-pressed','false'); $('btn-explorer').setAttribute('aria-pressed','true'); }
+  function showExplorer() { if(showView)showView('explorer');panel.hidden = true; $('explorer-view').hidden = false; $('btn-project-search').setAttribute('aria-pressed','false'); $('btn-explorer').setAttribute('aria-pressed','true'); }
   $('btn-project-search').addEventListener('click', () => showSearch());
   $('btn-explorer').addEventListener('click', showExplorer);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') { showExplorer(); focusEditor(); } });

@@ -27,7 +27,7 @@ const {FolderBrowser}=require('./folder-browser.cjs');
 let folderBrowser;
 let hostKeySequence=0;
 const hostKeyRequests=new Map();
-const remoteFolders=new RemoteFolders({confirmHostKey:(details,signal)=>new Promise(resolve=>{
+const remoteFolders=new RemoteFolders({onActivity:snapshot=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('remote:activity',snapshot);},confirmHostKey:(details,signal)=>new Promise(resolve=>{
   const id=++hostKeySequence;
   const finish=accepted=>{hostKeyRequests.delete(id);signal?.removeEventListener('abort',cancel);resolve(accepted);};
   const cancel=()=>finish(false);
@@ -78,6 +78,7 @@ let sessionWriteChain = Promise.resolve();
 let preferences = { nativeFrame: true };
 let nativeLanguage = 'en';
 const PT_MENU = { File:'Ficheiro', Edit:'Editar', Selection:'Seleção', View:'Ver', Go:'Ir', Tools:'Ferramentas', Help:'Ajuda',
+  'Document outline':'Estrutura do documento','Remote connections':'Ligações remotas',
   'Open Remote Folder…':'Abrir pasta remota…',
   'Open mounted folder…':'Abrir pasta montada…',
   'New Markdown file':'Novo ficheiro Markdown', 'Markdown preview':'Pré-visualizar Markdown',
@@ -111,6 +112,12 @@ async function persistPreferences() {
 function sendMenuCommand(command) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('menu:command', command);
 }
+function reportRemoteFailure(kind,handler,target=file=>file){
+  return async(event,file,...args)=>{
+    try{return await handler(event,file,...args);}
+    catch(error){const affected=target(file,args);if(remoteFolders.owns(affected))remoteFolders.recordFailure(affected,kind,error);throw error;}
+  };
+}
 function buildMenu() {
   const item = (label, command, accelerator) => ({ label: nativeTr(label), accelerator, click: () => sendMenuCommand(command) });
   const template = [
@@ -131,6 +138,7 @@ function buildMenu() {
     ] },
     { label: 'Selection', submenu: [item('Select All', 'select-all', 'CommandOrControl+A'), item('Add Cursor Above', 'cursor-up', 'CommandOrControl+Alt+Up'), item('Add Cursor Below', 'cursor-down', 'CommandOrControl+Alt+Down')] },
     { label: 'View', submenu: [
+      item('Document outline','document-outline'),item('Remote connections','remote-connections'),
       item('Markdown preview','markdown-preview','CommandOrControl+Shift+V'),
       item('Split Editor', 'split-editor', 'CommandOrControl+Backslash'),
       item('Compare with Saved Version', 'compare-saved'), item('Close Comparison', 'close-comparison'),
@@ -326,6 +334,17 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     finally{clearTimeout(timeout);if(remoteConnection===controller)remoteConnection=null;}
   });
   ipcMain.handle('remote:cancel',()=>{remoteConnection?.abort();remoteConnection=null;});
+  ipcMain.handle('remote:activity-state',()=>remoteFolders.activity.snapshot());
+  ipcMain.handle('remote:activity-dismiss',(_event,id)=>{if(typeof id==='string')remoteFolders.activity.dismiss(id);});
+  ipcMain.handle('remote:activity-clear',()=>remoteFolders.activity.clearCompleted());
+  ipcMain.handle('remote:reconnect',async(_event,root)=>{
+    if(remoteConnection)throw new Error('A remote connection is already in progress.');
+    if(typeof root!=='string')throw new Error('Invalid remote connection.');
+    const controller=new AbortController();remoteConnection=controller;
+    const timeout=setTimeout(()=>controller.abort(new Error('Connection timed out. Check the server and try again.')),45000);
+    try{return await remoteFolders.reconnect(root,controller.signal);}
+    finally{clearTimeout(timeout);if(remoteConnection===controller)remoteConnection=null;}
+  });
   ipcMain.handle('remote:host-key-answer',(_event,id,accepted)=>{hostKeyRequests.get(id)?.(accepted===true);});
   ipcMain.handle('remote:info',(_event,file)=>remoteFolders.info(file));
   ipcMain.handle('folder:browse',(_event,folder,options)=>folderBrowser.list(folder,options));
@@ -363,28 +382,28 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     if (!value || typeof value !== 'object') throw new Error('Invalid recovery session');
     await persistSession(value);
   });
-  ipcMain.handle('folder:scan', (_e, folder, options) => listTree(folder, options));
-  ipcMain.handle('explorer:create', (_e, root, folder, name, kind) => createEntry(root, folder, name, kind));
+  ipcMain.handle('folder:scan',reportRemoteFailure('list',(_e,folder,options)=>listTree(folder,options)));
+  ipcMain.handle('explorer:create',reportRemoteFailure('create',(_e,root,folder,name,kind)=>createEntry(root,folder,name,kind),(_root,args)=>args[0]));
   const moveWithHistory = async operation => {
     const result = await operation();
     try { await historyStore().move(result.oldPath, result.path); }
     catch { result.historyWarning = 'Local history could not be updated.'; }
     return result;
   };
-  ipcMain.handle('explorer:rename', (_e, root, file, name) => moveWithHistory(() => renameEntry(root, file, name)));
-  ipcMain.handle('explorer:move', (_e, root, file, folder) => moveWithHistory(() => moveEntry(root, file, folder)));
-  ipcMain.handle('explorer:delete', async (_e, root, file) => {
+  ipcMain.handle('explorer:rename',reportRemoteFailure('move',(_e,root,file,name)=>moveWithHistory(()=>renameEntry(root,file,name)),(_root,args)=>args[0]));
+  ipcMain.handle('explorer:move',reportRemoteFailure('move',(_e,root,file,folder)=>moveWithHistory(()=>moveEntry(root,file,folder)),(_root,args)=>args[0]));
+  ipcMain.handle('explorer:delete',reportRemoteFailure('delete',async (_e, root, file) => {
     try { return await deleteEntry(root, file, target=>remoteFolders.owns(target)?remoteFolders.trash(target):trashItem(target)); }
     catch (error) {
       if(!remoteFolders.owns(file))await dialog.showMessageBox(mainWindow, {type:'error', title:'Cannot move to Trash', message:'The item could not be moved to Trash.', detail:error.message, buttons:['OK']});
       throw error;
     }
-  });
+  },(_root,args)=>args[0]));
   ipcMain.handle('file:choose', async () => {
     const result = await dialog.showOpenDialog(mainWindow, { properties: ['openFile', 'multiSelections'] });
     return result.canceled ? [] : result.filePaths;
   });
-  ipcMain.handle('file:read', (_e, file) => readText(file));
+  ipcMain.handle('file:read',reportRemoteFailure('read',(_e,file)=>readText(file)));
   ipcMain.handle('markdown:asset',(_e,params)=>readMarkdownAsset(params));
   ipcMain.handle('markdown:export-destination',(_e,params)=>chooseMarkdownExport(params,{
     dialog,parent:mainWindow,defaultDirectory:app.getPath('documents'),isRemote:file=>remoteFolders.isRemote(file)
@@ -400,7 +419,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > MAX_TEXT_BYTES) throw new Error('File exceeds the editor limit');
     return historyStore().capture(filePath(file), [{text, kind:'restore-backup'}]);
   });
-  ipcMain.handle('file:write', async (_e, file, content, options={}) => {
+  ipcMain.handle('file:write',reportRemoteFailure('save',async (_e, file, content, options={}) => {
     const p = filePath(file);
     if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > MAX_TEXT_BYTES) throw new Error('File exceeds the editor limit');
     let historyWarning = '';
@@ -421,7 +440,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     const stat = await fsp.stat(p);
     if (Buffer.byteLength(content, 'utf8') > 1024 * 1024) historyWarning = 'File saved. Local history supports files up to 1 MB.';
     return { path: p, name: path.basename(p), mtimeMs: stat.mtimeMs, historyWarning };
-  });
+  }));
   ipcMain.handle('file:save-dialog', async (_e, suggestion) => {
     const result = await dialog.showSaveDialog(mainWindow, { defaultPath: typeof suggestion === 'string' ? suggestion : 'untitled.txt' });
     return result.canceled ? null : result.filePath;
