@@ -1,5 +1,11 @@
 # Version history — Jotta Edit
 
+## 1.1.3 — Reliable Markdown export (23 Oct 2026)
+
+- Save Markdown HTML/PDF exports with labelled placeholders for unavailable images and persistent feedback showing the destination and any missing references.
+- Keep source documents unchanged and preserve export size limits and open-file protection.
+- Refresh the README with the app icon, features and the creator's goal of combining favourite parts of Sublime Text and VS Code.
+
 ## 1.1.2 — Markdown export, favourites and direct remote access (23 Oct 2026)
 
 - Export Markdown drafts as styled HTML or PDF, including local images, on desktop and web.

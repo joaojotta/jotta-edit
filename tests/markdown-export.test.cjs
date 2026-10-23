@@ -120,3 +120,56 @@ test('browser exports still render and use download or print without a desktop c
   }},{render:async()=> 'printable'});
   assert.equal(result.printing,true);
 });
+
+function imageFixture(references,language='en'){
+  const images=references.map(reference=>({reference,node:{alt:'Image description',replaceWith(placeholder){this.placeholder=placeholder;}}}));
+  const documentRef={documentElement:{lang:language},createElement:()=>({})};
+  return {images,documentRef};
+}
+
+test('a missing image referenced three times leaves three labelled placeholders and exports the rest',async()=>{
+  const {embedMarkdownExportImages}=await import('../src/markdown-export.js');
+  const {images,documentRef}=imageFixture(['image.png','image.png','image.png']);let reads=0;
+  const missing=await embedMarkdownExportImages({images,documentRef,documentPath:'/work/info.md',readAsset:async()=>{reads++;throw new Error('ENOENT');}});
+  assert.deepEqual(missing,['image.png']);assert.equal(reads,1);
+  for(const {node} of images){assert.equal(node.src,undefined);assert.equal(node.placeholder.textContent,'Image unavailable: image.png (Image description)');}
+});
+
+test('available images remain embedded when another image is missing, and HTTPS images stay external',async()=>{
+  const {embedMarkdownExportImages}=await import('../src/markdown-export.js');
+  const {images,documentRef}=imageFixture(['good.png','missing.png','good.png','https://example.com/image.png']);
+  const url='data:image/png;base64,AA==';let reads=0;
+  const missing=await embedMarkdownExportImages({images,documentRef,documentPath:'/work/info.md',readAsset:async({reference})=>{
+    reads++;if(reference==='missing.png')throw new Error('ENOENT');return {url,bytes:1};
+  }});
+  assert.deepEqual(missing,['missing.png']);assert.equal(reads,2);
+  assert.equal(images[0].node.src,url);assert.equal(images[2].node.src,url);assert.equal(images[3].node.src,'https://example.com/image.png');
+  assert.ok(images[1].node.placeholder);assert.equal(images[0].node.loading,'eager');
+});
+
+test('unavailable images do not bypass folder boundaries and Portuguese placeholders retain their reference',async()=>{
+  const {embedMarkdownExportImages}=await import('../src/markdown-export.js');
+  const {images,documentRef}=imageFixture(['../private.png'],'pt-PT');
+  const missing=await embedMarkdownExportImages({images,documentRef,documentPath:'/work/info.md',root:'/work',readAsset:async()=>assert.fail('Outside-workspace images must not be read')});
+  assert.deepEqual(missing,['../private.png']);assert.match(images[0].node.placeholder.textContent,/Imagem indisponível: \.\.\/private\.png/);
+});
+
+test('source, image-count and total embedded-image limits still stop oversized exports',async()=>{
+  const {embedMarkdownExportImages,markdownExportHTML}=await import('../src/markdown-export.js');
+  await assert.rejects(markdownExportHTML({source:'x'.repeat(1024*1024+1),documentRef:{}}),/1 MiB/);
+  const tooMany=imageFixture(Array(65).fill('good.png'));
+  await assert.rejects(embedMarkdownExportImages({...tooMany,documentPath:'/work/info.md'}),/64 images/);
+  const tooLarge=imageFixture(['1.png','2.png','3.png','4.png','5.png']);
+  await assert.rejects(embedMarkdownExportImages({...tooLarge,documentPath:'/work/info.md',readAsset:async()=>({url:'data:image/png;base64,AA==',bytes:5*1024*1024})}),/20 MiB/);
+});
+
+test('successful exports report the saved path and unavailable image references together',async()=>{
+  const {exportMarkdownDocument}=await import('../src/markdown-export.js');
+  for(const format of ['html','pdf']){
+    const result=await exportMarkdownDocument({format,source:'# Draft',name:'info.md',api:{
+      chooseMarkdownExport:async()=>({path:'/output/info.'+format}),
+      exportMarkdown:async options=>{assert.equal(options.html,'with placeholders');return {path:options.destination};}
+    }},{render:async options=>{options.onMissingImage('image.png');options.onMissingImage('image.png');return 'with placeholders';}});
+    assert.equal(result.path,'/output/info.'+format);assert.deepEqual(result.missingImages,['image.png']);
+  }
+});

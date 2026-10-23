@@ -55,5 +55,5 @@ test('Flatpak installation refreshes the KDE Open With entry', () => {
   assert.match(install, /\.\/scripts\/repair-kde-open-with\.sh/);
   assert.match(install, /--set-default/);
   const pkg = require('../package.json');
-  assert.equal(pkg.version, '1.1.2');
+  assert.equal(pkg.version, '1.1.3');
 });

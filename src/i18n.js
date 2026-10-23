@@ -7,6 +7,8 @@ const PT = {
   'Preparing Markdown export…':'A preparar a exportação de Markdown…',
   'Markdown export cancelled.':'Exportação de Markdown cancelada.',
   'Markdown exported.':'Markdown exportado.',
+  'Exported to:':'Exportado para:',
+  'Unavailable images were replaced with labelled placeholders.':'As imagens indisponíveis foram substituídas por marcadores identificados.',
   'Print dialog opened. Choose Save as PDF.':'Diálogo de impressão aberto. Escolha Guardar como PDF.',
   'Could not export Markdown.':'Não foi possível exportar Markdown.',
   'Markdown export supports files up to 1 MiB.':'A exportação de Markdown suporta ficheiros até 1 MiB.',
@@ -476,7 +478,7 @@ const PT = {
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
   'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
-  'untitled':'sem-título', 'Version 1.1.2':'Versão 1.1.2'
+  'untitled':'sem-título', 'Version 1.1.3':'Versão 1.1.3'
 };
 
 const originalTexts = new WeakMap();

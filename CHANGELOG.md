@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3 — Reliable Markdown export (23 Oct 2026)
+
+- Export HTML and PDF even when individual images are missing, inaccessible or too large. Keep available images, insert labelled placeholders for unavailable ones, and report their references without changing the Markdown source.
+- Keep export progress, the saved destination, image warnings and errors visible below the Markdown toolbar. Log export failures for diagnosis.
+- Refresh the README with the app icon, feature highlights and the creator's Sublime Text / VS Code inspiration.
+
 ## 1.1.2 — Markdown export, favourites and direct remote access (23 Oct 2026)
 
 - Open the desktop Markdown export Save dialog before preparing content or reading images. Start in the document's folder (Documents for unsaved or remote drafts), preserve cancellation, and recheck open-file protection before writing.

@@ -1,4 +1,4 @@
-# Markdown in Jotta Edit 1.1.2
+# Markdown in Jotta Edit 1.1.3
 
 Open a `.md` or `.markdown` file, choose **File → New Markdown file**, or select **Markdown** from the status-bar language picker. A formatting toolbar appears and the preview opens beside the source. New Markdown drafts retain their language while you type, save and reopen them.
 
@@ -33,4 +33,6 @@ Exports capture the current text when you invoke the command. They do not save, 
 
 HTML includes a light stylesheet, headings with working section links, tables, checklists, code blocks and embedded local images, so local images travel with the exported document. HTTPS images remain external and require a network connection. Relative document links retain their paths; move linked documents alongside the HTML if needed. PDF uses the same print styling, with A4 pages on desktop and browser print settings on the web.
 
-The same HTML sanitization as the preview removes active content. Export supports up to 1 MiB of Markdown, 64 images, 5 MiB per embedded image and 20 MiB of distinct embedded image data. If a local image is missing, inaccessible or exceeds these limits, export stops with a message so you can fix the image and retry. Browser exports have the same folder-access requirements as the preview.
+The same HTML sanitization as the preview removes active content. Export supports up to 1 MiB of Markdown, 64 images, 5 MiB per embedded image and 20 MiB of distinct embedded image data. Missing, inaccessible or oversized individual images become labelled placeholders containing their reference and any alternative text. Available images are still included. Exceeding the source, image-count or total embedded-data limits stops the export. Browser exports have the same folder-access requirements as the preview.
+
+Export progress, the saved file path, missing-image warnings and errors remain visible below the Markdown toolbar buttons, including when the preview is closed. Missing images leave your Markdown source unchanged; correct their paths and export again to include them.

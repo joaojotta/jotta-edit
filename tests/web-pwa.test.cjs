@@ -24,7 +24,7 @@ test('browser API initialises and exposes every editor bridge operation',async()
 });
 
 test('web build is separate from Electron and has a Vite/PWA entrypoint',()=>{
-  assert.equal(pkg.version,'1.1.2');
+  assert.equal(pkg.version,'1.1.3');
   assert.match(pkg.scripts['build:pwa'],/vite build --config vite.web.config.mjs/);
   const html=read('web/index.html');
   assert.match(html,/src="\.\.\/src\/web-entry\.js"/);

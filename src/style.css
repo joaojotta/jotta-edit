@@ -490,6 +490,8 @@ html,body,button,input,select,textarea,.jotta-color-editor,.jotta-font-menu { fo
 .markdown-tool:hover, .markdown-preview-heading button:hover { background:var(--hover); }
 .markdown-export-tool { width:auto; padding:0 7px; font-size:11px; font-weight:600; }
 .markdown-export-tool:disabled { opacity:.5; cursor:wait; }
+.markdown-export-status { flex:0 0 100%; padding:5px 3px; font-size:12px; line-height:1.5; color:var(--ink); overflow-wrap:anywhere; user-select:text; }
+.markdown-export-status[hidden] { display:none; }
 .markdown-tool[aria-pressed="true"] { box-shadow:inset 0 -2px var(--accent); background:var(--hover); }
 .markdown-heading-group { position:relative; }
 .markdown-heading-menu { position:absolute; top:100%; left:0; display:flex; gap:4px; padding:5px; z-index:30; border:1px solid var(--line); border-radius:5px; background:var(--surface); box-shadow:0 5px 20px #0004; }

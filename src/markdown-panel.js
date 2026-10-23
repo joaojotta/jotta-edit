@@ -32,6 +32,12 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
     node.dataset.markdownAction='export-'+format;node.textContent=format.toUpperCase();
     node.title=tr('Export Markdown as '+format.toUpperCase());node.setAttribute('aria-label',node.title);toolbar.appendChild(node);return node;
   });
+  const exportStatus=document.createElement('span');exportStatus.className='markdown-export-status';exportStatus.hidden=true;
+  exportStatus.setAttribute('role','status');exportStatus.setAttribute('aria-live','polite');toolbar.appendChild(exportStatus);
+  function reportExport(message,error=false){
+    exportStatus.textContent=message;exportStatus.hidden=false;exportStatus.setAttribute('role',error?'alert':'status');
+    notify(message);layout();
+  }
   let exporting=false;
   async function exportDocument(format){
     if(!valid()){notify(tr('Open a Markdown file to export.'));return;}
@@ -40,13 +46,20 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
     try{
       // Snapshot before the chooser opens, so later edits cannot mix documents.
       const active=doc,source=active.model.getValue(),name=active.name,documentPath=active.path,root=getRoot();
-      notify(tr(api.chooseMarkdownExport?'Choose where to export Markdown.':'Preparing Markdown export…'));
+      reportExport(tr(api.chooseMarkdownExport?'Choose where to export Markdown.':'Preparing Markdown export…'));
       const result=await exportMarkdownDocument({format,source,name,documentPath,root,api,
         getProtectedPaths:()=>getDocuments().map(item=>item.path).filter(Boolean)},
-        {onPreparing:()=>notify(tr('Preparing Markdown export…'))});
-      if(result?.canceled)notify(tr('Markdown export cancelled.'));
-      else notify(tr(result?.printing?'Print dialog opened. Choose Save as PDF.':'Markdown exported.'));
-    }catch(error){notify(tr('Could not export Markdown.')+' '+tr(error.message));}
+        {onPreparing:()=>reportExport(tr('Preparing Markdown export…'))});
+      if(result?.canceled)reportExport(tr('Markdown export cancelled.'));
+      else {
+        const message=result?.path?tr('Exported to:')+' '+result.path:tr(result?.printing?'Print dialog opened. Choose Save as PDF.':'Markdown exported.');
+        reportExport(message+(result?.missingImages?.length?' '+tr('Unavailable images were replaced with labelled placeholders.')+' '+result.missingImages.filter(reference=>!reference.startsWith('data:')).join(', '):''));
+      }
+    }catch(error){
+      const detail=error.message.replace(/^Error invoking remote method '[^']+': Error: /,'');
+      reportExport(tr('Could not export Markdown.')+' '+tr(detail),true);
+      console.error('Markdown export failed:',error);
+    }
     finally{exporting=false;for(const node of exportButtons)node.disabled=false;}
   }
   function closeHeading(){headingMenu.hidden=true;headingButton.setAttribute('aria-expanded','false');}
