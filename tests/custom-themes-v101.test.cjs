@@ -8,7 +8,7 @@ const imports = Promise.all([import('../src/custom-syntax-themes.js'),import('..
 
 test('custom themes duplicate built-ins without modifying them and can be restored', async () => {
   const [custom, syntax] = await imports;
-  assert.equal(require('../package.json').version, '1.1.0');
+  assert.equal(require('../package.json').version, '1.1.1');
   const old = JSON.stringify(syntax.syntaxPalettes['vscode-dark-plus']);
   const created = custom.createCustomTheme({}, 'vscode-dark-plus', 'Personal Dark');
   assert.equal(created.id, 'custom-1');
@@ -35,7 +35,7 @@ test('custom themes duplicate built-ins without modifying them and can be restor
 
 test('JSON imports are validated and unsafe custom entries discarded', async () => {
   const [custom, syntax] = await imports;
-  const valid = custom.createCustomTheme({}, 'github-light', 'Light 2').theme;
+  const valid = custom.createCustomTheme({}, 'solarized-light', 'Light 2').theme;
   const exported = custom.exportCustomTheme(valid);
   assert.deepEqual(custom.importCustomTheme(exported), valid);
   assert.throws(()=>custom.importCustomTheme('{'),/Invalid JSON/);
@@ -45,7 +45,7 @@ test('JSON imports are validated and unsafe custom entries discarded', async () 
   const poisoned = {...valid, palette:{...valid.palette,foreground:'url(javascript:evil)'}};
   assert.deepEqual(custom.readCustomThemes({'custom-1':poisoned,'../../bad':valid}),{});
   assert.ok(!custom.validateCustomTheme({...valid,name:' '.repeat(3)}));
-  assert.equal(custom.createCustomTheme(Object.fromEntries(Array.from({length:custom.CUSTOM_THEME_LIMIT},(_,i)=>[`custom-${i+1}`,valid])), 'github-light'),null);
+  assert.equal(custom.createCustomTheme(Object.fromEntries(Array.from({length:custom.CUSTOM_THEME_LIMIT},(_,i)=>[`custom-${i+1}`,valid])), 'solarized-light'),null);
   const ids = {'custom-1':valid};
   assert.equal(custom.createCustomTheme(ids,'custom-1').id,'custom-2');
 });

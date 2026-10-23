@@ -15,8 +15,8 @@ test('syntax-theme-matched icon palettes cover all supplied Explorer file types'
   assert.equal(resolveExplorerIconPalette('auto', 'jotta-light', 'light'), 'jotta-light');
   assert.equal(resolveExplorerIconPalette('auto', 'vscode-dark-plus', 'dark'), 'seti-dark');
   assert.equal(resolveExplorerIconPalette('auto', 'vscode-light-plus', 'light'), 'seti-light');
-  assert.equal(resolveExplorerIconPalette('auto', 'github-dark', 'dark'), 'github-dark');
-  assert.equal(resolveExplorerIconPalette('auto', 'github-light', 'light'), 'github-light');
+  assert.equal(resolveExplorerIconPalette('auto', 'nord', 'dark'), 'nord');
+  assert.equal(resolveExplorerIconPalette('auto', 'solarized-light', 'light'), 'solarized-light');
   assert.equal(resolveExplorerIconPalette('auto', 'monokai-pro', 'dark'), 'monokai-pro');
   assert.equal(resolveExplorerIconPalette('auto', 'catppuccin-mocha', 'dark'), 'catppuccin-mocha');
   for (const { id } of explorerIconPaletteChoices) {
@@ -54,16 +54,16 @@ test('manual icon colours override automatic palettes and reset falls back to pa
   assert.equal(normalizeExplorerIconPalette('random'), 'auto');
   assert.equal(normalizeExplorerIconPalette('seti-light'), 'seti-light');
   assert.equal(resolveExplorerIconPalette('monochrome', 'jotta-dark', 'dark'), 'monochrome');
-  assert.equal(explorerIconColour('js.svg', { 'js.svg': '#123abc' }, 'auto', 'github-light', 'dark'), '#123abc');
+  assert.equal(explorerIconColour('js.svg', { 'js.svg': '#123abc' }, 'auto', 'solarized-light', 'dark'), '#123abc');
   assert.equal(explorerIconColour('js.svg', { 'js.svg': '#123abc88' }, 'seti-light', 'vscode-dark-plus', 'light'), '#123abc88');
-  assert.notEqual(explorerIconColour('js.svg', {}, 'auto', 'github-light', 'dark'), '#123abc');
-  assert.equal(explorerIconColour('../unrecognized.svg', {}, 'auto', 'github-light', 'dark'), null);
+  assert.notEqual(explorerIconColour('js.svg', {}, 'auto', 'solarized-light', 'dark'), '#123abc');
+  assert.equal(explorerIconColour('../unrecognized.svg', {}, 'auto', 'solarized-light', 'dark'), null);
   assert.equal(explorerIconColour('js.svg', {}, 'monochrome', 'jotta-dark', 'light'), '#4A5564');
 });
 
 test('Explorer palette selection persists; syntax and interface theme changes repaint icons', () => {
   const main = read('src/main.js'), html = read('index.html'), css = read('src/style.css');
-  assert.equal(require('../package.json').version, '1.1.0');
+  assert.equal(require('../package.json').version, '1.1.1');
   assert.match(main, /explorerIconPalette: normalizeExplorerIconPalette\(stored\('explorerIconPalette', 'auto'\)\)/);
   assert.match(main, /remember\('explorerIconPalette', state\.explorerIconPalette\)/);
   assert.match(main, /iconPaletteChoice\.addEventListener\('change'/);

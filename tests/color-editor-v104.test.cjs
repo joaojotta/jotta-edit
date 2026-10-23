@@ -41,9 +41,8 @@ test('Font picker offers an explicit clickable list and editable input',()=>{
   assert.match(picker,/font\.toLowerCase\(\)\.includes/);
   assert.match(picker,/installFontMenu/);
 });
-test('Windows script rejects Node 22.11 before npm install; workflow uses Node 24',()=>{
-  const script=read('scripts/build-windows.ps1'), check=read('scripts/check-node-version.cjs'), wf=read('.github/workflows/windows.yml');
+test('Windows script rejects Node 22.11 before npm install',()=>{
+  const script=read('scripts/build-windows.ps1'), check=read('scripts/check-node-version.cjs');
   assert.ok(script.indexOf('check-node-version.cjs') < script.indexOf("@('install'"));
   assert.match(check,/minor < 12/);
-  assert.match(wf,/node-version: '24'/);
 });

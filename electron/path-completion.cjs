@@ -1,6 +1,6 @@
 'use strict';
 const path = require('node:path');
-const fs = require('node:fs/promises');
+const fs = require('./project-fs.cjs');
 /** Local path suggestions: no recursive scan, no symlinks, no network URLs. */
 async function listPathCandidates({ file, root, typed } = {}) {
   if (typeof typed !== 'string' || typed.length > 260 || /[\0\\?*<>|]/.test(typed) || /^(?:[a-z][a-z\d+.-]*:|\/\/|#)/i.test(typed)) return [];

@@ -1,8 +1,12 @@
 # Version history — Jotta Edit
 
-## 1.1.0 — GitHub sync (20 Oct 2026)
+## 1.1.1 — Markdown (20 Oct 2026)
 
-- GitHub repository sync with change and conflict review on desktop and web.
+- Add Markdown formatting tools and a live preview side panel on desktop and web, including safe rendering and local image support.
+
+## 1.1.0 — Remote folders (20 Oct 2026)
+
+- Add desktop FTP, SFTP and SMB folder access through system mounts, with existing editing and workspace features.
 
 ## 1.0.2 — Live preview and Explorer file creation (19 Oct 2026)
 - Added desktop live preview with updates from unsaved HTML, CSS and JavaScript, including untitled HTML documents.
@@ -34,7 +38,7 @@
 
 ## v1.0.0 — Editor palettes and tabbed Preferences (18 Oct 2026)
 - Added Sublime Text Mariana Dark, Monokai Dark, Celeste Light, Breakers Light-inspired syntax palettes.
-- Added VS Code Dark+/Light+, GitHub Dark Default, Monokai Pro Classic and Mariana Pro (Cool/Gray/Warm) palettes.
+- Added VS Code Dark+/Light+, Monokai Pro Classic and Mariana Pro (Cool/Gray/Warm) palettes.
 - Preserved existing theme IDs, live application and the independent UI dark/light mode.
 - Grouped Preferences into keyboard-accessible Editor, Themes, Explorer and General tabs.
 - Added pointer-drag repositioning by the Preferences title bar.
@@ -45,7 +49,7 @@ Jotta Edit 1.0.0 is the first final release following the RC and beta developmen
 
 ## 1.0.0 — Syntax theme update (version unchanged, 18 Oct 2026)
 - Adds independent editor syntax themes with live preview, persistent selection, pt-PT options and existing Jotta Dark/Light defaults.
-- Includes palettes inspired by Monokai, One Dark, Dracula, Nord, Tokyo Night, Catppuccin Mocha, GitHub Light and Solarized Light.
+- Includes palettes inspired by Monokai, One Dark, Dracula, Nord, Tokyo Night, Catppuccin Mocha and Solarized Light.
 
 ## 1.0.0 — Final release (18 Oct 2026)
 - Sidebar toggle icon correction (same version): uses the supplied fold/unfold SVGs according to Explorer visibility, with live tooltips and dark/light adaptation.

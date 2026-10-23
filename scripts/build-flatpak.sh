@@ -26,7 +26,7 @@ flatpak install --user -y flathub \
   org.freedesktop.Sdk//25.08 \
   org.electronjs.Electron2.BaseApp//25.08
 
-if [[ ! -f node_modules/electron/package.json ]] || [[ ! -f node_modules/monaco-editor/package.json ]] || [[ ! -f node_modules/vite/package.json ]] || [[ ! -f node_modules/emmet/package.json ]] || [[ ! -f node_modules/prettier/package.json ]] || [[ ! -f node_modules/@prettier/plugin-php/package.json ]] || [[ ! -f node_modules/@fontsource/rubik/package.json ]]; then
+if [[ ! -f node_modules/electron/package.json ]] || [[ ! -f node_modules/monaco-editor/package.json ]] || [[ ! -f node_modules/vite/package.json ]] || [[ ! -f node_modules/emmet/package.json ]] || [[ ! -f node_modules/prettier/package.json ]] || [[ ! -f node_modules/@prettier/plugin-php/package.json ]] || [[ ! -f node_modules/@fontsource/rubik/package.json ]] || [[ ! -f node_modules/basic-ftp/package.json ]] || [[ ! -f node_modules/ssh2-sftp-client/package.json ]] || [[ ! -f node_modules/smb3-client/package.json ]]; then
   echo 'Installing npm dependencies...'
   npm install --no-audit --no-fund
 fi

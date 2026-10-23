@@ -1,7 +1,7 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, protocol, net, Menu, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, net, Menu, shell, safeStorage } = require('electron');
 const fs = require('node:fs');
-const fsp = require('node:fs/promises');
+const fsp = require('./project-fs.cjs');
 const path = require('node:path');
 const { LivePreview, openBrowser } = require('./live-preview.cjs');
 const livePreview = new LivePreview();
@@ -11,15 +11,33 @@ const { execFile } = require('node:child_process');
 const { listPathCandidates } = require('./path-completion.cjs');
 const { fileArguments } = require('./launch-paths.cjs');
 const { normalizeSession, writeSession } = require('./session-store.cjs');
-const {GitHubWorkspace} = require('./github-workspace.cjs');
-let githubWorkspace;
-const githubStore=()=>githubWorkspace ||= new GitHubWorkspace(path.join(app.getPath('userData'),'github-workspaces'));
 const {LocalHistory} = require('./local-history.cjs');
 let localHistory;
 const historyStore = () => localHistory ||= new LocalHistory(path.join(app.getPath('userData'), 'local-history.json'));
 const {createTrashHandler} = require('./trash.cjs');
 const trashItem = createTrashHandler({shell});
 const { createEntry, renameEntry, moveEntry, deleteEntry } = require('./file-operations.cjs');
+const {RemoteFolders}=require('./remote-folders.cjs');
+const {Favourites}=require('./favourites.cjs');
+let favourites;
+const {writeRemoteText}=require('./remote-save.cjs');
+const {readMarkdownAsset}=require('./markdown-assets.cjs');
+const {exportMarkdown}=require('./markdown-export.cjs');
+const {FolderBrowser}=require('./folder-browser.cjs');
+let folderBrowser;
+let hostKeySequence=0;
+const hostKeyRequests=new Map();
+const remoteFolders=new RemoteFolders({confirmHostKey:(details,signal)=>new Promise(resolve=>{
+  const id=++hostKeySequence;
+  const finish=accepted=>{hostKeyRequests.delete(id);signal?.removeEventListener('abort',cancel);resolve(accepted);};
+  const cancel=()=>finish(false);
+  if(signal?.aborted)return finish(false);
+  hostKeyRequests.set(id,finish);signal?.addEventListener('abort',cancel,{once:true});
+  mainWindow?.webContents.send('remote:host-key',{id,...details});
+})});
+fsp.setRemote(remoteFolders);
+let remoteConnection=null;
+app.on('will-quit',()=>{remoteConnection?.abort();void remoteFolders.close();});
 
 // Display backend choice happens before Electron loads this file. Do not use
 // app.commandLine.appendSwitch('ozone-platform', 'x11') here: it is too late.
@@ -60,8 +78,12 @@ let sessionWriteChain = Promise.resolve();
 let preferences = { nativeFrame: true };
 let nativeLanguage = 'en';
 const PT_MENU = { File:'Ficheiro', Edit:'Editar', Selection:'Seleção', View:'Ver', Go:'Ir', Tools:'Ferramentas', Help:'Ajuda',
-  'GitHub sync':'Sincronizar GitHub',
+  'Open Remote Folder…':'Abrir pasta remota…',
+  'Open mounted folder…':'Abrir pasta montada…',
+  'New Markdown file':'Novo ficheiro Markdown', 'Markdown preview':'Pré-visualizar Markdown',
+  'Export Markdown as HTML':'Exportar Markdown como HTML', 'Export Markdown as PDF':'Exportar Markdown como PDF',
   'Recent Workspaces…':'Projetos recentes…',
+  'Favourites…':'Favoritos…',
   'Local History…':'Histórico local…',
   'New File':'Novo ficheiro', 'Open File…':'Abrir ficheiro…', 'Open Folder…':'Abrir pasta…',
   Save:'Guardar', 'Save As…':'Guardar como…', 'Close File':'Fechar ficheiro', 'Quit Jotta Edit':'Sair do Jotta Edit',
@@ -93,9 +115,12 @@ function buildMenu() {
   const item = (label, command, accelerator) => ({ label: nativeTr(label), accelerator, click: () => sendMenuCommand(command) });
   const template = [
     { label: 'File', submenu: [
-      item('GitHub sync', 'github-sync'), item('New File', 'new', 'CommandOrControl+N'), item('Open File…', 'open-file', 'CommandOrControl+O'),
+      item('New File', 'new', 'CommandOrControl+N'), item('Open File…', 'open-file', 'CommandOrControl+O'),
+      item('New Markdown file', 'new-markdown'),
       item('Open Folder…', 'open-folder', 'CommandOrControl+Shift+O'), item('Recent Workspaces…', 'recent-workspaces'), { type: 'separator' },
+      item('Open Remote Folder…', 'open-remote-folder'), item('Favourites…', 'favourites'),
       item('Save', 'save', 'CommandOrControl+S'), item('Save As…', 'save-as', 'CommandOrControl+Shift+S'), item('Local History…', 'local-history'),
+      item('Export Markdown as HTML','markdown-export-html'),item('Export Markdown as PDF','markdown-export-pdf'),
       { type: 'separator' }, item('Close File', 'close-file', 'CommandOrControl+W'), item('Quit Jotta Edit', 'quit', 'CommandOrControl+Q')
     ] },
     { label: 'Edit', submenu: [
@@ -106,6 +131,7 @@ function buildMenu() {
     ] },
     { label: 'Selection', submenu: [item('Select All', 'select-all', 'CommandOrControl+A'), item('Add Cursor Above', 'cursor-up', 'CommandOrControl+Alt+Up'), item('Add Cursor Below', 'cursor-down', 'CommandOrControl+Alt+Down')] },
     { label: 'View', submenu: [
+      item('Markdown preview','markdown-preview','CommandOrControl+Shift+V'),
       item('Split Editor', 'split-editor', 'CommandOrControl+Backslash'),
       item('Compare with Saved Version', 'compare-saved'), item('Close Comparison', 'close-comparison'),
       item('Toggle Sidebar', 'sidebar', 'CommandOrControl+B'), item('Toggle Minimap', 'minimap'),
@@ -174,31 +200,9 @@ async function readText(file) {
   return { path: p, name: path.basename(p), content: data.toString('utf8'), mtimeMs: stat.mtimeMs };
 }
 async function listTree(folder, options = {}) {
-  const root = filePath(folder);
-  const stat = await fsp.stat(root);
-  if (!stat.isDirectory()) throw new Error('Not a folder');
-  let count = 0;
-  async function descend(dir, depth) {
-    if (depth > 12 || count >= 8000) return [];
-    let entries = await fsp.readdir(dir, { withFileTypes: true });
-    const showHidden = options.showHidden === true;
-    entries = entries.filter(e => !e.isSymbolicLink() && !(e.isDirectory() && IGNORE_DIRS.has(e.name)) && (showHidden || !e.name.startsWith('.')))
-      .sort((a, b) => (Number(b.isDirectory()) - Number(a.isDirectory())) || a.name.localeCompare(b.name, undefined, { numeric: true }));
-    const out = [];
-    for (const entry of entries) {
-      if (count >= 8000) break;
-      const p = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        const children = await descend(p, depth + 1).catch(() => []);
-        out.push({ path: p, name: entry.name, dir: true, children });
-      } else if (entry.isFile()) {
-        count++;
-        out.push({ path: p, name: entry.name, dir: false });
-      }
-    }
-    return out;
-  }
-  return { root, nodes: await descend(root, 0), count, truncated: count >= 8000 };
+  return require('./folder-tree.cjs').listFolderTree(filePath(folder),{
+    showHidden:options.showHidden === true,ignoreDirs:IGNORE_DIRS,shallow:options.shallow === true
+  });
 }
 async function projectSearch(root, query) {
   if (typeof query !== 'string' || query.length < 2 || query.length > 150) return [];
@@ -266,6 +270,9 @@ app.on('open-file', (event, file) => {
   queueFiles([file]);
 });
 if (hasSingleInstanceLock) app.whenReady().then(async () => {
+  folderBrowser=new FolderBrowser(app.getPath('home'));
+  favourites=new Favourites(path.join(app.getPath('userData'),'favourites.json'),{safeStorage});
+  await remoteFolders.restoreRoots(path.join(app.getPath('userData'),'remote-folders.json'));
   await restoreSession();
   await restorePreferences();
   nativeLanguage = /^pt(?:-|$)/i.test(app.getLocale()) ? 'pt-PT' : 'en';
@@ -303,12 +310,26 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   });
   ipcMain.handle('preview:update', (_event, buffers) => { if (livePreview.server) livePreview.update(buffers); });
   ipcMain.handle('preview:stop', () => livePreview.stop());
-  ipcMain.handle('github:token-help',()=>shell.openExternal('https://github.com/settings/personal-access-tokens/new'));
-  ipcMain.handle('github:state',(_e,root)=>githubStore().getState(root));
-  ipcMain.handle('github:set-state',(_e,root,state)=>githubStore().setState(root,state));
-  ipcMain.handle('github:snapshot',(_e,root,tracked)=>githubStore().snapshot(root,tracked));
-  ipcMain.handle('github:apply',(_e,root,changes,expected,tracked)=>githubStore().apply(root,changes,expected,tracked));
-  ipcMain.handle('github:choose-workspace',async()=>{const result=await dialog.showOpenDialog(mainWindow,{properties:['openDirectory','createDirectory']});return result.canceled?null:result.filePaths[0];});
+  ipcMain.handle('favourites:list',()=>favourites.list());
+  ipcMain.handle('favourites:save',(_event,value)=>{
+    if(value?.kind==='local'&&remoteFolders.owns(value.location))throw new Error('Reconnect to this server before adding it to favourites.');
+    return favourites.save(value);
+  });
+  ipcMain.handle('favourites:remove',(_event,id)=>favourites.remove(id));
+  ipcMain.handle('favourites:delete-credentials',(_event,id)=>favourites.deleteCredentials(id));
+  ipcMain.handle('remote:connect',async(_event,location,credentials={},options={})=>{
+    if(remoteConnection)throw new Error('A remote connection is already in progress.');
+    const controller=new AbortController();remoteConnection=controller;
+    const timeout=setTimeout(()=>controller.abort(new Error('Connection timed out. Check the server and try again.')),45000);
+    try{return await favourites.connect(remoteFolders,location,credentials,options,controller.signal);}
+    catch(error){if(controller.signal.aborted)throw new Error(controller.signal.reason?.message||'Connection cancelled.');throw error;}
+    finally{clearTimeout(timeout);if(remoteConnection===controller)remoteConnection=null;}
+  });
+  ipcMain.handle('remote:cancel',()=>{remoteConnection?.abort();remoteConnection=null;});
+  ipcMain.handle('remote:host-key-answer',(_event,id,accepted)=>{hostKeyRequests.get(id)?.(accepted===true);});
+  ipcMain.handle('remote:info',(_event,file)=>remoteFolders.info(file));
+  ipcMain.handle('folder:browse',(_event,folder,options)=>folderBrowser.list(folder,options));
+  ipcMain.handle('folder:select',(_event,folder)=>folderBrowser.select(folder));
   ipcMain.handle('session:get', () => session);
   ipcMain.handle('window:prefs:get', () => ({ ...preferences }));
   ipcMain.handle('window:prefs:set', async (_event, value) => {
@@ -342,10 +363,6 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     if (!value || typeof value !== 'object') throw new Error('Invalid recovery session');
     await persistSession(value);
   });
-  ipcMain.handle('folder:choose', async () => {
-    const result = await dialog.showOpenDialog(mainWindow, { properties: ['openDirectory'] });
-    return result.canceled ? null : result.filePaths[0];
-  });
   ipcMain.handle('folder:scan', (_e, folder, options) => listTree(folder, options));
   ipcMain.handle('explorer:create', (_e, root, folder, name, kind) => createEntry(root, folder, name, kind));
   const moveWithHistory = async operation => {
@@ -357,9 +374,9 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   ipcMain.handle('explorer:rename', (_e, root, file, name) => moveWithHistory(() => renameEntry(root, file, name)));
   ipcMain.handle('explorer:move', (_e, root, file, folder) => moveWithHistory(() => moveEntry(root, file, folder)));
   ipcMain.handle('explorer:delete', async (_e, root, file) => {
-    try { return await deleteEntry(root, file, trashItem); }
+    try { return await deleteEntry(root, file, target=>remoteFolders.owns(target)?remoteFolders.trash(target):trashItem(target)); }
     catch (error) {
-      await dialog.showMessageBox(mainWindow, {type:'error', title:'Cannot move to Trash', message:'The item could not be moved to Trash.', detail:error.message, buttons:['OK']});
+      if(!remoteFolders.owns(file))await dialog.showMessageBox(mainWindow, {type:'error', title:'Cannot move to Trash', message:'The item could not be moved to Trash.', detail:error.message, buttons:['OK']});
       throw error;
     }
   });
@@ -368,13 +385,19 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     return result.canceled ? [] : result.filePaths;
   });
   ipcMain.handle('file:read', (_e, file) => readText(file));
+  ipcMain.handle('markdown:asset',(_e,params)=>readMarkdownAsset(params));
+  ipcMain.handle('markdown:export',(_e,params)=>exportMarkdown(params,{dialog,BrowserWindow,parent:mainWindow}));
+  ipcMain.handle('markdown:open-link',async(_e,value)=>{
+    const {externalMarkdownLink}=await import('../shared/markdown-paths.mjs'),url=externalMarkdownLink(value);
+    if(!url)throw new Error('Unsupported Markdown link.');await shell.openExternal(url);
+  });
   ipcMain.handle('history:list', (_e, file) => historyStore().list(filePath(file)));
   ipcMain.handle('history:get', (_e, file, id) => historyStore().get(filePath(file), id));
   ipcMain.handle('history:capture', (_e, file, text) => {
     if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > MAX_TEXT_BYTES) throw new Error('File exceeds the editor limit');
     return historyStore().capture(filePath(file), [{text, kind:'restore-backup'}]);
   });
-  ipcMain.handle('file:write', async (_e, file, content) => {
+  ipcMain.handle('file:write', async (_e, file, content, options={}) => {
     const p = filePath(file);
     if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > MAX_TEXT_BYTES) throw new Error('File exceeds the editor limit');
     let historyWarning = '';
@@ -388,7 +411,9 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     } catch (error) {
       if (error.code !== 'ENOENT') historyWarning = 'Local history could not be updated.';
     }
-    await fsp.writeFile(p, content, 'utf8');
+    if(remoteFolders.owns(p))await remoteFolders.save(p,content,{expectedText:options?.expectedText});
+    else if(remoteFolders.isRemote(p))await writeRemoteText(p,content,{expectedText:options?.expectedText});
+    else await fsp.writeFile(p, content, 'utf8');
     await capture([{text:content, kind:'save'}]);
     const stat = await fsp.stat(p);
     if (Buffer.byteLength(content, 'utf8') > 1024 * 1024) historyWarning = 'File saved. Local history supports files up to 1 MB.';
@@ -399,7 +424,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     return result.canceled ? null : result.filePath;
   });
   ipcMain.handle('project:search', (_e, root, term) => projectSearch(root, term));
-  ipcMain.handle('lsp:complete', (_e, params) => lsp.complete(params));
+  ipcMain.handle('lsp:complete', (_e, params) => remoteFolders.owns(params?.file)?[]:lsp.complete(params));
   ipcMain.handle('window:action', (_e, action) => {
     if (action === 'minimize') mainWindow.minimize();
     if (action === 'maximize') mainWindow.isMaximized() ? mainWindow.unmaximize() : mainWindow.maximize();

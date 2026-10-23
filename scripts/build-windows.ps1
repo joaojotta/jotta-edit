@@ -1,4 +1,4 @@
-# Jotta Edit v1.1.0 — Portable single-file Windows x64 executable (Node 24 LTS recommended)
+# Jotta Edit v1.1.1 — Portable single-file Windows x64 executable (Node 24 LTS recommended)
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 function Run([string]$command, [string[]]$arguments) {

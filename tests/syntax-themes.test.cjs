@@ -10,13 +10,13 @@ const modulePromise = import('../src/syntax-themes.js');
 test('all Monaco syntax palettes and Follow interface setting resolve correctly', async () => {
   const { syntaxThemeChoices, syntaxPalettes, normalizeSyntaxTheme, resolveSyntaxTheme } = await modulePromise;
   assert.equal(syntaxThemeChoices.length, Object.keys(syntaxPalettes).length + 1);
-  assert.ok(Object.keys(syntaxPalettes).length >= 21);
+  assert.ok(Object.keys(syntaxPalettes).length >= 19);
   assert.equal(normalizeSyntaxTheme('unknown-value'), 'auto');
   assert.equal(normalizeSyntaxTheme(null), 'auto');
   assert.equal(resolveSyntaxTheme('auto', 'dark'), 'jotta-dark');
   assert.equal(resolveSyntaxTheme('auto', 'light'), 'jotta-light');
   assert.equal(resolveSyntaxTheme('dracula', 'light'), 'dracula');
-  assert.equal(resolveSyntaxTheme('github-light', 'dark'), 'github-light');
+  assert.equal(resolveSyntaxTheme('solarized-light', 'dark'), 'solarized-light');
   for (const entry of syntaxThemeChoices.slice(1)) {
     assert.equal(resolveSyntaxTheme(entry.id, 'dark'), entry.id);
     assert.equal(resolveSyntaxTheme(entry.id, 'light'), entry.id);
@@ -75,5 +75,5 @@ test('settings theme is independent of UI theme, persists and applies without re
   assert.match(css, /\.syntax-theme-preview/);
   assert.match(i18n, /'Code syntax theme':'Tema de realce de sintaxe'/);
   assert.doesNotMatch(main, /window\.location\.reload\(\)/);
-  assert.equal(require('../package.json').version, '1.1.0');
+  assert.equal(require('../package.json').version, '1.1.1');
 });

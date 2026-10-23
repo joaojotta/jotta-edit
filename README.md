@@ -1,11 +1,11 @@
-# Jotta Edit 1.1.0 — Desktop and Web/PWA source
+# Jotta Edit 1.1.1 — Desktop and Web/PWA source
 
 ## New: offline-first Web edition
 
 The same editor is now available as a separate **installable web app** using
 Monaco, custom themes, Prettier, Emmet, IndexedDB session recovery and browser
 project workspaces. Use **Download file** (also in the File menu) to download the active document with unsaved edits. Save keeps edits in the workspace; Export ZIP downloads saved project files. Live preview controls are disabled in the web version. Use **New workspace**, **Import folder/ZIP**, **Export ZIP**,
-or native **Open folder** where supported. The desktop and web builds share application version `1.1.0`.
+or native **Open folder** where supported. The desktop and web builds share application version `1.1.1`.
 
 ```bash
 npm install --no-audit --no-fund
@@ -23,11 +23,19 @@ see [docs/web-app.md](docs/web-app.md).
 Jotta Edit is a lightweight code editor built with Electron and Monaco. It includes an Explorer, multiple tabs, Emmet, Prettier and optional local language-server completion. Its Flatpak ID is **`pt.jotta.edit`**.
 
 
-## GitHub sync
+## Remote folders
 
-Open the Git button in Explorer or File → GitHub sync. Connect a fine-grained token with access to selected repositories and Contents read/write permission. Choose a repository and branch, then create a managed checkout or use a folder without `.git`. Review incoming and local changes, resolve conflicts and select new files explicitly before committing. Use Pull updates or Commit & sync selected. The token remains in memory for the session.
+Open **File → Open Remote Folder…** and enter an FTP, SFTP or SMB address and your credentials. The app connects directly and displays the server folder in the Explorer on Linux, Windows and macOS. It bundles its protocol clients; no KIO, GVfs, desktop file manager, mount driver or folder portal is needed. See [remote folder setup](docs/remote-folders.md).
 
-Desktop checkouts use ordinary folders without Git metadata; web checkouts use browser storage. No Git executable or authentication server is required. See [GitHub setup and sync limits](docs/github-sync.md).
+Use **File → Favourites…** or the Explorer star button to save local folders and remote servers. Remote connections offer optional encrypted credential saving. In Favourites, choose **Delete credentials** to forget a login while keeping the server address, or remove the favourite to delete both. Browser builds support local favourites.
+
+Passwords remain in memory for the connection and are never saved. SFTP server fingerprints are verified inside the app. Local **Open Folder** also uses the app's own folder browser.
+
+## Markdown
+
+Open a `.md`/`.markdown` file or use **File → New Markdown file** for a live preview beside the editor. Use the supplied icon toolbar for headings, emphasis, links, images, code, quotes, lists, checklists and tables; every source edit supports Undo. Toggle the panel with **Ctrl+Shift+V** or **View → Markdown preview**, and drag its divider to resize it. Available on desktop and web. See [Markdown tools and preview](docs/markdown.md).
+
+Export the current draft with the toolbar's **HTML** or **PDF** buttons, or **File → Export Markdown as HTML/PDF**. HTML includes styling and embedded local images; desktop PDF saves directly, while web PDF uses the browser print dialog. Export leaves the source and unsaved edits intact.
 
 ## Live preview and Explorer creation
 
@@ -60,7 +68,7 @@ Under **Edit → Preferences → Editor**:
 
 Open **Edit → Preferences → Explorer**. The **Explorer icon palette** defaults to **Follow code syntax theme**, which automatically coordinates file/folder colours with the selected code-highlighting palette while leaving the application's own UI styling unchanged.
 
-You can override the palette independently with presets inspired by **Material Icons**, **VS Code Seti**, **Catppuccin Mocha / Latte**, **Monokai Pro**, or **GitHub**, or choose **Monochrome**. The existing **Explorer icon colours** menu continues to set colours separately by file type; those saved manual choices always take precedence. Click **Automatic** for a file type to return to the selected palette's default colour.
+You can override the palette independently with presets inspired by **Material Icons**, **VS Code Seti**, **Catppuccin Mocha / Latte**, **Monokai Pro**, or choose **Monochrome**. The existing **Explorer icon colours** menu continues to set colours separately by file type; those saved manual choices always take precedence. Click **Automatic** for a file type to return to the selected palette's default colour.
 
 Icon shapes are the original supplied SVGs, not copies of third-party icon assets. Automatic colours are adjusted for contrast against the Explorer sidebar in both light and dark UI modes. See [`docs/explorer-icon-palettes.md`](docs/explorer-icon-palettes.md) for details.
 
@@ -68,7 +76,7 @@ Icon shapes are the original supplied SVGs, not copies of third-party icon asset
 
 Open **Edit → Preferences → Code syntax theme** to choose a Monaco code-highlighting palette. This setting is independent of the application light/dark mode; changes apply immediately to all open files and are saved for future sessions. The default **Follow interface (Jotta)** retains Jotta's existing dark/light Monaco highlighting and tracks the interface mode.
 
-Included locally (no external theme packages or network needed): **Jotta Dark**, **Jotta Light**, and palettes inspired by **Monokai**, **One Dark**, **Dracula**, **Nord**, **Tokyo Night**, **Catppuccin Mocha**, **GitHub Light** and **Solarized Light**. The colours are adapted for legibility and are not copies of official third-party theme files. The setting includes a preview and works in English and Portuguese (Portugal).
+Included locally (no external theme packages or network needed): **Jotta Dark**, **Jotta Light**, and palettes inspired by **Monokai**, **One Dark**, **Dracula**, **Nord**, **Tokyo Night**, **Catppuccin Mocha** and **Solarized Light**. The colours are adapted for legibility and are not copies of official third-party theme files. The setting includes a preview and works in English and Portuguese (Portugal).
 
 ## Original 1.0.0 release features
 
@@ -91,6 +99,11 @@ Included locally (no external theme packages or network needed): **Jotta Dark**,
 
 ## Build targets
 
+The shared electron-builder configuration sets `npmRebuild: false`. The SFTP client
+works without its optional native `cpu-features` addon, so packaging does not
+require rebuilding that addon with node-gyp. This applies to AppImage, Flatpak
+and Windows builds; no command-line override is needed.
+
 ### Linux Flatpak
 
 ```bash
@@ -99,7 +112,7 @@ Included locally (no external theme packages or network needed): **Jotta Dark**,
 
 Flatpak bundles include AppStream metadata for KDE Discover: **Jotta Edit**, developer **João Jotta**, and the **GPL-2.0-or-later** licence. The metadata is validated when running the build script.
 
-Expected Flatpak bundle: `release/Jotta-Edit-1.1.0-linux-x86_64.flatpak`
+Expected Flatpak bundle: `release/Jotta-Edit-1.1.1-linux-x86_64.flatpak`
 
 Install with desktop integration:
 
@@ -140,12 +153,12 @@ entry. Select **Open With → Jotta Edit** in Dolphin again after the repair.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ```
 
-Expected portable application: `release/Jotta-Edit-1.1.0-Windows-x64-Portable.exe` (unsigned).
+Expected portable application: `release/Jotta-Edit-1.1.1-Windows-x64-Portable.exe` (unsigned).
 
 ## Notes
 
 - No installation is required for the Windows portable build.
-- The application version is `1.1.0` in package metadata, About, Flatpak and Windows portable artifact names.
+- The application version is `1.1.1` in package metadata, About, Flatpak and Windows portable artifact names.
 - See `CHANGELOG.md` and `VERSION_HISTORY.md` for more detail.
 
 ## Release identity
@@ -156,7 +169,7 @@ Expected portable application: `release/Jotta-Edit-1.1.0-Windows-x64-Portable.ex
 
 ## Syntax palettes and Preferences
 
-Open **Edit → Preferences → Themes** for code highlighting. Presets include approximations of Sublime Text Mariana, Monokai, Breakers and Celeste; VS Code Dark+/Light+; GitHub Light/Dark Default; Monokai Pro and Mariana Pro (Cool/Gray/Warm), alongside the existing Jotta and community-inspired palettes.
+Open **Edit → Preferences → Themes** for code highlighting. Presets include approximations of Sublime Text Mariana, Monokai, Breakers and Celeste; VS Code Dark+/Light+; GitHub Dark/Light (Default); Monokai Pro and Mariana Pro (Cool/Gray/Warm), alongside the existing Jotta and community-inspired palettes.
 
 The palettes are independent of the app interface dark/light mode, persist automatically and preview instantly. **Follow interface (Jotta)** remains the default. Colours are locally implemented approximations based on publicly documented palette values, not copies of proprietary third-party theme extensions.
 
@@ -178,7 +191,7 @@ Jotta Edit's original code is licensed under **GNU GPL version 2 or later** (`GP
 
 Third-party copyright and licence notices are retained, including required MIT notices. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) explains their locations. Discover/AppStream metadata is **CC0-1.0**, separately from the application's GPL licence.
 
-Use `npm run build:source` on Linux to create `release/Jotta-Edit-1.1.0-Source.tar.gz` with the project source, locked dependency versions, licence notices and build scripts. The Linux and web release scripts create this archive automatically. When distributing application builds, provide the corresponding source and build scripts alongside them as required by the applicable GPL version; retain access to the matching third-party sources too.
+Use `npm run build:source` on Linux to create `release/Jotta-Edit-1.1.1-Source.tar.gz` with the project source, locked dependency versions, licence notices and build scripts. The Linux and web release scripts create this archive automatically. When distributing application builds, provide the corresponding source and build scripts alongside them as required by the applicable GPL version; retain access to the matching third-party sources too.
 
 ## Project search and replace
 

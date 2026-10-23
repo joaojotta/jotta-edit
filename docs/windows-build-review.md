@@ -21,7 +21,6 @@ The script checks Node, installs dependencies, checks syntax/configuration, runs
 
 For manual builds, run `npm run dist:windows` after installing dependencies.
 
-The GitHub Actions workflow publishes only the `*-Portable.exe` artifact from a Windows runner.
 
 KDE Open With integration requires Bash and Flatpak, so that POSIX integration test is skipped on Windows. Windows still runs static checks of the KDE launcher command. This test compatibility adjustment does not change the `1.0.2` application version.
 

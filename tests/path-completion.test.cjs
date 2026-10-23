@@ -47,7 +47,7 @@ test('relative nested filesystem completion includes folders, excludes symlinks 
 });
 test('Windows portable EXE metadata and font discovery are wired', () => {
   const pkg = require('../package.json');
-  assert.equal(pkg.version, '1.1.0');
+  assert.equal(pkg.version, '1.1.1');
   assert.equal(pkg.build.win.target[0], 'portable');
   assert.equal(pkg.build.win.icon, 'assets/icon.ico');
   assert.ok(fs.statSync(path.join(__dirname,'../assets/icon.ico')).size > 1000);

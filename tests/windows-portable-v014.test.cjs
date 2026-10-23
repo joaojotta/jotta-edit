@@ -8,7 +8,7 @@ const pkg = require('../package.json');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 
 test('portable Windows target produces a single EXE, not an NSIS installer', () => {
-  assert.equal(pkg.version, '1.1.0');
+  assert.equal(pkg.version, '1.1.1');
   assert.deepEqual(pkg.build.win.target, ['portable']);
   assert.equal(pkg.build.win.icon, 'assets/icon.ico');
   assert.equal(pkg.build.win.artifactName, 'Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}');
@@ -25,9 +25,7 @@ test('Windows build script checks portable output rather than installer output',
   assert.doesNotMatch(script, /Windows-x64-Setup/);
 });
 
-test('CI uploads portable executable and docs describe no-install launch', () => {
-  const workflow = read('.github/workflows/windows.yml');
-  assert.match(workflow, /release\/\*-Portable\.exe/);
+test('portable build docs describe no-install launch', () => {
   assert.match(read('README.md'), /No installation required|no installation is necessary/i);
   assert.match(read('docs/windows-build-review.md'), /No installation required/i);
 });

@@ -85,9 +85,9 @@ export const syntaxPalettes = Object.freeze({
   },
   'github-light': {
     mode: 'light', background: '#ffffff', foreground: '#24292f', widget: '#f6f8fa', border: '#d0d7de',
-    keyword: '#cf222e', string: '#0a3069', number: '#0550ae', comment: '#66727e',
+    keyword: '#cf222e', string: '#0a3069', number: '#0550ae', comment: '#6e7781',
     function: '#8250df', type: '#953800', variable: '#24292f', tag: '#116329',
-    attribute: '#8250df', operator: '#cf222e', accent: '#0969da'
+    attribute: '#0550ae', operator: '#cf222e', accent: '#0969da'
   },
   'sublime-mariana': {
     mode: 'dark', background: '#303841', foreground: '#d8dee9', widget: '#38434d', border: '#46515d',

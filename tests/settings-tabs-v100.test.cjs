@@ -29,7 +29,7 @@ test('Preferences tabs retain all controls, roles and a draggable title bar', ()
   const css = read('src/style.css');
   const js = read('src/main.js');
   const initial = require('../package.json');
-  assert.equal(initial.version, '1.1.0', 'current release version');
+  assert.equal(initial.version, '1.1.1', 'current release version');
   for (const id of ['editor','themes','explorer','general']) {
     assert.match(html, new RegExp(`id="settings-tab-${id}"[^>]*role="tab"`));
     assert.match(html, new RegExp(`id="settings-pane-${id}"[^>]*role="tabpanel"`));
@@ -89,14 +89,13 @@ test('Dragging is pointer-captured, bounded and resettable without dragging clos
   } finally { global.innerWidth = originalWidth; global.innerHeight = originalHeight; }
 });
 
-test('Sublime, VS Code, GitHub and Pro palettes exist with both light and dark support', async () => {
+test('Sublime, VS Code and Pro palettes exist with both light and dark support', async () => {
   const { syntaxPalettes, syntaxThemeChoices } = await import('../src/syntax-themes.js');
-  for (const id of ['sublime-mariana','sublime-monokai','sublime-celeste','sublime-breakers','vscode-dark-plus','vscode-light-plus','github-light','github-dark','monokai-pro','mariana-pro-cool','mariana-pro-gray','mariana-pro-warm']) {
+  for (const id of ['sublime-mariana','sublime-monokai','sublime-celeste','sublime-breakers','vscode-dark-plus','vscode-light-plus','monokai-pro','mariana-pro-cool','mariana-pro-gray','mariana-pro-warm']) {
     assert.ok(syntaxPalettes[id], `${id} missing`);
     assert.ok(syntaxThemeChoices.some(x => x.id === id), `${id} not selectable`);
   }
   assert.equal(syntaxPalettes['vscode-dark-plus'].background, '#1e1e1e');
   assert.equal(syntaxPalettes['vscode-light-plus'].background, '#ffffff');
-  assert.equal(syntaxPalettes['github-dark'].background, '#0d1117');
   assert.equal(syntaxPalettes['sublime-monokai'].background, '#272822');
 });

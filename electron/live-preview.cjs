@@ -1,6 +1,6 @@
 'use strict';
 const http = require('node:http');
-const fs = require('node:fs/promises');
+const fs = require('./project-fs.cjs');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { spawn } = require('node:child_process');
@@ -21,6 +21,7 @@ class LivePreview {
     this.entry = path.resolve(entry);
     if (!within(this.root, this.entry)) throw new Error('Preview file must be inside the project folder');
     if (/\.php$/i.test(this.entry)) {
+      if(!require('node:fs').existsSync(this.root))throw new Error('PHP preview requires a local workspace.');
       try { await this.startPhp(); } catch (error) { await this.stop(); throw error; }
     }
     this.token = randomBytes(24).toString('hex');

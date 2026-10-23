@@ -103,25 +103,3 @@ export async function putWorkspaceContext(workspace, previous) {
     transaction.onabort = () => reject(transaction.error || new Error('Workspace switch aborted'));
   });
 }
-
-/** Compare and apply a reviewed GitHub batch in a single cross-tab transaction. */
-export async function atomicGithubFiles(plan) {
-  const {decodeBytes,textOf} = await import('../shared/github-sync.mjs');
-  const db=await database();
-  return new Promise((resolve,reject)=>{
-    const transaction=db.transaction('files','readwrite'),store=transaction.objectStore('files'),request=store.getAll();
-    request.onsuccess=()=>{
-      try{
-        for(const change of plan(request.result)){
-          if(change.data===null)store.delete(change.path);
-          else{
-            const text=textOf(change);
-            store.put({path:change.path,mode:change.mode,mtimeMs:Date.now(),...(text===null?{binary:decodeBytes(change.data)}:{content:text})});
-          }
-        }
-      }catch(error){transaction.abort();reject(error);}
-    };
-    transaction.oncomplete=resolve;transaction.onerror=()=>reject(transaction.error);
-    transaction.onabort=()=>reject(transaction.error||new Error('Sync transaction aborted'));
-  });
-}

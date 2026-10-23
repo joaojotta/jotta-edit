@@ -15,15 +15,15 @@ export const explorerIconPaletteChoices = Object.freeze([
   { id: 'seti-light', label: 'VS Code Seti-inspired (Light)' },
   { id: 'catppuccin-mocha', label: 'Catppuccin Mocha-inspired' },
   { id: 'catppuccin-latte', label: 'Catppuccin Latte-inspired' },
-  { id: 'monokai-pro', label: 'Monokai Pro-inspired' },
   { id: 'github-dark', label: 'GitHub Dark-inspired' },
   { id: 'github-light', label: 'GitHub Light-inspired' },
+  { id: 'monokai-pro', label: 'Monokai Pro-inspired' },
   { id: 'monochrome', label: 'Monochrome (interface)' }
 ]);
 
 const iconNames = [
   'folder.svg', 'file.svg', 'html5.svg', 'css3.svg', 'js.svg', 'json.svg',
-  'php.svg', 'txt.svg', 'fonts.svg', 'png.svg', 'jpeg.svg', 'gif.svg',
+  'php.svg', 'markdown.svg', 'txt.svg', 'fonts.svg', 'png.svg', 'jpeg.svg', 'gif.svg',
   'svg.svg', 'webp.svg', 'image.svg', 'audio.svg', 'video.svg', 'package.svg'
 ];
 export const explorerIconNames = Object.freeze(iconNames);
@@ -34,7 +34,7 @@ function palette(folder, file, html, css, js, json, php, text, fonts, image, svg
   return Object.freeze({
     'folder.svg': folder, 'file.svg': file, 'html5.svg': html,
     'css3.svg': css, 'js.svg': js, 'json.svg': json, 'php.svg': php,
-    'txt.svg': text, 'fonts.svg': fonts, 'png.svg': image,
+    'markdown.svg': css, 'txt.svg': text, 'fonts.svg': fonts, 'png.svg': image,
     'jpeg.svg': image, 'gif.svg': image, 'svg.svg': svg,
     'webp.svg': image, 'image.svg': image, 'audio.svg': audio,
     'video.svg': video, 'package.svg': archive
@@ -49,9 +49,9 @@ export const explorerIconPalettes = Object.freeze({
   'seti-light': palette('#A67A21','#637385','#C36231','#2676AE','#9A7800','#956A27','#7957AD','#657281','#8658AA','#2F877A','#B26635','#A34E8C','#516CA8','#94702E'),
   'catppuccin-mocha': palette('#F9E2AF','#A6ADC8','#FAB387','#89B4FA','#F9E2AF','#EBA0AC','#CBA6F7','#BAC2DE','#F5C2E7','#94E2D5','#FAB387','#F5C2E7','#B4BEFE','#EBA0AC'),
   'catppuccin-latte': palette('#B78727','#6C7086','#D85D21','#1E66F5','#A87909','#985A17','#8839EF','#6C6F85','#8839EF','#179299','#CA5D1D','#EA5C9A','#5264BB','#98621F'),
-  'monokai-pro': palette('#FFD866','#A9A9A4','#FF6188','#78DCE8','#FFD866','#AB9DF2','#AB9DF2','#BAB8B4','#FC9867','#A9DC76','#FC9867','#FF6188','#78DCE8','#E8B665'),
   'github-dark': palette('#D0A86A','#8B949E','#FF7B72','#79C0FF','#E3B341','#A5D6FF','#BC8CFF','#8B949E','#D2A8FF','#7EE787','#FFA657','#D2A8FF','#79C0FF','#CCA569'),
   'github-light': palette('#A67B28','#57606A','#CF222E','#0969DA','#9A6900','#0550AE','#8250DF','#57606A','#8250DF','#1A7F37','#BC4C00','#BF3989','#0550AE','#986525'),
+  'monokai-pro': palette('#FFD866','#A9A9A4','#FF6188','#78DCE8','#FFD866','#AB9DF2','#AB9DF2','#BAB8B4','#FC9867','#A9DC76','#FC9867','#FF6188','#78DCE8','#E8B665'),
   'mariana': palette('#FAC863','#ABB9C4','#F99179','#79B8DD','#E6C46E','#C695C6','#C695C6','#B0BBC5','#C695C6','#5FB3B3','#F99179','#C695C6','#7BAED4','#BAA071'),
   'one-dark': palette('#E5C07B','#ABB2BF','#E06C75','#61AFEF','#E5C07B','#D19A66','#C678DD','#ABB2BF','#C678DD','#56B6C2','#D19A66','#C678DD','#61AFEF','#BE995C'),
   dracula: palette('#F1FA8C','#B8B9C7','#FF79C6','#8BE9FD','#F1FA8C','#BD93F9','#BD93F9','#B8B9C7','#FF79C6','#50FA7B','#FFB86C','#FF79C6','#8BE9FD','#D9AC82'),
@@ -63,12 +63,13 @@ export const explorerIconPalettes = Object.freeze({
 const bySyntaxTheme = Object.freeze({
   'jotta-dark': 'jotta-dark', 'jotta-light': 'jotta-light',
   'vscode-dark-plus': 'seti-dark', 'vscode-light-plus': 'seti-light',
-  'github-dark': 'github-dark', 'github-light': 'github-light',
   'monokai': 'monokai-pro', 'sublime-monokai': 'monokai-pro', 'monokai-pro': 'monokai-pro',
   'catppuccin-mocha': 'catppuccin-mocha',
   'sublime-mariana': 'mariana', 'mariana-pro-cool': 'mariana',
   'mariana-pro-gray': 'mariana', 'mariana-pro-warm': 'mariana',
-  'sublime-celeste': 'seti-light', 'sublime-breakers': 'github-light',
+  'github-dark': 'github-dark',
+  'github-light': 'github-light',
+  'sublime-celeste': 'seti-light', 'sublime-breakers': 'seti-light',
   'one-dark': 'one-dark', dracula: 'dracula', nord: 'nord',
   'tokyo-night': 'tokyo-night', 'solarized-light': 'solarized-light'
 });

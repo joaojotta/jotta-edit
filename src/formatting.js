@@ -3,7 +3,7 @@ import { prettierPrintWidth } from './editor-behaviour.js';
 // Browser-compatible, lazily loaded Prettier standalone plugins. No network
 // requests or external executables are needed for these five formatters.
 export const formatLanguages = new Set([
-  'javascript', 'typescript', 'json', 'html', 'css', 'scss', 'less', 'php'
+  'javascript', 'typescript', 'json', 'html', 'css', 'scss', 'less', 'php', 'markdown'
 ]);
 
 const lazy = (load) => {
@@ -16,6 +16,7 @@ const getEstree = lazy(() => import('prettier/plugins/estree'));
 const getTypescript = lazy(() => import('prettier/plugins/typescript'));
 const getHtml = lazy(() => import('prettier/plugins/html'));
 const getPostcss = lazy(() => import('prettier/plugins/postcss'));
+const getMarkdown = lazy(() => import('prettier/plugins/markdown'));
 // PHP standalone is published as UMD. Node's dynamic import often wraps the
 // UMD exports under `default`, while a browser bundler can expose them directly.
 // Pass the actual parsers/printers object to Prettier in either environment.
@@ -45,6 +46,7 @@ function parserFor(lang, filename) {
     case 'scss': return 'scss';
     case 'less': return 'less';
     case 'php': return 'php';
+    case 'markdown': return 'markdown';
     default: return null;
   }
 }
@@ -64,6 +66,8 @@ export async function formatCode(source, { language, filename = '', tabWidth = 2
     plugins.push(await getPostcss());
   } else if (parser === 'php') {
     plugins.push(await getPhp());
+  } else if (parser === 'markdown') {
+    plugins.push(await getMarkdown());
   }
   const prettier = await getPrettier();
   const formatted = await prettier.format(source, {

@@ -1,14 +1,40 @@
 # Changelog
 
-## 1.1.0 — GitHub sync (20 Oct 2026)
+## Unreleased
 
-- Exclude untracked `release/` and `web-dist/` build outputs from GitHub scans on desktop and web, while retaining files already tracked by the repository. Limit errors now identify the offending path and distinguish file size, total size and file count.
-- Include a repository `.gitignore` in source exports to keep dependencies, generated builds, release packages and local environment files out of Git.
-- Connect a repository-scoped GitHub token for the current app session, choose a repository and branch, and create or link a managed workspace on desktop and web. No token is stored on disk or in browser storage.
-- Review incoming changes and selected local changes, preview text or binary files, resolve per-file conflicts, pull updates or create and push a commit while syncing. New files are excluded until selected. GitHub updates never force-push.
-- Guard against stale reviews, unsaved buffers, incomplete remote trees, unsafe paths, symlinks, Git checkouts and concurrent branch changes. Browser updates use one IndexedDB transaction; desktop updates stage backups and roll back on write failures.
-- Sync currently requires an initialized GitHub.com repository and regular files: up to 2,000 files, 5 MB per file and 40 MB per workspace. Web sync uses browser-managed workspaces; desktop sync uses folders without .git.
-- Update About, package metadata, AppStream and release filenames to 1.1.0.
+- Export the active Markdown draft as styled HTML or PDF from its toolbar, File menu or command palette on desktop and web. Embed local images, preserve section links and keep source buffers unchanged. Desktop PDF saves directly; web PDF uses the browser print dialog.
+
+- Add local-folder and remote-server favourites from the File menu, Explorer star button, command palette and welcome screen. Optionally save remote credentials with system encryption; delete credentials separately or remove the entire favourite. Keep local favourites available in the browser build.
+
+- Reload cached empty Explorer folders when expanded, including `public_html`. Fetch immediate contents without scanning unrelated subfolders, keep child folders available for later expansion, and show when no visible entries were returned.
+
+- Enter FTP folders before requesting MLSD/LIST listings, so servers that ignore listing path arguments show the actual `public_html` contents. Restore the previous FTP working directory after each listing.
+
+- Open FTP directory aliases such as `public_html` when the server exposes an inaccessible physical link target or omits the target. Verify the accessible alias with CWD/PWD and keep file operations inside the FTP workspace.
+
+- Keep folders such as `public_html` visible when they are FTP/SFTP links. Resolve in-workspace link targets, use FTP LIST metadata when needed, and show unavailable links with a reason. Preserve later sibling folders after the Explorer file limit and load unscanned folders when expanded.
+
+- Disable electron-builder dependency rebuilds for all desktop targets. SSH2 uses its JavaScript fallback when the optional `cpu-features` addon is unavailable, so AppImage and Flatpak packaging do not require compiling it.
+
+- Connect to FTP, SFTP and SMB servers directly with bundled protocol clients on all desktop platforms. Open the server folder in the Explorer without KIO, GVfs, native mount tools or a desktop portal.
+- Replace the native folder picker with an in-app browser with an editable path, home/parent navigation and hidden-folder controls.
+- Verify SFTP server fingerprints in the app, keep connection passwords in memory unless explicitly saved with system encryption, and support SMB domain usernames. Cancel and time out stalled connections and filesystem operations.
+- Route remote Explorer operations, project search, Markdown assets and guarded saves through the direct connection. Stage saves beside the destination, check for server edits, replace and verify the result. Move deleted remote entries into the workspace's `.jotta-trash` folder.
+
+## 1.1.1 — Markdown (20 Oct 2026)
+
+- Add a live, resizable Markdown preview and icon formatting tools on desktop and web, including headings, emphasis, links, images, code, quotes, lists, checklists and tables. Formatting edits are undoable; the existing formatter also supports Markdown.
+- Give `.md` and `.markdown` files their own Markdown icon in the Explorer and tabs, with a separate file-type colour setting and support across icon palettes. Use the supplied `markdown-preview.svg` for both Markdown preview controls.
+- Sanitize preview HTML, keep scripts and unsafe links inactive, support workspace images and HTTPS images, and keep preview controls separate from desktop Live Preview.
+- Update the desktop and web version to 1.1.1.
+
+## 1.1.0 — Remote folders (20 Oct 2026)
+
+- Use the supplied cloud folder icon for remote connections.
+- Open FTP, SFTP and SMB folders through the desktop's mounted filesystem, with connection and mounted-folder choices in the File menu and Explorer.
+- Use existing Explorer operations, save commands, project search, local history and recent workspaces with accessible mounted folders. Authentication stays with the operating system.
+- Protect remote saves with staged, flushed writes, server-content checks and verification; failed or stale saves keep editor buffers unsaved.
+- Keep version 1.1.0 across About, package metadata and release filenames.
 
 ## 1.0.2 — Live preview and Explorer file creation (19 Oct 2026)
 
@@ -108,7 +134,6 @@
 
 - Added a browser target sharing the desktop editor, syntax themes, custom theme editor and formatting.
 - Added browser-managed offline projects (IndexedDB), native folder access where permitted, session restoration, local folder/ZIP import and ZIP project backup.
-- Added offline application-shell caching, PWA manifest, build scripts and an optional GitHub Actions workflow. Desktop packaging remains unchanged.
 
 ### Syntax theme designer
 
@@ -145,7 +170,7 @@
 
 - Added Explorer icon palettes that follow the selected syntax highlighting theme by default.
 - Added an optional independent Explorer icon palette selector in Preferences → Explorer, with a live icon preview.
-- Included locally-defined colours inspired by VS Code Seti, Material Icons, Catppuccin Mocha/Latte, Monokai Pro and GitHub, plus matching palettes for Jotta, Nord, Dracula, One Dark, Tokyo Night, Mariana and Solarized.
+- Included locally-defined colours inspired by VS Code Seti, Material Icons, Catppuccin Mocha/Latte, Monokai Pro, plus matching palettes for Jotta, Nord, Dracula, One Dark, Tokyo Night, Mariana and Solarized.
 - Kept the user's supplied SVG shapes and custom per-icon colour overrides; Automatic resets one icon to its resolved palette default.
 - Kept icons at least 3:1 contrast against the sidebar, including when syntax and UI themes have opposite light/dark modes.
 - No third-party icon artwork or dependencies added.
@@ -153,7 +178,7 @@
 ### Editor palettes and tabbed Preferences
 
 - Added Sublime Text Mariana Dark, Monokai Dark, Celeste Light, Breakers Light-inspired syntax palettes.
-- Added VS Code Dark+/Light+, GitHub Dark Default, Monokai Pro Classic and Mariana Pro (Cool/Gray/Warm) palettes.
+- Added VS Code Dark+/Light+, Monokai Pro Classic and Mariana Pro (Cool/Gray/Warm) palettes.
 - Preserved existing theme IDs, live application and the independent UI dark/light mode.
 - Grouped Preferences into keyboard-accessible Editor, Themes, Explorer and General tabs.
 - Added pointer-drag repositioning by the Preferences title bar.
@@ -161,7 +186,7 @@
 ### Syntax theme library
 
 - Separate Monaco code syntax palette from the app's dark/light UI theme, while preserving **Follow interface (Jotta)** as the default.
-- Add 8 popular-inspired palettes (Monokai, One Dark, Dracula, Nord, Tokyo Night, Catppuccin Mocha, GitHub Light, Solarized Light), alongside Jotta Dark/Light.
+- Add 8 popular-inspired palettes (Monokai, One Dark, Dracula, Nord, Tokyo Night, Catppuccin Mocha, Solarized Light), alongside Jotta Dark/Light.
 - Add a live theme selector and syntax colour preview in Preferences; store the choice and translate its labels to pt-PT.
 - Retain local theme definitions, without new runtime dependencies or third-party theme assets.
 
@@ -192,7 +217,6 @@
 - Replaced the Windows NSIS installer target with electron-builder `portable` x64.
 - Build output is `Jotta-Edit-1.0.0_RC-Windows-x64-Portable.exe`, one distributable executable with no installation step.
 - The PowerShell build script now checks for the generated executable and prints its path.
-- Updated the Windows GitHub Actions workflow to publish the portable EXE and added portable build regression tests.
 - No change to the Linux Flatpak distribution model.
 
 ## 0.0.13 — Release Candidate / Explorer folders, icon colours and interface font (18 Oct 2026)

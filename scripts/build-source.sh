@@ -8,5 +8,5 @@ archive="$PWD/release/Jotta-Edit-${version}-Source.tar.gz"
 tar -czf "$archive" \
   LICENSE THIRD-PARTY-NOTICES.md licenses README.md CHANGELOG.md VERSION_HISTORY.md \
   package.json package-lock.json index.html vite.config.mjs vite.web.config.mjs \
-  src electron shared web public assets scripts tests docs .github .npmrc .gitignore
+  src electron shared web public assets scripts tests docs .npmrc .gitignore
 printf 'Source and build scripts: %s\n' "$archive"

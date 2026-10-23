@@ -21,7 +21,9 @@ async function adapter(t) {
   const url='data:text/javascript;base64,'+Buffer.from(memory+'\n//'+crypto.randomUUID()).toString('base64');
   let source=await fs.readFile(path.join(__dirname,'../web/browser-api.js'),'utf8');
   source=source.replace("'./storage.js'",JSON.stringify(url))
-    .replace("'./github-workspace.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'../web/github-workspace.js')).href))
+    
+    .replace("'../shared/markdown-paths.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/markdown-paths.mjs')).href))
+    .replace("'./markdown-export.js'", JSON.stringify(pathToFileURL(path.join(__dirname, '../web/markdown-export.js')).href))
     .replace("'./zip.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'../web/zip.js')).href))
     .replace("'../shared/local-history.mjs'",JSON.stringify(pathToFileURL(path.join(__dirname,'../shared/local-history.mjs')).href));
   const {browserApi:api}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));

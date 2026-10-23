@@ -1,7 +1,8 @@
-import {browserGitHubWorkspace} from './github-workspace.js';
 import {appendHistory, pruneHistory, historyList, moveHistory, HISTORY_LIMITS} from '../shared/local-history.mjs';
 import {getMeta, putMeta, getFile, putFile, addFile, allFiles, mutateFiles, updateHistory, putWorkspaceContext} from './storage.js';
 import {readZip, writeZip, safeArchivePath} from './zip.js';
+import {markdownTarget,markdownImageType,externalMarkdownLink} from '../shared/markdown-paths.mjs';
+import {printMarkdown} from './markdown-export.js';
 
 const MAX_BYTES=5*1024*1024;
 const IGNORE=new Set(['node_modules','.git','vendor','.cache','dist','build']);
@@ -511,13 +512,26 @@ async function completePath({file,root,typed}) {
 }
 function findNodeChildren(nodes,folder,root){if(folder===root)return nodes;for(const n of nodes){if(n.path===folder&&n.dir)return n.children||[];if(n.dir){const found=findNodeChildren(n.children||[],folder,root);if(found.length)return found;}}return [];}
 
-const githubWorkspace=browserGitHubWorkspace(context);
 export const browserApi={
-  githubTokenHelp:()=>window.open('https://github.com/settings/personal-access-tokens/new','_blank','noopener,noreferrer'),
-  githubState:root=>githubWorkspace.get(root), githubSetState:(root,state)=>githubWorkspace.set(root,state),
-  githubSnapshot:(root,tracked)=>githubWorkspace.snapshot(root,tracked),
-  githubApply:(root,changes,expected,tracked)=>githubWorkspace.apply(root,changes,expected,tracked),
-  githubChooseWorkspace:name=>newWorkspace(name),
+  async readMarkdownAsset({reference,documentPath,root}){
+    const target=markdownTarget(reference,documentPath,root),type=target?.kind==='file'&&markdownImageType(target.path);
+    if(!type)throw new Error('Only local image files can be loaded in Markdown preview.');
+    const context=await contextForPath(target.path);let bytes;
+    if(context.mode==='native'&&within(context.root,target.path)){
+      const file=await (await resolveHandle(target.path)).getFile();if(file.size>MAX_BYTES)throw new Error('Markdown image exceeds 5 MiB.');bytes=new Uint8Array(await file.arrayBuffer());
+    }else{
+      const file=await getFile(target.path);if(!file||file.dir)throw new Error('Image file not found.');bytes=file.binary?new Uint8Array(file.binary):utf8.encode(file.content||'');
+    }
+    if(bytes.length>MAX_BYTES)throw new Error('Markdown image exceeds 5 MiB.');
+    let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));
+    return {url:'data:'+type+';base64,'+btoa(binary),bytes:bytes.length};
+  },
+  openMarkdownLink:value=>{const url=externalMarkdownLink(value);if(!url)throw new Error('Unsupported Markdown link.');window.open(url,'_blank','noopener,noreferrer');},
+  exportMarkdown:async({format,name,html})=>{
+    if(!['html','pdf'].includes(format)||typeof html!=='string'||utf8.encode(html).length>40*1024*1024)throw new Error('Invalid Markdown export.');
+    if(format==='pdf')return printMarkdown(html);
+    downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),cleanName(name));return {canceled:false};
+  },
   platform:'web', prepareSave, saveLocation, reopenWorkspace, downloadFile, chooseFolder, newWorkspace, importDirectory, importZip, exportProject,
   listHistory:async path=>historyList(pruneHistory(await getMeta('local-history',[])),path),
   getHistory:async(path,id)=>{const record=pruneHistory(await getMeta('local-history',[])).find(r=>r.path===path&&r.id===id);if(!record)throw new Error('This history version is no longer available.');return record;},

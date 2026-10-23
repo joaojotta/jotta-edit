@@ -25,7 +25,9 @@ test('browser workspace preserves empty folders and supports creating, moving an
   const zipUrl = pathToFileURL(path.join(__dirname, '../web/zip.js')).href;
   const source = (await fs.readFile(path.join(__dirname, '../web/browser-api.js'), 'utf8'))
     .replace("'../shared/local-history.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/local-history.mjs')).href))
-    .replace("'./storage.js'", JSON.stringify(storageUrl)).replace("'./github-workspace.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'../web/github-workspace.js')).href))
+    .replace("'./storage.js'", JSON.stringify(storageUrl))
+    .replace("'../shared/markdown-paths.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/markdown-paths.mjs')).href))
+    .replace("'./markdown-export.js'", JSON.stringify(pathToFileURL(path.join(__dirname, '../web/markdown-export.js')).href))
     .replace("'./zip.js'", JSON.stringify(zipUrl));
   const {browserApi:api} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   const root = '/workspace/project';

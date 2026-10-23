@@ -16,7 +16,10 @@ import { normalizeFormatterWidth, normalizePlainTextHighlight, plainTextHighligh
 import { pathContext, filterPathItems } from './path-completion.js';
 import { workspacePreferences } from './workspace-preferences.js';
 import { installRecentWorkspaces } from './recent-workspaces.js';
-import { installGitHub } from './github-panel.js';
+import { installFavourites, browserFavourites } from './favourites.js';
+import { installFolderPicker } from './folder-picker.js';
+import { installRemoteFolders } from './remote-folders.js';
+import { installMarkdownPanel } from './markdown-panel.js';
 import { installLocalHistory } from './local-history-panel.js';
 import { installEditorLayout } from './editor-layout.js';
 import { installProjectSearch } from './project-search-panel.js';
@@ -46,10 +49,10 @@ self.MonacoEnvironment = {
   }
 };
 
-const api = window.slate;
+const api = {...window.slate};
 const $ = id => requiredElement(document, id);
 const stored = (name, fallback) => localStorage.getItem('jotta.' + name) ?? localStorage.getItem('slate.' + name) ?? fallback;
-let workspacePrefs, recentWorkspaces;
+let workspacePrefs, recentWorkspaces, favouritesPanel;
 const remember = (name, value) => {
   if (!workspacePrefs?.remember(state.root, name, value)) localStorage.setItem('jotta.' + name, String(value));
 };
@@ -90,8 +93,9 @@ workspacePrefs = workspacePreferences(localStorage, {indentMode:state.indentMode
   wrap:state.wordWrap, formatOnSave:state.formatOnSave, formatWidth:state.formatWidth});
 let colorEditor;
 let projectSearch;
-let githubPanel;
 let localHistoryPanel;
+let remoteFoldersPanel, folderPicker;
+let markdownPanel;
 let settingsDrag = null;
 let editor;
 let statusTimeout;
@@ -267,22 +271,22 @@ function activateEditor(target, doc) {
   $('breadcrumbs').textContent = doc ? relative(doc.path) || doc.name : tr('START');
   document.title = doc ? `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit` : 'Jotta Edit';
   renderTabs(); renderTree(); updateStatus(); persist();
+  markdownPanel?.activate(doc,target);
 }
 function attachDocumentListener(doc) {
   doc.listener?.dispose();
   doc.listener = doc.model.onDidChangeContent(() => {
-    if (!doc.path) {
+    if (!doc.path && !doc.languagePinned) {
       clearTimeout(doc.detectTimer);
       doc.detectTimer = setTimeout(() => {
         const detected = detectLanguage(doc.model.getValue()) || 'plaintext';
-        if (!doc.path && doc.model.getLanguageId() !== detected) {
+        if (!doc.path && !doc.languagePinned && doc.model.getLanguageId() !== detected) {
           monaco.editor.setModelLanguage(doc.model, detected);
           if (doc.id === state.active) updateStatus();
         }
       }, 320);
     }
     projectSearch?.invalidate();
-    if(doc.path && state.root && projectPathContains(state.root,doc.path))githubPanel?.invalidate();
     const wasDirty = doc.dirty;
     doc.dirty = doc.model.getValue() !== doc.savedText;
     if (wasDirty !== doc.dirty) {
@@ -306,6 +310,10 @@ function addDocument(file, content = '', mtimeMs = null) {
   setActive(id);
   persist();
   return doc;
+}
+function newMarkdown(){
+  const doc=addDocument(null);doc.name=doc.name+'.md';doc.languagePinned=true;
+  monaco.editor.setModelLanguage(doc.model,'markdown');setActive(doc.id);persist();
 }
 async function openFile(file, opts = {}) {
   try {
@@ -335,6 +343,7 @@ async function restoreSavedSession(saved) {
         if (typeof item.name === 'string' && item.name.trim()) doc.name = item.name;
         if (typeof item.text === 'string') doc.model.setValue(item.text);
         if (typeof item.language === 'string' && monaco.languages.getLanguages().some(l => l.id === item.language)) {
+          doc.languagePinned=true;
           monaco.editor.setModelLanguage(doc.model, item.language);
         }
       } else {
@@ -507,7 +516,7 @@ function renderTabs() {
 // Icon colours are keyed by the shipped SVG name, never arbitrary image URLs.
 const iconTypes = [
   ['folder.svg','Folder'],['file.svg','Other files'],['html5.svg','HTML'],['css3.svg','CSS'],['js.svg','JavaScript'],
-  ['json.svg','JSON'],['php.svg','PHP'],['txt.svg','Text'],['fonts.svg','Fonts'],
+  ['json.svg','JSON'],['php.svg','PHP'],['markdown.svg','Markdown'],['txt.svg','Text'],['fonts.svg','Fonts'],
   ['png.svg','PNG'],['jpeg.svg','JPEG'],['gif.svg','GIF'],['svg.svg','SVG'],
   ['webp.svg','WebP'],['image.svg','Images'],['audio.svg','Audio'],['video.svg','Video'],['package.svg','Packages']
 ];
@@ -574,7 +583,6 @@ function removeFolderFromView(path) {
   projectSearch?.reset();
   if (path === state.root) {
     state.root = null; state.nodes = []; state.files = [];
-    githubPanel?.workspaceChanged();
     applyWorkspaceSettings();
     state.expanded.clear(); state.removedFolders.clear();
     $('project-name').textContent = tr('NO FOLDER OPEN');
@@ -609,7 +617,8 @@ function fileIconPath(name, isDir = false) {
   if (['zip','rar','7z','tar','gz','bz2','xz'].includes(ext)) return '/file-icons/package.svg';
   if (['mp3','wav','flac','ogg','m4a','aac'].includes(ext)) return '/file-icons/audio.svg';
   if (['mp4','webm','mkv','avi','mov'].includes(ext)) return '/file-icons/video.svg';
-  if (['txt','md','markdown'].includes(ext)) return '/file-icons/txt.svg';
+  if (['md','markdown'].includes(ext)) return '/file-icons/markdown.svg';
+  if (ext === 'txt') return '/file-icons/txt.svg';
   if (['ttf','otf','woff','woff2','eot'].includes(ext)) return '/file-icons/fonts.svg';
   return '/file-icons/file.svg';
 }
@@ -809,9 +818,26 @@ function renderTree() {
         row.append(remove);
       }
 
-      const activate = () => {
-        if (node.dir) { state.expanded.has(node.path) ? state.expanded.delete(node.path) : state.expanded.add(node.path); renderTree(); }
-        else openFile(node.path);
+      if(node.error)row.title=tr(node.error);
+      const activate = async () => {
+        if(node.error){showStatus(node.error,6500);return;}
+        if(!node.dir){openFile(node.path);return;}
+        if(state.expanded.has(node.path)){state.expanded.delete(node.path);renderTree();return;}
+        state.expanded.add(node.path);renderTree();
+        const source=findExplorerNode(state.nodes,node.path);
+        if(!source||source.loading||(!source.incomplete&&source.children?.length))return;
+        source.loading=true;const root=state.root;
+        showStatus('Loading folder…');
+        try{
+          const listing=await api.scanFolder(node.path,{showHidden:state.showHidden,shallow:true});
+          if(state.root!==root)return;
+          if(findExplorerNode(state.nodes,node.path)!==source)return;
+          source.children=listing.nodes;source.incomplete=false;
+          state.files=collectFiles(filterRemovedFolders(state.nodes));
+          if(listing.truncated)showStatus('Explorer limited to first 8,000 files',6000);
+          else showStatus(listing.nodes.length?'Ready':'No visible files or folders');
+        }catch(error){if(state.root===root){state.expanded.delete(node.path);showStatus(error.message,6500);}}
+        finally{source.loading=false;if(state.root===root)renderTree();}
       };
       row.draggable = true;
       row.addEventListener('dragstart', event => {
@@ -836,6 +862,13 @@ function renderTree() {
   }
   addNodes(filterRemovedFolders(state.nodes), 0);
 }
+function findExplorerNode(nodes, wanted) {
+  for(const node of nodes){
+    if(node.path===wanted)return node;
+    if(node.dir){const found=findExplorerNode(node.children||[],wanted);if(found)return found;}
+  }
+  return null;
+}
 function collectFiles(nodes, output = []) {
   for (const node of nodes) node.dir ? collectFiles(node.children || [], output) : output.push(node.path);
   return output;
@@ -849,30 +882,35 @@ async function refreshFolder({ restoreFolders = false } = {}) {
   renderTree();
   if (listing.truncated) showStatus('Explorer limited to first 8,000 files', 6000);
 }
-async function openFolder(folder = null) {
+async function openFolder(folder = null, {isCurrent=()=>true}={}) {
   const previousRoot = state.root;
   try {
     const p = folder || await api.chooseFolder();
     if (!p) return false;
     if (api.reopenWorkspace) await api.reopenWorkspace(p);
     const listing = await api.scanFolder(p, {showHidden:state.showHidden});
+    const remoteInfo=await api.remoteInfo?.(p);
+    if(!isCurrent())return false;
     state.root = p;
+    void favouritesPanel?.refresh().catch(()=>{});
+    markdownPanel?.refresh();
     applyWorkspaceSettings();
     projectSearch?.reset();
-    githubPanel?.workspaceChanged();
     state.removedFolders.clear(); state.expanded.clear(); state.expanded.add(p);
     state.nodes = listing.nodes; state.files = collectFiles(listing.nodes);
     $('project-name').textContent = basename(p).toUpperCase();
     $('btn-close-project').classList.remove('hidden');
-    $('project-name').title = p; $('window-title').textContent = p;
+    $('project-name').title = remoteInfo?.uri || p; $('window-title').textContent = remoteInfo?.uri || p;
     if (!state.sidebarOpen) toggleSidebar();
     renderTree(); persist();
     try { workspacePrefs.opened(p); recentWorkspaces?.render(); }
     catch (error) { showStatus(error.message, 6500); return true; }
     if (api.platform === 'web') window.dispatchEvent(new CustomEvent('jotta:workspace-opened', {detail:{root:p}}));
-    showStatus(`Opened ${basename(p)} · ${state.files.length} files`);
+    if(listing.truncated)showStatus('Explorer limited to first 8,000 files',6000);
+    else showStatus(`Opened ${basename(p)} · ${state.files.length} files`);
     return true;
   } catch (err) {
+    if(!isCurrent())return false;
     if (api.reopenWorkspace && previousRoot) await api.reopenWorkspace(previousRoot, false).catch(() => {});
     showStatus(`Cannot open folder: ${err.message}`, 6500); return false;
   }
@@ -1185,14 +1223,19 @@ const commands = [
   ...(api.stopPreview ? [{ label: 'Stop Live Preview', description: '', run: stopLivePreview }] : []),
   ...(api.downloadFile ? [{ label: 'Download file', description: '', run: downloadActiveFile }] : []),
   { label: 'New file', description: 'Ctrl+N', run: () => addDocument(null) },
+  { label: 'New Markdown file', description: '', run:newMarkdown },
+  { label: 'Markdown preview', description:'Ctrl+Shift+V', run:()=>markdownPanel.toggle() },
+  { label: 'Export Markdown as HTML', description:'', run:()=>markdownPanel.export('html') },
+  { label: 'Export Markdown as PDF', description:'', run:()=>markdownPanel.export('pdf') },
   { label: 'Open file…', description: 'Ctrl+O', run: chooseFile },
+  { label: 'Favourites…', description: '', run: () => favouritesPanel.open() },
   { label: 'Recent Workspaces…', description: '', run: () => recentWorkspaces.open() },
   { label: 'Open folder…', description: 'Ctrl+Shift+O', run: () => openFolder() },
+  ...(api.connectRemoteFolder ? [{label:'Open Remote Folder…',description:'FTP / SFTP / SMB',run:()=>remoteFoldersPanel.open()}] : []),
   { label: 'Save file', description: 'Ctrl+S', run: () => save() },
   { label: 'Save as…', description: 'Ctrl+Shift+S', run: () => save(activeDocument(), true) },
   { label: 'Close file', description: 'Ctrl+W', run: () => activeDocument() && closeDocument(state.active) },
   { label: 'Split editor', description: 'Ctrl+\\', run: () => editorLayout.toggleSplit() },
-  { label: 'GitHub sync', description: '', run: () => githubPanel.show() },
   { label: 'Local History…', description: '', run: () => localHistoryPanel.open() },
   { label: 'Compare with saved version', description: '', run: () => editorLayout.compareSaved(activeDocument()) },
   { label: 'Close comparison', description: '', run: () => editorLayout.closeComparison() },
@@ -1244,7 +1287,7 @@ async function fillPalette() {
     list = commands.map(c => paletteEntry(tr(c.label), c.description, c.run));
   } else if (mode === 'language') {
     list = languages.map(l => paletteEntry(titleCase(l), l, () => {
-      const doc = activeDocument(); if (doc) { monaco.editor.setModelLanguage(doc.model, l); updateStatus(); }
+      const doc = activeDocument(); if (doc) { doc.languagePinned=true;monaco.editor.setModelLanguage(doc.model, l); updateStatus(); }
     }));
   } else if (mode === 'line') {
     const number = Number.parseInt(query, 10);
@@ -1413,6 +1456,7 @@ function setupKeyboard() {
     else if (mod && key === 'n') { event.preventDefault(); addDocument(null); }
     else if (mod && key === 'o') { event.preventDefault(); event.shiftKey ? openFolder() : chooseFile(); }
     else if (mod && key === 's') { event.preventDefault(); save(activeDocument(), event.shiftKey); }
+    else if (mod && event.shiftKey && key === 'v' && activeDocument()?.model.getLanguageId()==='markdown') { event.preventDefault();event.stopPropagation();markdownPanel.toggle(); }
     else if (mod && key === 'w') { event.preventDefault(); if (state.active) closeDocument(state.active); }
     else if (mod && key === '\\') { event.preventDefault(); editorLayout.toggleSplit(); }
     else if (mod && key === 'b') { event.preventDefault(); toggleSidebar(); }
@@ -1440,12 +1484,14 @@ function showModal(id) {
 }
 function closeModals() {
   localHistoryPanel?.hide();
-  for (const id of ['settings-overlay', 'about-overlay', 'history-overlay', 'recent-workspaces-overlay']) {
+  remoteFoldersPanel?.hide();
+  folderPicker?.hide();
+  for (const id of ['settings-overlay', 'about-overlay', 'history-overlay', 'recent-workspaces-overlay', 'favourites-overlay', 'remote-overlay', 'folder-picker-overlay']) {
     $(id).classList.add('hidden'); $(id).setAttribute('aria-hidden', 'true');
   }
 }
 function isModalOpen() {
-  return !($('settings-overlay').classList.contains('hidden') && $('about-overlay').classList.contains('hidden') && $('history-overlay').classList.contains('hidden') && $('recent-workspaces-overlay').classList.contains('hidden'));
+  return ['settings-overlay','about-overlay','history-overlay','recent-workspaces-overlay','favourites-overlay','remote-overlay','folder-picker-overlay'].some(id=>!$(id).classList.contains('hidden'));
 }
 function updateRestartNotice() {
   const changed = ($('setting-frame').value === 'native') !== state.nativeFrame;
@@ -1490,14 +1536,18 @@ async function safelyRestart() {
 const menuSpecs = {
   File: [
     { label: 'New File', command: 'new', accelerator: 'Ctrl+N' },
+    { label: 'New Markdown file', command: 'new-markdown' },
     { label: 'Open File…', command: 'open-file', accelerator: 'Ctrl+O' },
-    { label: 'GitHub sync', command: 'github-sync' },
     { label: 'Open Folder…', command: 'open-folder', accelerator: 'Ctrl+Shift+O' },
+    ...(api.connectRemoteFolder ? [{label:'Open Remote Folder…',command:'open-remote-folder'}] : []),
+    { label: 'Favourites…', command: 'favourites' },
     { label: 'Recent Workspaces…', command: 'recent-workspaces' },
     { separator: true },
     { label: 'Save', command: 'save', accelerator: 'Ctrl+S' },
     { label: 'Save As…', command: 'save-as', accelerator: 'Ctrl+Shift+S' },
     { label: 'Local History…', command: 'local-history' },
+    { label: 'Export Markdown as HTML', command: 'markdown-export-html', disabled:()=>activeDocument()?.model.getLanguageId()!=='markdown' },
+    { label: 'Export Markdown as PDF', command: 'markdown-export-pdf', disabled:()=>activeDocument()?.model.getLanguageId()!=='markdown' },
     ...(api.downloadFile ? [{ label: 'Download file', command: 'download-file', disabled:() => !activeDocument() }] : []),
     { separator: true },
     { label: 'Close File', command: 'close-file', accelerator: 'Ctrl+W' },
@@ -1524,6 +1574,7 @@ const menuSpecs = {
     { label: 'Add Cursor Below', command: 'cursor-down', accelerator: 'Ctrl+Alt+↓' }
   ],
   View: [
+    { label:'Markdown preview',command:'markdown-preview',accelerator:'Ctrl+Shift+V',disabled:()=>activeDocument()?.model.getLanguageId()!=='markdown' },
     { label: 'Split Editor', command: 'split-editor', accelerator: 'Ctrl+\\' },
     { label: 'Compare with Saved Version', command: 'compare-saved' },
     { label: 'Close Comparison', command: 'close-comparison' },
@@ -1875,7 +1926,7 @@ function setupDialogs() {
   });
   settingsDrag = installSettingsDragging(document.querySelector('#settings-overlay .settings-dialog'), $('settings-drag-handle'));
   for (const id of ['settings-close', 'settings-done', 'about-close', 'about-done']) $(id).onclick = closeModals;
-  for (const id of ['settings-overlay', 'about-overlay', 'history-overlay', 'recent-workspaces-overlay']) $(id).addEventListener('mousedown', e => {
+  for (const id of ['settings-overlay', 'about-overlay', 'history-overlay', 'recent-workspaces-overlay', 'favourites-overlay']) $(id).addEventListener('mousedown', e => {
     if (e.target === $(id)) closeModals();
   });
   const fontMenu = installFontMenu($('setting-font'), $('font-toggle'), name => {
@@ -1984,7 +2035,10 @@ function setupDialogs() {
 function handleMenuCommand(name) {
   const run = {
     'new': () => addDocument(null), 'open-file': chooseFile, 'open-folder': () => openFolder(),
-    'github-sync': () => githubPanel.show(),
+    'new-markdown':newMarkdown,'markdown-preview':()=>markdownPanel.toggle(),
+    'markdown-export-html':()=>markdownPanel.export('html'),'markdown-export-pdf':()=>markdownPanel.export('pdf'),
+    'open-remote-folder':()=>remoteFoldersPanel?.open(),
+    'favourites': () => favouritesPanel.open(),
     'recent-workspaces': () => recentWorkspaces.open(),
     'download-file': downloadActiveFile, 'local-history': () => localHistoryPanel.open(),
     'save': () => save(), 'save-as': () => save(activeDocument(), true),
@@ -2185,6 +2239,8 @@ async function initialize() {
   colorEditor = colorEditors.get(editor);
   editorLayout = installEditorLayout({monaco, primary:editor, host:$('editor'),
     getDocuments:() => state.tabs, options:editorOptions, configure:configureEditor, activate:activateEditor, tr, displayPath});
+  markdownPanel=installMarkdownPanel({monaco,api,getRoot:()=>state.root,getEditor:()=>editor,getDocument:activeDocument,getDocuments:()=>state.tabs,
+    openFile,layout:()=>editorLayout.layout(),format:formatDocument,notify:message=>showStatus(message,6500)});
   // Dynamic root: set its destination at drop time, because projects can change.
   const projectName = $('project-name');
   projectName.addEventListener('dragover', event => {
@@ -2208,21 +2264,12 @@ async function initialize() {
       showStatus(tr('Version restored into the editor. Save to keep it, or Undo to go back.'));
     }, notify:message => showStatus(message, 6500)});
   recentWorkspaces = installRecentWorkspaces({preferences:workspacePrefs, open:openFolder, show:showModal, close:closeModals});
-  githubPanel = installGitHub({api,getRoot:()=>state.root,
-    isDirty:root=>state.tabs.some(doc=>doc.dirty && doc.path && projectPathContains(root,doc.path)),
-    openWorkspace:openFolder,revealSidebar:()=>{if(!state.sidebarOpen)toggleSidebar();},
-    onApplied:async(root,paths)=>{
-      for(const doc of [...state.tabs]){
-        if(!doc.path || !projectPathContains(root,doc.path))continue;
-        const path=normalizedSlashes(doc.path).slice(normalizedSlashes(root).length+1);if(!paths.includes(path))continue;
-        try{
-          const data=await api.readFile(doc.path);
-          if(!doc.dirty)doc.model.setValue(data.content);
-          doc.savedText=data.content;doc.mtimeMs=data.mtimeMs;doc.dirty=doc.model.getValue()!==data.content;
-        }catch(error){if(!doc.dirty)await closeDocument(doc.id);else{doc.savedText='';doc.dirty=true;}}
-      }
-      await refreshFolder();renderTabs();updateStatus();persist();
-    }});
+  if(api.browseFolders){folderPicker=installFolderPicker({api,show:showModal,close:closeModals});api.chooseFolder=()=>folderPicker.choose();}
+  remoteFoldersPanel=installRemoteFolders({api,show:showModal,close:closeModals,open:(root,isCurrent)=>openFolder(root,{isCurrent}),changed:()=>favouritesPanel?.refresh(),report:message=>showStatus(message,8000)});
+  favouritesPanel=installFavourites({api:api.listFavourites?api:{...api,...browserFavourites(localStorage)},show:showModal,close:closeModals,open:openFolder,choose:()=>api.chooseFolder(),current:()=>state.root,remote:entry=>remoteFoldersPanel.open(entry),report:message=>showStatus(message,6500)});
+  $('btn-favourites').onclick=()=>favouritesPanel.open();
+  $('btn-remote-folder').hidden=!api.connectRemoteFolder;
+  $('btn-remote-folder').onclick=()=>remoteFoldersPanel.open();
   setupProjectSearch(); wireButtons(); setupKeyboard(); setupDialogs();
   if (api.platform === 'web') {
     window.addEventListener('beforeunload', event => {

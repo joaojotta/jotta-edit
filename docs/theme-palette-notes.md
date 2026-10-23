@@ -4,7 +4,6 @@ These presets are **inspired by** well-known themes. The token groups and contra
 
 - Sublime Text: Mariana, Monokai, Celeste and Breakers palettes. Examples: https://github.com/twolfson/sublime-files/tree/master/Packages/Color%20Scheme%20-%20Default
 - VS Code classic Dark+ / Light+: https://github.com/microsoft/vscode/tree/main/extensions/theme-defaults/themes
-- GitHub Default: https://github.com/primer/github-vscode-theme
 - Monokai Pro: https://monokai.pro/
 - Mariana Pro: https://github.com/n0rmand0/Mariana-Pro-color-theme
 

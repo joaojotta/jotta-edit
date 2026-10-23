@@ -1,0 +1,15 @@
+# Dependencies, generated builds and release packages
+node_modules/
+dist/
+web-dist/
+release/
+coverage/
+
+# Local caches, logs and credentials
+.cache/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

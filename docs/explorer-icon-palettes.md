@@ -11,10 +11,9 @@ The icon artwork in `public/file-icons/` is unchanged. Every Explorer SVG file i
 - **VS Code Seti-inspired (Dark/Light)**: softer, traditional VS Code Explorer colours.
 - **Catppuccin Mocha/Latte-inspired**: palette-coordinated pastels for dark/light appearances.
 - **Monokai Pro-inspired**: green, cyan, purple, pink and golden accents.
-- **GitHub Dark/Light-inspired**: neutral text/icon hues with coloured language types.
 - **Monochrome (interface)**: low-distraction single tone matched to the UI.
 
-Automatic theme family matches include Jotta Dark/Light, VS Code Dark+/Light+, GitHub Dark/Light, Monokai and Sublime Monokai, Monokai Pro, Catppuccin Mocha, Mariana, Nord, Dracula, One Dark, Tokyo Night, Solarized Light, and the light Sublime variants.
+Automatic theme family matches include Jotta Dark/Light, VS Code Dark+/Light+, Monokai and Sublime Monokai, Monokai Pro, Catppuccin Mocha, Mariana, Nord, Dracula, One Dark, Tokyo Night, Solarized Light, and the light Sublime variants.
 
 ### Priority and compatibility
 

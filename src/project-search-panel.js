@@ -123,7 +123,6 @@ export function installProjectSearch({api, getRoot, getDocuments, openMatch, app
     finally { busy = false; controls(); }
   });
   function showSearch(replace = false) {
-    const github=document.getElementById('github-panel');if(github)github.hidden=true;document.getElementById('btn-github')?.setAttribute('aria-pressed','false');
     revealSidebar(); panel.hidden = false; $('explorer-view').hidden = true;
     $('btn-project-search').setAttribute('aria-pressed','true'); $('btn-explorer').setAttribute('aria-pressed','false');
     (replace ? replacement : input).focus(); (replace ? replacement : input).select();

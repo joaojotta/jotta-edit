@@ -1,7 +1,7 @@
 'use strict';
-// All mutations are scoped to the currently open Explorer root. They never follow
-// symlinks, replace an existing target, or mutate the workspace root itself.
-const fs = require('node:fs/promises');
+// All mutations stay within the Explorer root after resolving parent folders.
+// Source links, existing destinations and the workspace root cannot be modified.
+const fs = require('./project-fs.cjs');
 const path = require('node:path');
 const { constants } = require('node:fs');
 
@@ -28,7 +28,7 @@ async function destinationFor(realRoot, parent, name) {
   safeName(name);
   const realParent = await fs.realpath(parent);
   if (!within(realRoot, realParent)) throw new Error('Destination is outside Explorer');
-  const parentStat = await fs.lstat(parent);
+  const parentStat = await fs.stat(parent);
   if (!parentStat.isDirectory()) throw new Error('Destination must be a folder');
   const target = path.join(realParent, name);
   if (!within(realRoot, target)) throw new Error('Destination is outside Explorer');

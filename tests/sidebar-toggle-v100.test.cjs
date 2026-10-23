@@ -8,8 +8,8 @@ const read = filename => fs.readFileSync(path.join(root, filename), 'utf8');
 
 test('current release version and artifact templates are consistent', () => {
   const pkg = require('../package.json');
-  assert.equal(pkg.version, '1.1.0');
-  assert.match(read('index.html'), /Version 1\.1\.0/);
+  assert.equal(pkg.version, '1.1.1');
+  assert.match(read('index.html'), /Version 1\.1\.1/);
   assert.equal(pkg.build.win.artifactName, 'Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}');
   assert.equal(pkg.build.flatpak.artifactName, 'Jotta-Edit-${version}-linux-${arch}.flatpak');
 });

@@ -1,4 +1,4 @@
-# Jotta Edit 1.1.0 — offline-first browser edition
+# Jotta Edit 1.1.1 — offline-first browser edition
 
 This is a **separate deployment target** sharing Jotta Edit's Monaco editor, themes,
 custom theme editor, Emmet, Prettier, Explorer icons, settings, and tab recovery.
@@ -24,7 +24,7 @@ npm run build:pwa
 npm run preview:pwa
 ```
 
-Only the compiled **`web-dist/`** folder is deployable. The `web/index.html` source has no direct stylesheet links: Vite generates hashed CSS and JavaScript files and inserts the references during `npm run build:pwa`. The build now checks that these stylesheet and script files actually exist. The `./scripts/build-web.sh` script also generates `release/Jotta-Edit-1.1.0-Web-PWA-DEPLOY.zip` when the `zip` utility is installed; upload/extract that ZIP at the site root. **Do not upload the project source ZIP or `web/` directly.**
+Only the compiled **`web-dist/`** folder is deployable. The `web/index.html` source has no direct stylesheet links: Vite generates hashed CSS and JavaScript files and inserts the references during `npm run build:pwa`. The build now checks that these stylesheet and script files actually exist. The `./scripts/build-web.sh` script also generates `release/Jotta-Edit-1.1.1-Web-PWA-DEPLOY.zip` when the `zip` utility is installed; upload/extract that ZIP at the site root. **Do not upload the project source ZIP or `web/` directly.**
 
 The deployable **`web-dist/`** folder includes its entry `index.html`,
 prebundled JS/CSS, Monaco workers, fonts, icons, manifest and an offline service
@@ -33,9 +33,6 @@ worker. Upload the **contents** of `web-dist/` to the document root of
 
 For a single command that installs dependencies, tests and produces `web-dist/`, use
 `./scripts/build-web.sh` on Linux. The desktop build scripts are unchanged.
-
-You can alternatively run `.github/workflows/web.yml` on GitHub Actions and
-download the `Jotta-Edit-1.1.0-Web-PWA` artifact.
 
 ## Workspace operations
 

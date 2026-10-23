@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://api.github.com">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'">
   <link rel="icon" type="image/png" href="/icon.png">
   <title>Jotta Edit</title>
 </head>
@@ -24,19 +24,8 @@
     <div id="menu-layer" class="menu-layer hidden" aria-hidden="true"></div>
     <div class="workbench">
       <aside id="sidebar" class="sidebar">
-        <div class="sidebar-header"><div class="sidebar-views" role="group" aria-label="Sidebar view"><button id="btn-explorer" class="section-caption" type="button" aria-pressed="true">EXPLORER</button><button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-github" type="button" aria-pressed="false" title="GitHub sync" aria-label="GitHub sync">Git</button></div><div class="sidebar-actions"><button id="btn-add-folder" title="Open folder" aria-label="Open folder"><img class="button-icon" src="/ui-icons/folder-add.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-reload" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
-<section id="github-panel" class="github-panel" aria-label="GitHub sync" hidden>
-  <strong id="github-account">Not connected</strong><button id="github-disconnect" type="button" hidden>Disconnect</button>
-  <div id="github-connect-form"><label>GitHub access token<input id="github-token" type="password" autocomplete="off" spellcheck="false" placeholder="Fine-grained token"></label><p>Use a token restricted to your repositories with Contents read/write access. The token stays in memory until you disconnect or close the app.</p><button id="github-token-help" type="button">Create a token…</button><button id="github-connect" type="button">Connect GitHub</button></div>
-  <label>Repository<input id="github-repository" type="text" list="github-repositories" placeholder="owner/repository" autocomplete="off" spellcheck="false"></label><datalist id="github-repositories"></datalist>
-  <button id="github-load-branches" type="button">Load branches</button><label>Branch<select id="github-branch"></select></label>
-  <p id="github-workspace" class="github-workspace"></p><button id="github-new-checkout" type="button">New checkout…</button>
-  <button id="github-refresh" type="button">Review changes</button><div id="github-status" role="status" aria-live="polite"></div>
-  <div id="github-changes" class="github-changes"></div>
-  <section id="github-preview" class="github-preview" hidden><strong id="github-preview-title"></strong><label>GitHub version<pre id="github-preview-remote" tabindex="0"></pre></label><label>Local version<pre id="github-preview-local" tabindex="0"></pre></label></section>
-  <label>Commit message<input id="github-message" type="text" maxlength="1000" placeholder="Describe your changes"></label>
-  <div class="github-actions"><button id="github-pull" type="button" disabled>Pull updates</button><button id="github-sync" type="button" disabled>Commit &amp; sync selected</button></div>
-</section>
+        <div class="sidebar-header"><div class="sidebar-views" role="group" aria-label="Sidebar view"><button id="btn-explorer" class="section-caption" type="button" aria-pressed="true">EXPLORER</button><button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button></div><div class="sidebar-actions"><button id="btn-favourites" type="button" title="Favourites…" aria-label="Favourites…"><img class="button-icon" src="/ui-icons/star.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-remote-folder" type="button" title="Open Remote Folder…" aria-label="Open Remote Folder…" hidden><img class="button-icon" src="/ui-icons/folder-cloud.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-add-folder" title="Open folder" aria-label="Open folder"><img class="button-icon" src="/ui-icons/folder-add.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-reload" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+
         <section id="project-search" class="project-search" aria-label="Search and replace in project" hidden>
           <div class="project-search-fields">
             <label>Search<input id="project-search-query" type="text" maxlength="300" spellcheck="false" autocomplete="off"></label>
@@ -58,10 +47,18 @@
       </aside>
       <div id="splitter" class="splitter" role="separator" aria-label="Resize sidebar"></div>
       <main id="main-area" class="main-area">
-        <div class="tabs-bar"><div id="tabs" class="tabs"></div><div class="tab-tools"><button id="btn-split" title="Split editor (Ctrl+&#92;)" aria-label="Split editor">◫</button><button id="btn-compare" title="Compare with saved version" aria-label="Compare with saved version">⇄</button><button id="btn-preview" title="Open Live Preview" aria-label="Open Live Preview"><img id="preview-toolbar-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-format" title="Format document (Shift+Alt+F)" aria-label="Format document"><img class="button-icon" src="/ui-icons/formatter.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-quick" title="Quick open (Ctrl+P)" aria-label="Quick open"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-palette" title="Command palette (Ctrl+Shift+P)" aria-label="Command palette"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+        <div class="tabs-bar"><div id="tabs" class="tabs"></div><div class="tab-tools"><button id="btn-split" title="Split editor (Ctrl+&#92;)" aria-label="Split editor">◫</button><button id="btn-compare" title="Compare with saved version" aria-label="Compare with saved version">⇄</button><button id="btn-markdown-preview" type="button" title="Markdown preview (Ctrl+Shift+V)" aria-label="Markdown preview" aria-pressed="false" hidden><img class="button-icon" src="/ui-icons/markdown-preview.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-preview" title="Open Live Preview" aria-label="Open Live Preview"><img id="preview-toolbar-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-format" title="Format document (Shift+Alt+F)" aria-label="Format document"><img class="button-icon" src="/ui-icons/formatter.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-quick" title="Quick open (Ctrl+P)" aria-label="Quick open"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-palette" title="Command palette (Ctrl+Shift+P)" aria-label="Command palette"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
         <div id="breadcrumbs" class="breadcrumbs">START</div>
-        <div id="editor-wrap" class="editor-wrap"><div id="editor" class="editor"></div>
-          <div id="welcome" class="welcome"><img class="welcome-mark" src="/icon.png" alt="Jotta Edit" draggable="false"><h1>Jotta Edit</h1><p>A clean space for code.</p><div class="welcome-shortcuts"><div><kbd>Ctrl</kbd> + <kbd>P</kbd><span>Quick open</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd><span>Commands</span></div><div><kbd>Ctrl</kbd> + <kbd>O</kbd><span>Open file</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd><span>Open folder</span></div><div><kbd>Ctrl</kbd> + <kbd>N</kbd><span>New file</span></div></div><section id="welcome-recents" class="welcome-recents" hidden><h2>Recent Workspaces</h2><div id="welcome-recents-list"></div></section></div>
+        <div id="markdown-tools" class="markdown-tools" role="toolbar" aria-label="Markdown formatting" hidden></div>
+        <div id="editor-wrap" class="editor-wrap"><section id="editor-stage" class="editor-stage"><div id="editor" class="editor"></div>
+          <div id="welcome" class="welcome"><img class="welcome-mark" src="/icon.png" alt="Jotta Edit" draggable="false"><h1>Jotta Edit</h1><p>A clean space for code.</p><div class="welcome-shortcuts"><div><kbd>Ctrl</kbd> + <kbd>P</kbd><span>Quick open</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd><span>Commands</span></div><div><kbd>Ctrl</kbd> + <kbd>O</kbd><span>Open file</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd><span>Open folder</span></div><div><kbd>Ctrl</kbd> + <kbd>N</kbd><span>New file</span></div></div><section id="welcome-favourites" class="welcome-recents" hidden><h2>Favourites</h2><div id="welcome-favourites-list"></div></section><section id="welcome-recents" class="welcome-recents" hidden><h2>Recent Workspaces</h2><div id="welcome-recents-list"></div></section></div>
+        </section>
+          <div id="markdown-divider" class="markdown-divider" role="separator" aria-label="Resize Markdown preview" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" aria-valuenow="50" tabindex="0" hidden></div>
+          <aside id="markdown-preview" class="markdown-preview" aria-label="Markdown preview" hidden>
+            <header class="markdown-preview-heading"><strong id="markdown-preview-title">Markdown preview</strong><button id="markdown-refresh" type="button" title="Refresh Markdown preview" aria-label="Refresh Markdown preview"><img class="button-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button><button id="markdown-close" type="button" title="Close Markdown preview" aria-label="Close Markdown preview"><img class="button-icon" src="/ui-icons/close.svg" alt="" aria-hidden="true" draggable="false"></button></header>
+            <article id="markdown-content" class="markdown-content" tabindex="0" aria-label="Rendered Markdown"></article>
+            <p id="markdown-status" class="markdown-status" role="status" aria-live="polite"></p>
+          </aside>
         </div>
       </main>
     </div>
@@ -69,6 +66,14 @@
   </div>
   <div id="overlay" class="jotta-modal-overlay hidden" aria-hidden="true"><div class="palette-dialog" role="dialog" aria-modal="true"><div class="palette-top"><span id="palette-symbol">⌕</span><input id="palette-input" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." aria-label="Search"></div><div id="palette-list" class="palette-list"></div><div class="palette-hint"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>Enter</kbd> Select</span><span><kbd>Esc</kbd> Close</span></div></div></div>
 
+  <div id="favourites-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="recent-workspaces-dialog favourites-dialog" role="dialog" aria-modal="true" aria-labelledby="favourites-title">
+      <header><h2 id="favourites-title">Favourites</h2><button id="favourites-close" type="button" aria-label="Close favourites">×</button></header>
+      <div class="favourites-actions"><button id="favourites-current" type="button">Add current folder</button><button id="favourites-local" type="button">Add local folder…</button><button id="favourites-remote" type="button" hidden>Add remote server…</button></div>
+      <p id="favourites-empty">No favourites yet.</p><p id="favourites-status" role="status" aria-live="polite"></p>
+      <div id="favourites-list" class="recent-workspaces-list"></div>
+    </section>
+  </div>
   <div id="recent-workspaces-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true"><section class="recent-workspaces-dialog" role="dialog" aria-modal="true" aria-labelledby="recent-workspaces-title"><header><h2 id="recent-workspaces-title">Recent Workspaces</h2><button type="button" id="recent-workspaces-close" aria-label="Close recent workspaces">×</button></header><p id="recent-workspaces-empty">No recent workspaces yet.</p><p id="recent-workspaces-status" role="status" aria-live="polite"></p><div id="recent-workspaces-list" class="recent-workspaces-list"></div><button type="button" id="recent-workspaces-clear">Clear recent list</button></section></div>
   <div id="history-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
     <section class="history-dialog" role="dialog" aria-modal="true" aria-labelledby="history-title">
@@ -203,10 +208,41 @@
       <div class="modal-actions"><button id="settings-restart" class="primary hidden">Restart to apply</button><button id="settings-done" class="primary">Done</button></div>
     </section>
   </div>
+  <div id="folder-picker-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="folder-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="folder-picker-title">
+      <div class="modal-header"><h2 id="folder-picker-title">Open Folder</h2><button id="folder-picker-close" class="modal-close" type="button" aria-label="Close folder browser">×</button></div>
+      <form id="folder-picker-form"><label for="folder-picker-location">Folder path</label><div class="folder-picker-location-row"><input id="folder-picker-location" type="text" autocomplete="off" spellcheck="false"><button type="submit">Go</button></div></form>
+      <div class="folder-picker-navigation"><button id="folder-picker-home" type="button">Home folder</button><button id="folder-picker-up" type="button">Parent folder</button><label><input id="folder-picker-hidden" type="checkbox"> Show hidden folders</label></div>
+      <p id="folder-picker-status" role="status" aria-live="polite"></p>
+      <div id="folder-picker-list" aria-label="Subfolders"></div>
+      <div class="modal-actions"><button id="folder-picker-cancel" type="button">Cancel</button><button id="folder-picker-open" class="primary" type="button" disabled>Open folder</button></div>
+    </section>
+  </div>
+  <div id="remote-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
+    <section class="remote-dialog" role="dialog" aria-modal="true" aria-labelledby="remote-title">
+      <div class="modal-header"><h2 id="remote-title">Open Remote Folder</h2><button id="remote-close" class="modal-close" type="button" aria-label="Close remote connection">×</button></div>
+      <form id="remote-form">
+        <label for="remote-location">Folder address</label>
+        <input id="remote-location" type="text" placeholder="sftp://server/path" autocomplete="off" spellcheck="false" aria-describedby="remote-help" required>
+        <p id="remote-help">FTP, SFTP or SMB. Include a share in SMB addresses, for example smb://server/share.</p>
+        <div class="remote-credentials">
+          <label for="remote-username">Username (optional)<input id="remote-username" name="username" type="text" autocomplete="off" spellcheck="false" maxlength="4096" aria-describedby="remote-auth-help"></label>
+          <label for="remote-password">Password (optional)<input id="remote-password" name="password" type="password" autocomplete="off" maxlength="4096" aria-describedby="remote-auth-help"></label>
+        </div>
+        <p id="remote-auth-help">Connect directly from Jotta Edit. For SMB domains use DOMAIN\username. Credentials are kept for this session unless you choose to save them.</p>
+        <label class="remote-option"><input id="remote-save-favourite" type="checkbox"> Save to favourites</label>
+        <label class="remote-option"><input id="remote-save-credentials" type="checkbox" disabled> Save credentials</label>
+        <p id="remote-storage-help"></p><p id="remote-saved-credentials" hidden>Saved credentials will be used. To update them, enter a password and select Save credentials, or delete them in Favourites.</p>
+        <p id="remote-host-key" role="status" aria-live="polite"></p>
+        <p id="remote-status" role="status" aria-live="polite"></p>
+        <div class="modal-actions"><button id="remote-trust" type="button" hidden>Trust server key</button><button id="remote-cancel" type="button">Cancel</button><button id="remote-connect" class="primary" type="submit">Connect</button></div>
+      </form>
+    </section>
+  </div>
   <div id="about-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
     <section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
       <div class="modal-header"><h2 id="about-title">About Jotta Edit</h2><button id="about-close" class="modal-close" aria-label="Close About">×</button></div>
-      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.1.0</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
+      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.1.1</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
       <div class="modal-actions"><button id="about-done" class="primary">Close</button></div>
     </section>
   </div>

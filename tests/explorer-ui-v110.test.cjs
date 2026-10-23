@@ -8,8 +8,8 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const pkg = require('../package.json');
 
 test('release references and About version match package metadata', () => {
-  assert.equal(pkg.version, '1.1.0');
-  assert.match(read('index.html'), /Version 1\.1\.0/);
+  assert.equal(pkg.version, '1.1.1');
+  assert.match(read('index.html'), /Version 1\.1\.1/);
   assert.equal(pkg.build.flatpak.artifactName, 'Jotta-Edit-${version}-linux-${arch}.flatpak');
   assert.equal(pkg.build.win.artifactName, 'Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}');
   assert.match(read('scripts/install-flatpak.sh'), /Jotta-Edit-\$\{version\}-linux-x64\.flatpak/);

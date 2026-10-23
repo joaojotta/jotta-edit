@@ -5,8 +5,9 @@ Jotta Edit's original code is licensed under GNU GPL version 2 or later
 licences or remove copyright notices of third-party components.
 
 The application includes Monaco Editor, Emmet, Prettier, its PHP plugin,
-Rubik fonts and their runtime dependencies. These components retain their
-original licences, including MIT, Apache-2.0 and OFL-1.1. Monaco's upstream
+Marked, DOMPurify, Rubik fonts, basic-ftp, ssh2-sftp-client, ssh2, smb3-client
+and their runtime dependencies. These components retain their
+original licences, including MIT, Apache-2.0, MPL-2.0 and OFL-1.1. Monaco's upstream
 third-party notices include its bundled TypeScript tooling. Combined builds
 that incorporate Apache-2.0 components use the GPLv3 compatibility option;
 see licenses/GPL-3.0-or-later.txt.
