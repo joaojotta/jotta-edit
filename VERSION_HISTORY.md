@@ -1,5 +1,13 @@
 # Version history — Jotta Edit
 
+## 1.1.2 — Markdown export, favourites and direct remote access (23 Oct 2026)
+
+- Export Markdown drafts as styled HTML or PDF, including local images, on desktop and web.
+- Save local-folder and remote-server favourites, with optional encrypted desktop credentials.
+- Connect directly to FTP, SFTP and SMB servers with bundled clients and browse local folders in the app.
+- Improve FTP/SFTP link handling, FTP directory listings and reloading empty or unscanned Explorer folders.
+- Update desktop and web versions to 1.1.2; subsequent updates continue with 1.1.3, 1.1.4 and so on.
+
 ## 1.1.1 — Markdown (20 Oct 2026)
 
 - Add Markdown formatting tools and a live preview side panel on desktop and web, including safe rendering and local image support.

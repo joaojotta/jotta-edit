@@ -2,7 +2,7 @@ import {markdownFragment} from './markdown-renderer.js';
 import {markdownEdits} from './markdown-formatting.js';
 import {markdownTarget} from '../shared/markdown-paths.mjs';
 import {tr} from './i18n.js';
-import {markdownExportHTML,markdownExportName} from './markdown-export.js';
+import {exportMarkdownDocument} from './markdown-export.js';
 
 const tools=[
   ['bold','Bold','bold.svg'],['italic','Italic','italic.svg'],['underline','Underline','underline.svg'],['strike','Strikethrough','strikethrough.svg'],
@@ -37,12 +37,13 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
     if(!valid()){notify(tr('Open a Markdown file to export.'));return;}
     if(exporting)return;
     exporting=true;for(const node of exportButtons)node.disabled=true;
-    // Snapshot before awaiting images, so tab switches and further edits cannot mix documents.
-    const active=doc,source=active.model.getValue(),name=active.name,documentPath=active.path,root=getRoot();
     try{
-      notify(tr('Preparing Markdown export…'));
-      const html=await markdownExportHTML({source,name,documentPath,root,readAsset:params=>api.readMarkdownAsset(params)});
-      const result=await api.exportMarkdown({format,name:markdownExportName(name,format),html,protectedPaths:getDocuments().map(item=>item.path).filter(Boolean)});
+      // Snapshot before the chooser opens, so later edits cannot mix documents.
+      const active=doc,source=active.model.getValue(),name=active.name,documentPath=active.path,root=getRoot();
+      notify(tr(api.chooseMarkdownExport?'Choose where to export Markdown.':'Preparing Markdown export…'));
+      const result=await exportMarkdownDocument({format,source,name,documentPath,root,api,
+        getProtectedPaths:()=>getDocuments().map(item=>item.path).filter(Boolean)},
+        {onPreparing:()=>notify(tr('Preparing Markdown export…'))});
       if(result?.canceled)notify(tr('Markdown export cancelled.'));
       else notify(tr(result?.printing?'Print dialog opened. Choose Save as PDF.':'Markdown exported.'));
     }catch(error){notify(tr('Could not export Markdown.')+' '+tr(error.message));}

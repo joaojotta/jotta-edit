@@ -47,4 +47,4 @@ bash scripts/build-source.sh
 printf '\nFlatpak bundle(s):\n'
 find release -maxdepth 1 -type f -name '*.flatpak' -print
 version="$(node -p 'require("./package.json").version')"
-printf '\nTo install:\n  flatpak install --user ./release/Jotta-Edit-%s-linux-x64.flatpak\nTo launch:\n  flatpak run pt.jotta.edit\n' "$version"
+printf '\nTo install:\n  flatpak install --user ./release/Jotta-Edit-%s-linux-x86_64.flatpak\nTo launch:\n  flatpak run pt.jotta.edit\n' "$version"

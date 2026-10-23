@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.2 — Markdown export, favourites and direct remote access (23 Oct 2026)
+
+- Open the desktop Markdown export Save dialog before preparing content or reading images. Start in the document's folder (Documents for unsaved or remote drafts), preserve cancellation, and recheck open-file protection before writing.
+
+- Match Flatpak installation scripts and printed instructions to the generated `linux-x86_64.flatpak` bundle name.
 
 - Export the active Markdown draft as styled HTML or PDF from its toolbar, File menu or command palette on desktop and web. Embed local images, preserve section links and keep source buffers unchanged. Desktop PDF saves directly; web PDF uses the browser print dialog.
 

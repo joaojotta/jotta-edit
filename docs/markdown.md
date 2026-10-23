@@ -1,4 +1,4 @@
-# Markdown in Jotta Edit 1.1.1
+# Markdown in Jotta Edit 1.1.2
 
 Open a `.md` or `.markdown` file, choose **File → New Markdown file**, or select **Markdown** from the status-bar language picker. A formatting toolbar appears and the preview opens beside the source. New Markdown drafts retain their language while you type, save and reopen them.
 
@@ -29,7 +29,7 @@ Preview rendering supports up to 1 MiB of Markdown source; larger files remain e
 
 With a Markdown document active, click **HTML** or **PDF** in its formatting toolbar, or choose **File → Export Markdown as HTML/PDF**. Both commands are also available from the command palette. Export works with the preview closed, including unsaved drafts, the focused split pane and the working copy in a comparison.
 
-Exports capture the current text when you invoke the command. They do not save, format or change the source document. On desktop, choose a local destination in the save dialog. An export cannot replace a file already open in the editor. HTML downloads in the web edition. Web PDF opens the browser's print dialog: select **Save as PDF** (the name depends on your browser and system), choose the paper size and save. Cancelling a download/save/print dialog leaves your draft intact.
+Exports capture the current text when you invoke the command. They do not save, format or change the source document. On desktop, the save dialog opens before the export is prepared or images are loaded; choose a local folder and filename. It starts in the source document's folder, or Documents for unsaved and remote drafts. Cancelling stops the export without loading images or writing a file. An export cannot replace a file already open in the editor. HTML downloads in the web edition. Web PDF opens the browser's print dialog: select **Save as PDF** (the name depends on your browser and system), choose the paper size and save. Cancelling a download/save/print dialog leaves your draft intact.
 
 HTML includes a light stylesheet, headings with working section links, tables, checklists, code blocks and embedded local images, so local images travel with the exported document. HTTPS images remain external and require a network connection. Relative document links retain their paths; move linked documents alongside the HTML if needed. PDF uses the same print styling, with A4 pages on desktop and browser print settings on the web.
 

@@ -29,6 +29,20 @@ export function markdownExportName(name,format){
   return stem+'.'+format;
 }
 
+export async function exportMarkdownDocument({format,source,name,documentPath,root,api,getProtectedPaths=()=>[]},
+  {render=markdownExportHTML,onPreparing=()=>{}}={}){
+  const filename=markdownExportName(name,format);
+  let destination;
+  if(api.chooseMarkdownExport){
+    const selected=await api.chooseMarkdownExport({format,name:filename,documentPath,protectedPaths:getProtectedPaths()});
+    if(selected.canceled)return selected;
+    destination=selected.path;
+  }
+  onPreparing();
+  const html=await render({source,name,documentPath,root,readAsset:params=>api.readMarkdownAsset(params)});
+  return api.exportMarkdown({format,name:filename,html,...(destination===undefined?{}:{destination}),protectedPaths:getProtectedPaths()});
+}
+
 export async function markdownExportHTML({source,name,documentPath,root,readAsset,documentRef=document}){
   if(new TextEncoder().encode(source).length>MAX_SOURCE)throw new Error('Markdown export supports files up to 1 MiB.');
   const rendered=markdownFragment(source,documentRef);

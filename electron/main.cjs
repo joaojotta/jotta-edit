@@ -22,7 +22,7 @@ const {Favourites}=require('./favourites.cjs');
 let favourites;
 const {writeRemoteText}=require('./remote-save.cjs');
 const {readMarkdownAsset}=require('./markdown-assets.cjs');
-const {exportMarkdown}=require('./markdown-export.cjs');
+const {chooseMarkdownExport,exportMarkdown}=require('./markdown-export.cjs');
 const {FolderBrowser}=require('./folder-browser.cjs');
 let folderBrowser;
 let hostKeySequence=0;
@@ -386,6 +386,9 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   });
   ipcMain.handle('file:read', (_e, file) => readText(file));
   ipcMain.handle('markdown:asset',(_e,params)=>readMarkdownAsset(params));
+  ipcMain.handle('markdown:export-destination',(_e,params)=>chooseMarkdownExport(params,{
+    dialog,parent:mainWindow,defaultDirectory:app.getPath('documents'),isRemote:file=>remoteFolders.isRemote(file)
+  }));
   ipcMain.handle('markdown:export',(_e,params)=>exportMarkdown(params,{dialog,BrowserWindow,parent:mainWindow}));
   ipcMain.handle('markdown:open-link',async(_e,value)=>{
     const {externalMarkdownLink}=await import('../shared/markdown-paths.mjs'),url=externalMarkdownLink(value);

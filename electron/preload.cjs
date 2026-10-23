@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('slate', Object.freeze({
   readFile: (file) => invoke('file:read', file),
   readMarkdownAsset:params=>invoke('markdown:asset',params),
   exportMarkdown:params=>invoke('markdown:export',params),
+  chooseMarkdownExport:params=>invoke('markdown:export-destination',params),
   openMarkdownLink:url=>invoke('markdown:open-link',url),
   saveFile: (file, content, options) => invoke('file:write', file, content, options),
   saveAsDialog: (suggestion) => invoke('file:save-dialog', suggestion),

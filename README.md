@@ -1,11 +1,11 @@
-# Jotta Edit 1.1.1 — Desktop and Web/PWA source
+# Jotta Edit 1.1.2 — Desktop and Web/PWA source
 
 ## New: offline-first Web edition
 
 The same editor is now available as a separate **installable web app** using
 Monaco, custom themes, Prettier, Emmet, IndexedDB session recovery and browser
 project workspaces. Use **Download file** (also in the File menu) to download the active document with unsaved edits. Save keeps edits in the workspace; Export ZIP downloads saved project files. Live preview controls are disabled in the web version. Use **New workspace**, **Import folder/ZIP**, **Export ZIP**,
-or native **Open folder** where supported. The desktop and web builds share application version `1.1.1`.
+or native **Open folder** where supported. The desktop and web builds share application version `1.1.2`.
 
 ```bash
 npm install --no-audit --no-fund
@@ -112,7 +112,7 @@ and Windows builds; no command-line override is needed.
 
 Flatpak bundles include AppStream metadata for KDE Discover: **Jotta Edit**, developer **João Jotta**, and the **GPL-2.0-or-later** licence. The metadata is validated when running the build script.
 
-Expected Flatpak bundle: `release/Jotta-Edit-1.1.1-linux-x86_64.flatpak`
+Expected Flatpak bundle: `release/Jotta-Edit-1.1.2-linux-x86_64.flatpak`
 
 Install with desktop integration:
 
@@ -153,12 +153,12 @@ entry. Select **Open With → Jotta Edit** in Dolphin again after the repair.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ```
 
-Expected portable application: `release/Jotta-Edit-1.1.1-Windows-x64-Portable.exe` (unsigned).
+Expected portable application: `release/Jotta-Edit-1.1.2-Windows-x64-Portable.exe` (unsigned).
 
 ## Notes
 
 - No installation is required for the Windows portable build.
-- The application version is `1.1.1` in package metadata, About, Flatpak and Windows portable artifact names.
+- The application version is `1.1.2` in package metadata, About, Flatpak and Windows portable artifact names.
 - See `CHANGELOG.md` and `VERSION_HISTORY.md` for more detail.
 
 ## Release identity
@@ -191,7 +191,7 @@ Jotta Edit's original code is licensed under **GNU GPL version 2 or later** (`GP
 
 Third-party copyright and licence notices are retained, including required MIT notices. [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) explains their locations. Discover/AppStream metadata is **CC0-1.0**, separately from the application's GPL licence.
 
-Use `npm run build:source` on Linux to create `release/Jotta-Edit-1.1.1-Source.tar.gz` with the project source, locked dependency versions, licence notices and build scripts. The Linux and web release scripts create this archive automatically. When distributing application builds, provide the corresponding source and build scripts alongside them as required by the applicable GPL version; retain access to the matching third-party sources too.
+Use `npm run build:source` on Linux to create `release/Jotta-Edit-1.1.2-Source.tar.gz` with the project source, locked dependency versions, licence notices and build scripts. The Linux and web release scripts create this archive automatically. When distributing application builds, provide the corresponding source and build scripts alongside them as required by the applicable GPL version; retain access to the matching third-party sources too.
 
 ## Project search and replace
 

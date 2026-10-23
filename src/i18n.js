@@ -475,7 +475,8 @@ const PT = {
   'Rename':'Mudar nome', 'Rename…':'Mudar nome…', 'Delete':'Eliminar', 'Delete…':'Eliminar…',
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
-  'untitled':'sem-título', 'Version 1.1.1':'Versão 1.1.1'
+  'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
+  'untitled':'sem-título', 'Version 1.1.2':'Versão 1.1.2'
 };
 
 const originalTexts = new WeakMap();

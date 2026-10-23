@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 version="$(node -p 'require("./package.json").version')"
-bundle="release/Jotta-Edit-${version}-linux-x64.flatpak"
+bundle="release/Jotta-Edit-${version}-linux-x86_64.flatpak"
 [[ -f "$bundle" ]] || { echo "Bundle missing: $bundle. First run ./scripts/build-flatpak.sh" >&2; exit 1; }
 flatpak install --user --reinstall "$bundle"
 echo 'Refreshing KDE Open With entry for the current user...'

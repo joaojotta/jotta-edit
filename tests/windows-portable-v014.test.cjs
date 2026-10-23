@@ -8,7 +8,7 @@ const pkg = require('../package.json');
 const read = p => fs.readFileSync(path.join(root, p), 'utf8');
 
 test('portable Windows target produces a single EXE, not an NSIS installer', () => {
-  assert.equal(pkg.version, '1.1.1');
+  assert.equal(pkg.version, '1.1.2');
   assert.deepEqual(pkg.build.win.target, ['portable']);
   assert.equal(pkg.build.win.icon, 'assets/icon.ico');
   assert.equal(pkg.build.win.artifactName, 'Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}');

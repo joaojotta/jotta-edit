@@ -27,6 +27,12 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.1.2" date="2026-10-23">
+      <description>
+        <p>Markdown export to HTML and PDF, folder and server favourites with optional encrypted credentials, and direct FTP, SFTP and SMB access.</p>
+        <p>Improved remote folder listings, link handling and Explorer refresh.</p>
+      </description>
+    </release>
     <release version="1.1.1" date="2026-10-20"><description><p>Live Markdown preview, formatting tools and dedicated Markdown icons on desktop and web.</p></description></release>
     <release version="1.1.0" date="2026-10-20"><description><p>FTP, SFTP and SMB folders through desktop mounts, with safer remote saving.</p></description></release>
     <release version="1.0.2" date="2026-10-19">
