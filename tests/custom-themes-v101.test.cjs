@@ -8,7 +8,7 @@ const imports = Promise.all([import('../src/custom-syntax-themes.js'),import('..
 
 test('custom themes duplicate built-ins without modifying them and can be restored', async () => {
   const [custom, syntax] = await imports;
-  assert.equal(require('../package.json').version, '1.1.4');
+  assert.equal(require('../package.json').version, '1.1.5');
   const old = JSON.stringify(syntax.syntaxPalettes['vscode-dark-plus']);
   const created = custom.createCustomTheme({}, 'vscode-dark-plus', 'Personal Dark');
   assert.equal(created.id, 'custom-1');

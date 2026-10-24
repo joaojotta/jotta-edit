@@ -1,6 +1,19 @@
 // UI strings are stored in English; pt-PT is available without remote services.
 // Electron supplies the actual operating-system locale (navigator is fallback).
 const PT = {
+  'Compare with latest file':'Comparar com o ficheiro mais recente',
+  'Latest file':'Ficheiro mais recente',
+  'Latest file on the left, your edits on the right. Copy individual changes with the arrows, or edit the right side before saving.':'Ficheiro mais recente à esquerda e as suas alterações à direita. Copie alterações individuais com as setas ou edite o lado direito antes de guardar.',
+  'Use latest file':'Usar o ficheiro mais recente',
+  'Save resolved file':'Guardar o ficheiro resolvido',
+  'Refresh latest file':'Atualizar o ficheiro mais recente',
+  'File changed externally. Compare with the latest file before saving.':'O ficheiro foi alterado externamente. Compare com o ficheiro mais recente antes de guardar.',
+  'The file has not changed externally.':'O ficheiro não foi alterado externamente.',
+  'Latest file loaded. Use Undo to recover your previous edits.':'Ficheiro mais recente carregado. Use Desfazer para recuperar as suas alterações anteriores.',
+  'The file changed again. Refresh the comparison before resolving it.':'O ficheiro voltou a mudar. Atualize a comparação antes de o resolver.',
+  'Your edits changed while loading the latest file. Review them before trying again.':'As suas alterações mudaram durante o carregamento do ficheiro mais recente. Reveja-as antes de tentar novamente.',
+  'Could not read the latest file. Your edits are still unsaved.':'Não foi possível ler o ficheiro mais recente. As suas alterações continuam por guardar.',
+  'File changed on disk. Compare or reload it before saving.':'O ficheiro foi alterado no disco. Compare-o ou volte a carregá-lo antes de guardar.',
   'Document and connection panels':'Painéis do documento e das ligações',
   'Document outline':'Estrutura do documento','Outline':'Estrutura','Connections':'Ligações','Remote connections':'Ligações remotas',
   'Refresh outline':'Atualizar estrutura','Filter outline':'Filtrar estrutura','Find a heading or symbol…':'Procurar um título ou símbolo…',
@@ -502,7 +515,7 @@ const PT = {
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
   'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
-  'untitled':'sem-título', 'Version 1.1.4':'Versão 1.1.4'
+  'untitled':'sem-título', 'Version 1.1.5':'Versão 1.1.5'
 };
 
 const originalTexts = new WeakMap();

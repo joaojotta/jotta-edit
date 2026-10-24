@@ -298,7 +298,7 @@ async function saveLocation(path) {
   const ctx = await contextForPath(path);
   return ctx.mode === 'native' && within(ctx.root,path) ? 'Local folder' : 'Browser storage';
 }
-async function readFile(path) {
+async function readFile(path, {fresh = false} = {}) {
   const cached = await getFile(path);
   if (cached?.saveMode === 'local') {
     try {
@@ -307,7 +307,7 @@ async function readFile(path) {
       return {path,name:base(path),content:await checkText(file),mtimeMs:file.lastModified};
     } catch (error) {
       if (['NotAllowedError','SecurityError','NotFoundError'].includes(error.name) || error.message.startsWith('File access expired')) {
-        if (typeof cached.content === 'string') return {path,name:base(path),content:cached.content,mtimeMs:cached.mtimeMs};
+        if (!fresh && typeof cached.content === 'string') return {path,name:base(path),content:cached.content,mtimeMs:cached.mtimeMs};
       }
       throw error;
     }
@@ -341,12 +341,13 @@ async function saveFile(path,content,options={}) {
   const ctx=await contextForPath(path);
   if(localHandle || ctx.mode==='native' && within(ctx.root,path) && path!==ctx.root) {
     const handle = localHandle || await resolveHandle(path,'file',{create:true});
-    if (typeof options.expectedText === 'string') {
+    const unchanged = async () => { if (typeof options.expectedText === 'string') {
       const disk = await handle.getFile();
-      if (await checkText(disk) !== options.expectedText) throw new Error('File changed on disk. Close and reopen it, or use Save As to preserve both versions.');
-    }
+      if (await checkText(disk) !== options.expectedText) throw new Error('File changed on disk. Compare or reload it before saving.');
+    }};
+    await unchanged();
     const writable=await handle.createWritable();
-    try { await writable.write(content); await writable.close(); }
+    try { await writable.write(content); await unchanged(); await writable.close(); }
     catch (error) { try { await writable.abort?.(); } catch {} throw error; }
     let notice = localHandle ? 'Saved to local file.' : 'Saved to local folder.';
     if (localHandle) {
@@ -358,6 +359,8 @@ async function saveFile(path,content,options={}) {
     return {path,mtimeMs:Date.now(),historyWarning,notice};
   }
   const download = existing?.saveMode === 'download' || path.startsWith('/imports/') || path.startsWith('/downloads/');
+  if (typeof options.expectedText === 'string' && (await getFile(path))?.content !== options.expectedText)
+    throw new Error('File changed on disk. Compare or reload it before saving.');
   await putFile({path,content,mtimeMs:Date.now(),...(download ? {saveMode:'download'} : {})});
   if (download) downloadFile(base(path), content);
   await capture([{text:content, kind:'save'}]);

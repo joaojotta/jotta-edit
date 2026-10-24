@@ -1,5 +1,11 @@
 # Version history — Jotta Edit
 
+## 1.1.5 — Visual conflict resolution (24 Oct 2026)
+
+- Compare the latest external file with your editable buffer, copy individual changes, load the latest version with Undo support, or save a resolved result or separate copy.
+- Recheck local desktop and browser saves for newer changes, and retain the saved baseline in dirty recovery sessions.
+- Automate Windows portable, Flatpak and AppImage builds and prepare draft releases with downloadable packages and corresponding source.
+
 ## 1.1.4 — Document outline and remote connections (24 Oct 2026)
 
 - Navigate Markdown headings, code symbols and CSS selectors from a document outline that follows the focused editor and unsaved edits.

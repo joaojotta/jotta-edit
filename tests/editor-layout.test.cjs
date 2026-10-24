@@ -37,14 +37,14 @@ async function fixture() {
     createDiffEditor() {
       const modified = fakeEditor(), original = fakeEditor();
       diff = {getModifiedEditor:() => modified, getOriginalEditor:() => original,
-        setModel(pair) {this.pair = pair; modified.setModel(pair?.modified || null);}, layout() {}, updateOptions() {}};
+        setModel(pair) {this.pair = pair; modified.setModel(pair?.modified || null);}, layout() {}, updateOptions(value) {this.options = {...this.options, ...value};}};
       return diff;
     }
   }};
   const layout = installEditorLayout({monaco, primary, host, getDocuments:() => docs, options:() => ({}), configure() {},
     activate(editor, doc) {active = {editor, doc};}});
   layout.selectDocument(docs[0]);
-  return {layout, docs, editors, get active() {return active;}, get diff() {return diff;}, get baseline() {return baseline;}, remove(id) {docs = docs.filter(d => d.id !== id);}};
+  return {layout, docs, editors, root, get active() {return active;}, get diff() {return diff;}, get baseline() {return baseline;}, remove(id) {docs = docs.filter(d => d.id !== id);}};
 }
 test('split opens another file and maintains independent per-pane positions for shared models', async () => {
   const f = await fixture();
@@ -108,4 +108,32 @@ test('history comparisons display the selected immutable revision against the li
   assert.equal(f.docs[0].savedText, 'saved a');
   f.layout.closeComparison();
   assert.ok(f.baseline.disposed);
+});
+
+test('conflict comparisons expose resolution actions and per-change copying only for the reviewed document', async () => {
+  const f = await fixture(), actions = [];
+  const conflict = Object.fromEntries(['useLatest', 'save', 'saveAs', 'refresh'].map(action => [action, () => actions.push(action)]));
+  f.layout.compareSaved(f.docs[1], {text:'external b', label:'Latest file', conflict});
+  assert.equal(f.active.doc, f.docs[1], 'a comparison must target its own document even when another tab was active');
+  assert.equal(f.layout.comparisonId, 'b');
+  assert.equal(f.layout.resolving, true);
+  assert.equal(f.diff.options.renderMarginRevertIcon, true);
+  assert.equal(f.diff.options.renderGutterMenu, false, 'Monaco must show the copy arrows instead of its default gutter menu');
+  assert.equal(f.diff.pair.modified, f.docs[1].model);
+  assert.equal(f.baseline.text, 'external b');
+  assert.equal(f.docs[1].savedText, 'saved b');
+  const bar = f.root.children.find(node => node.className === 'comparison-view').children.find(node => node.className === 'conflict-actions');
+  assert.equal(bar.hidden, false);
+  const buttons = bar.children.find(node => node.className === 'conflict-buttons').children;
+  for (const button of buttons) button.onclick();
+  assert.deepEqual(actions, ['useLatest', 'save', 'saveAs', 'refresh']);
+  f.layout.closeComparison();
+  assert.equal(bar.hidden, true);
+  assert.equal(f.layout.resolving, false);
+  buttons[0].onclick();
+  assert.equal(actions.length, 4, 'closed comparisons cannot execute their stale actions');
+  f.layout.compareSaved(f.docs[1]);
+  assert.equal(f.diff.options.renderMarginRevertIcon, false);
+  assert.equal(f.diff.options.renderGutterMenu, true);
+  assert.equal(bar.hidden, true);
 });

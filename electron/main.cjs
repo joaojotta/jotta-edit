@@ -2,6 +2,7 @@
 const { app, BrowserWindow, dialog, ipcMain, protocol, net, Menu, shell, safeStorage } = require('electron');
 const fs = require('node:fs');
 const fsp = require('./project-fs.cjs');
+const {writeLocalText} = require('./local-save.cjs');
 const path = require('node:path');
 const { LivePreview, openBrowser } = require('./live-preview.cjs');
 const livePreview = new LivePreview();
@@ -91,6 +92,7 @@ const PT_MENU = { File:'Ficheiro', Edit:'Editar', Selection:'Seleção', View:'V
   Undo:'Desfazer', Redo:'Refazer', Find:'Localizar', Replace:'Substituir', 'Preferences…':'Preferências…',
   'Select All':'Selecionar tudo', 'Add Cursor Above':'Adicionar cursor acima', 'Add Cursor Below':'Adicionar cursor abaixo',
   'Split Editor':'Dividir editor', 'Compare with Saved Version':'Comparar com a versão guardada', 'Close Comparison':'Fechar comparação',
+  'Compare with latest file':'Comparar com o ficheiro mais recente',
   'Toggle Sidebar':'Mostrar/ocultar explorador', 'Toggle Minimap':'Alternar minimapa', 'Toggle Word Wrap':'Alternar quebra de linha',
   'Increase Font Size':'Aumentar letra', 'Decrease Font Size':'Diminuir letra', 'Reset Font Size':'Repor tamanho da letra',
   'Toggle Dark/Light Theme':'Alternar tema escuro/claro', 'Quick Open…':'Abertura rápida…', 'Go to Line…':'Ir para linha…',
@@ -142,6 +144,7 @@ function buildMenu() {
       item('Markdown preview','markdown-preview','CommandOrControl+Shift+V'),
       item('Split Editor', 'split-editor', 'CommandOrControl+Backslash'),
       item('Compare with Saved Version', 'compare-saved'), item('Close Comparison', 'close-comparison'),
+      item('Compare with latest file', 'compare-latest'),
       item('Toggle Sidebar', 'sidebar', 'CommandOrControl+B'), item('Toggle Minimap', 'minimap'),
       item('Toggle Word Wrap', 'wrap', 'Alt+Z'), item('Increase Font Size', 'font-plus', 'CommandOrControl+Plus'),
       item('Decrease Font Size', 'font-minus', 'CommandOrControl+-'), item('Reset Font Size', 'font-reset', 'CommandOrControl+0'),
@@ -435,7 +438,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     }
     if(remoteFolders.owns(p))await remoteFolders.save(p,content,{expectedText:options?.expectedText});
     else if(remoteFolders.isRemote(p))await writeRemoteText(p,content,{expectedText:options?.expectedText});
-    else await fsp.writeFile(p, content, 'utf8');
+    else await writeLocalText(p, content, {expectedText:options?.expectedText});
     await capture([{text:content, kind:'save'}]);
     const stat = await fsp.stat(p);
     if (Buffer.byteLength(content, 'utf8') > 1024 * 1024) historyWarning = 'File saved. Local history supports files up to 1 MB.';

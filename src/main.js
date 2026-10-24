@@ -22,6 +22,7 @@ import { installRemoteFolders } from './remote-folders.js';
 import { installMarkdownPanel } from './markdown-panel.js';
 import { installLocalHistory } from './local-history-panel.js';
 import { installEditorLayout } from './editor-layout.js';
+import { createFileConflicts, isFileConflict } from './file-conflicts.js';
 import { installProjectSearch } from './project-search-panel.js';
 import { installSidebarViews } from './sidebar-views.js';
 import { installDocumentOutline } from './document-outline-panel.js';
@@ -104,6 +105,8 @@ let settingsDrag = null;
 let editor;
 let statusTimeout;
 let editorLayout;
+let fileConflicts;
+const savingDocuments = new WeakSet();
 const colorEditors = new Map();
 
 function normalizedSlashes(p) { return String(p || '').replace(/\\/g, '/'); }
@@ -204,7 +207,8 @@ function sessionSnapshot() {
       dirty: doc.dirty,
       language: doc.path ? undefined : doc.model.getLanguageId(),
       // Clean files are reloaded from disk; drafts and dirty files need a local copy.
-      ...(!doc.path || doc.dirty ? { text: doc.model.getValue() } : {})
+      ...(!doc.path || doc.dirty ? { text: doc.model.getValue() } : {}),
+      ...(doc.path && doc.dirty ? {savedText:doc.savedText} : {})
     }))
   };
 }
@@ -356,7 +360,11 @@ async function restoreSavedSession(saved) {
         try {
           const disk = await api.readFile(item.path);
           const doc = addDocument(disk.path, disk.content, disk.mtimeMs);
-          if (item.dirty && typeof item.text === 'string') doc.model.setValue(item.text);
+          if (item.dirty && typeof item.text === 'string') {
+            if (typeof item.savedText === 'string') doc.savedText = item.savedText;
+            doc.model.setValue(item.text);
+            doc.dirty = doc.model.getValue() !== doc.savedText;
+          }
         } catch (error) {
           // A moved/deleted file must not make its unsaved edits disappear.
           if (item.dirty && typeof item.text === 'string') {
@@ -389,24 +397,68 @@ function downloadActiveFile() {
     showStatus('File download started');
   } catch (error) { showStatus(error.message, 7500); }
 }
-async function save(doc = activeDocument(), saveAs = false) {
-  if (!doc) return false;
+async function reviewLatestFile(doc = activeDocument()) {
+  if (!doc?.path || savingDocuments.has(doc)) return false;
+  try {
+    const review = await fileConflicts.check(doc);
+    if (review) { fileConflicts.show(doc, review); return true; }
+    if (editorLayout.resolving && editorLayout.comparisonId === doc.id) editorLayout.closeComparison();
+    showStatus(tr('The file has not changed externally.'));
+  } catch (error) { showStatus(error.message, 7500); }
+  return false;
+}
+async function checkExternalFile() {
+  const doc = activeDocument();
+  if (!doc?.path || !fileConflicts || savingDocuments.has(doc) || isModalOpen() || !$('confirm-overlay').classList.contains('hidden')) return;
+  const previous = fileConflicts.current(doc);
+  try {
+    const review = await fileConflicts.check(doc);
+    if (review && review !== previous && activeDocument() === doc && !savingDocuments.has(doc)) fileConflicts.show(doc, review);
+    else if (!review && previous && !fileConflicts.current(doc) && !savingDocuments.has(doc) && editorLayout.resolving && editorLayout.comparisonId === doc.id) editorLayout.closeComparison();
+  } catch { /* A disconnected server or denied permission must leave the editor usable. Save reports the error. */ }
+}
+async function useLatestFile(doc, review) {
+  if (savingDocuments.has(doc)) return;
+  savingDocuments.add(doc);
+  try {
+    await fileConflicts.useLatest(doc, review);
+    showStatus(tr('Latest file loaded. Use Undo to recover your previous edits.'), 7500);
+  } catch (error) { showStatus(error.message, 7500); }
+  finally { savingDocuments.delete(doc); }
+}
+async function save(doc = activeDocument(), saveAs = false, review = null) {
+  if (!doc || savingDocuments.has(doc)) return false;
+  savingDocuments.add(doc);
+  const sourcePath = doc.path, sourceModel = doc.model;
+  const stillOpen = () => state.tabs.includes(doc) && doc.path === sourcePath && doc.model === sourceModel;
   let dest = doc.path;
   try {
     if (!dest || saveAs) dest = await api.saveAsDialog(dest || `${doc.name}.txt`, {openPaths:state.tabs.map(tab => tab.path).filter(Boolean)});
     if (!dest) return false;
     if (dest !== doc.path && state.tabs.some(tab => tab !== doc && tab.path === dest)) throw new Error(tr('That file is already open. Save it from its own tab.'));
     await api.prepareSave?.(dest);
+    if (!stillOpen()) return false;
+    if (dest === doc.path && !review) {
+      if (editorLayout.resolving && editorLayout.comparisonId === doc.id) review = fileConflicts.current(doc);
+      if (!review) {
+        const conflict = await fileConflicts.check(doc);
+        if (!stillOpen()) return false;
+        if (conflict) { fileConflicts.show(doc, conflict); return false; }
+      }
+    }
+    const expectedText = dest === doc.path ? (review ? fileConflicts.expectedText(doc, review) : doc.savedText) : undefined;
     let formatIssue = '';
-    if (state.formatOnSave && formatLanguages.has(doc.model.getLanguageId())) {
+    if (!review && state.formatOnSave && formatLanguages.has(doc.model.getLanguageId())) {
       if (doc.model.getLanguageId() === 'php' && hasMixedPhpHtml(doc.model.getValue())) {
         formatIssue = 'mixed PHP/HTML not autoformatted';
       } else if (!await formatDocument(doc, { quiet: true })) {
         formatIssue = 'formatting failed';
       }
     }
+    if (!stillOpen()) return false;
     const value = doc.model.getValue();
-    const saved = await api.saveFile(dest, value, dest === doc.path ? {expectedText:doc.savedText} : {});
+    const saved = await api.saveFile(dest, value, typeof expectedText === 'string' ? {expectedText} : {});
+    if (!stillOpen()) return false;
     if (dest !== doc.path) {
       const old = doc.model;
       doc.listener?.dispose();
@@ -421,6 +473,8 @@ async function save(doc = activeDocument(), saveAs = false) {
     doc.savedText = value;
     doc.mtimeMs = saved.mtimeMs;
     doc.dirty = doc.model.getValue() !== value;
+    fileConflicts.clear(doc);
+    if (editorLayout.resolving && editorLayout.comparisonId === doc.id) editorLayout.closeComparison();
     renderTabs(); updateStatus(); persist();
     if (state.active === doc.id) {
       $('breadcrumbs').textContent = relative(doc.path) || doc.name;
@@ -430,7 +484,15 @@ async function save(doc = activeDocument(), saveAs = false) {
     showStatus(issues ? `Saved ${doc.name} · ${issues}` : `Saved ${doc.name}`, issues ? 7500 : 3000);
     if (state.root && normalizedSlashes(dest).startsWith(normalizedSlashes(state.root) + '/')) refreshFolder().catch(() => {});
     return true;
-  } catch (err) { showStatus(`Save failed: ${err.message}`, 7500); return false; }
+  } catch (err) {
+    if (isFileConflict(err) && stillOpen() && dest === doc.path) {
+      try {
+        const conflict = await fileConflicts.check(doc);
+        if (conflict) { fileConflicts.show(doc, conflict); return false; }
+      } catch { /* Keep the original save error if the latest file cannot be read. */ }
+    }
+    showStatus(`Save failed: ${err.message}`, 7500); return false;
+  } finally { savingDocuments.delete(doc); }
 }
 function confirmChanges(doc) {
   return new Promise(resolve => {
@@ -1264,6 +1326,7 @@ const commands = [
   { label: 'Split editor', description: 'Ctrl+\\', run: () => editorLayout.toggleSplit() },
   { label: 'Local History…', description: '', run: () => localHistoryPanel.open() },
   { label: 'Compare with saved version', description: '', run: () => editorLayout.compareSaved(activeDocument()) },
+  { label: 'Compare with latest file', description: '', run: () => reviewLatestFile() },
   { label: 'Close comparison', description: '', run: () => editorLayout.closeComparison() },
   { label: 'Toggle sidebar', description: 'Ctrl+B', run: toggleSidebar },
   { label: 'Replace in project', description: 'Ctrl+Shift+H', run: () => projectSearch.show(true) },
@@ -1605,6 +1668,7 @@ const menuSpecs = {
     { label:'Markdown preview',command:'markdown-preview',accelerator:'Ctrl+Shift+V',disabled:()=>activeDocument()?.model.getLanguageId()!=='markdown' },
     { label: 'Split Editor', command: 'split-editor', accelerator: 'Ctrl+\\' },
     { label: 'Compare with Saved Version', command: 'compare-saved' },
+    { label: 'Compare with latest file', command: 'compare-latest' },
     { label: 'Close Comparison', command: 'close-comparison' },
     { label: 'Toggle Sidebar', command: 'sidebar', accelerator: 'Ctrl+B' },
     { label: 'Toggle Minimap', command: 'minimap', check: () => state.minimap },
@@ -2081,6 +2145,7 @@ function handleMenuCommand(name) {
     'replace': () => editor.getAction('editor.action.startFindReplaceAction')?.run(),
     'preview': startLivePreview, 'preview-stop': stopLivePreview,
     'split-editor': () => editorLayout.toggleSplit(), 'compare-saved': () => editorLayout.compareSaved(activeDocument()),
+    'compare-latest': () => reviewLatestFile(),
     'close-comparison': () => editorLayout.closeComparison(),
     'settings': openSettings, 'about': openAbout, 'sidebar': toggleSidebar,
     'minimap': toggleMinimap, 'wrap': toggleWrap, 'font-plus': () => adjustFont(1),
@@ -2268,6 +2333,21 @@ async function initialize() {
   colorEditor = colorEditors.get(editor);
   editorLayout = installEditorLayout({monaco, primary:editor, host:$('editor'),
     getDocuments:() => state.tabs, options:editorOptions, configure:configureEditor, activate:activateEditor, tr, displayPath});
+  fileConflicts = createFileConflicts({api, isOpen:doc => state.tabs.includes(doc),
+    present:(doc, review) => {
+      if (activeDocument() !== doc) { showStatus(`${doc.name} · ${tr('File changed externally. Compare with the latest file before saving.')}`, 7500); return; }
+      editorLayout.compareSaved(doc, {text:review.text, label:tr('Latest file'), conflict:{
+        useLatest:() => useLatestFile(doc, review),
+        save:() => save(doc, false, review), saveAs:() => save(doc, true, review),
+        refresh:() => reviewLatestFile(doc)
+      }});
+      showStatus(tr('File changed externally. Compare with the latest file before saving.'), 7500);
+    }, changed:doc => {
+      if (editorLayout.comparisonId === doc.id) editorLayout.closeComparison();
+      renderTabs(); updateStatus(); persist();
+    }});
+  window.addEventListener('focus', checkExternalFile);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkExternalFile(); });
   sidebarViews=installSidebarViews({reveal:()=>{if(!state.sidebarOpen)toggleSidebar();}});
   outlinePanel=installDocumentOutline({monaco,sidebar:sidebarViews});outlinePanel.activate(activeDocument(),editor);
   markdownPanel=installMarkdownPanel({monaco,api,getRoot:()=>state.root,getEditor:()=>editor,getDocument:activeDocument,getDocuments:()=>state.tabs,

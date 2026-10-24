@@ -95,6 +95,12 @@ button:hover { background: var(--hover); }
 .comparison-view { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .comparison-caption { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .comparison-editor { flex: 1; min-height: 0; }
+.conflict-actions { padding: 8px 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.conflict-actions[hidden] { display: none; }
+.conflict-message { margin: 0 0 7px; color: var(--ink); font-size: var(--ui-font-size); }
+.conflict-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.conflict-buttons button { border: 1px solid var(--line); border-radius: 4px; padding: 5px 9px; color: var(--ink); background: var(--raised); font: inherit; cursor: pointer; }
+.conflict-buttons button:hover, .conflict-buttons button:focus-visible { border-color: var(--accent); }
 .editor { position:absolute; inset:0; visibility:hidden; }
 .editor.visible { visibility:visible; }
 .welcome { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top: -30px; pointer-events: none; }

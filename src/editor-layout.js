@@ -17,6 +17,16 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   button(toolbar, 'Previous change', () => diff?.goToDiff('previous'));
   button(toolbar, 'Next change', () => diff?.goToDiff('next'));
   button(toolbar, 'Close comparison', () => closeComparison());
+  const conflictBar = make('div', 'conflict-actions', diffWrap);
+  conflictBar.hidden = true;
+  const conflictMessage = make('p', 'conflict-message', conflictBar);
+  conflictMessage.setAttribute('role', 'status');
+  conflictMessage.textContent = tr('Latest file on the left, your edits on the right. Copy individual changes with the arrows, or edit the right side before saving.');
+  const conflictButtons = make('div', 'conflict-buttons', conflictBar);
+  let conflictActions = null;
+  for (const [label, action] of [['Use latest file', 'useLatest'], ['Save resolved file', 'save'], ['Save As…', 'saveAs'], ['Refresh latest file', 'refresh']]) {
+    button(conflictButtons, label, () => conflictActions?.[action]());
+  }
   const diffHost = make('div', 'comparison-editor', diffWrap);
   function notify(pane, target = pane.editor) {
     active = pane;
@@ -109,7 +119,7 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   }
   function compareSaved(doc, snapshot = null) {
     if (!doc) return;
-    closeComparison(false); remember(active);
+    closeComparison(false); assign(active, doc); remember(active);
     if (!diff) {
       diff = monaco.editor.createDiffEditor(diffHost, {...options(), originalEditable:false, readOnly:false,
         renderSideBySide:true, useInlineViewWhenSpaceIsLimited:false, ignoreTrimWhitespace:false,
@@ -120,6 +130,9 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
       diff.getOriginalEditor().onDidFocusEditorText(() => { if (comparison) notify(active, diff.getModifiedEditor()); });
     }
     original = monaco.editor.createModel(snapshot ? snapshot.text : doc.savedText, doc.model.getLanguageId());
+    conflictActions = snapshot?.conflict || null;
+    conflictBar.hidden = !conflictActions;
+    diff.updateOptions({renderMarginRevertIcon:Boolean(conflictActions), renderGutterMenu:!conflictActions});
     comparison = doc.id;
     caption.textContent = `${doc.name} — ${snapshot ? snapshot.label : tr('Saved snapshot')} ↔ ${tr('Current changes')}`;
     caption.title = snapshot ? snapshot.label : tr('The saved version when this comparison was opened. Reopen to refresh.');
@@ -132,6 +145,7 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
     if (!comparison) return;
     const view = diff.getModifiedEditor().saveViewState();
     diff.setModel(null); original.dispose(); original = null; comparison = null; diffWrap.hidden = true;
+    conflictActions = null; conflictBar.hidden = true;
     active.editor.restoreViewState(view); refresh(); layout(); notify(active);
     if (focus) active.editor.focus();
   }
@@ -159,5 +173,6 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   function updateOptions(value) { for (const pane of panes) pane.editor.updateOptions(value); diff?.updateOptions(value); }
   refresh(); resize(.5);
   return {selectDocument, toggleSplit, compareSaved, closeComparison, removeDocument, rebind, refresh, layout, updateOptions,
-    get split() { return split; }, get comparing() { return Boolean(comparison); }};
+    get split() { return split; }, get comparing() { return Boolean(comparison); },
+    get comparisonId() { return comparison; }, get resolving() { return Boolean(conflictActions); }};
 }

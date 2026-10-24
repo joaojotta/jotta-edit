@@ -17,11 +17,13 @@ function normalizeSession(raw) {
       const dirty = doc.dirty === true;
       if ((!file || dirty) && typeof doc.text !== 'string') throw new Error('Missing unsaved document content');
       if (typeof doc.text === 'string' && Buffer.byteLength(doc.text, 'utf8') > MAX_BUFFER) throw new Error('Recovery buffer exceeds the 5 MB limit');
+      if (typeof doc.savedText === 'string' && Buffer.byteLength(doc.savedText, 'utf8') > MAX_BUFFER) throw new Error('Recovery baseline exceeds the 5 MB limit');
       return {
         path: file,
         name: typeof doc.name === 'string' ? doc.name.slice(0, 255) : (file ? path.basename(file) : 'untitled'),
         dirty,
         ...(typeof doc.text === 'string' ? { text:doc.text } : {}),
+        ...(file && dirty && typeof doc.savedText === 'string' ? {savedText:doc.savedText} : {}),
         ...(typeof doc.language === 'string' ? { language:doc.language.slice(0, 60) } : {})
       };
     });

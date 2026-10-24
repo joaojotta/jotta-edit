@@ -66,6 +66,7 @@ test('cancelled pickers, permission failures and failed writes do not replace sa
   assert.equal(await api.saveAsDialog('a.txt'),null);
   file.permission='denied';
   assert.equal((await api.readFile(a)).content,'saved'); // cached recovery copy
+  await assert.rejects(api.readFile(a, {fresh:true}), /access expired/, 'conflict resolution must not treat a recovery copy as the latest disk version');
   await assert.rejects(api.saveFile(a,'pending'),/access expired/);assert.equal(file.requests,1);
   assert.equal(file.text,'saved');
   file.permission='granted';file.fail=true;
@@ -102,4 +103,30 @@ test('native file pickers recognize an existing tab opened through a folder hand
   assert.equal(await api.saveAsDialog('a.txt',options),'/native/project/a.txt');
   assert.deepEqual(await api.chooseFiles(options),['/native/project/a.txt']);
   assert.equal(await store.getFile('/native/project/a.txt'),undefined);
+});
+
+test('external changes made during browser staging abort the write before commit', async t => {
+  const {api,store} = await adapter(t), file = handle('a.txt', 'original');
+  window.showOpenFilePicker = async () => [file];
+  const [a] = await api.chooseFiles();
+  const writable = file.createWritable;
+  file.createWritable = async () => {
+    const writer = await writable();
+    const write = writer.write;
+    writer.write = async text => {await write(text); file.text = 'external during save';};
+    return writer;
+  };
+  await assert.rejects(api.saveFile(a, 'my edits', {expectedText:'original'}), /changed on disk/);
+  assert.equal(file.text, 'external during save');
+  assert.equal(file.aborts, 1);
+  assert.equal((await store.getFile(a)).content, 'original');
+});
+
+test('browser storage saves also reject stale expected content', async t => {
+  const {api,store} = await adapter(t), file = '/workspace/Project/file.txt';
+  await store.addFile({path:file, content:'external'});
+  await assert.rejects(api.saveFile(file, 'my edits', {expectedText:'original'}), /changed on disk/);
+  assert.equal((await store.getFile(file)).content, 'external');
+  await api.saveFile(file, 'resolved', {expectedText:'external'});
+  assert.equal((await store.getFile(file)).content, 'resolved');
 });

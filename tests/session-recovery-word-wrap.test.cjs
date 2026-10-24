@@ -34,6 +34,13 @@ test('legacy sessions still load and recovery rejects content truncation or miss
   assert.throws(() => normalizeSession({tabs:[{path:null,dirty:true,text:'x'.repeat(5*1024*1024+1)}]}), /5 MB/);
 });
 
+test('dirty recovery sessions retain the original baseline for detecting external edits after restart', () => {
+  const saved = normalizeSession({tabs:[{path:'/project/a.txt', dirty:true, text:'my edits', savedText:'original'}]});
+  assert.equal(saved.tabs[0].savedText, 'original');
+  assert.equal(saved.tabs[0].text, 'my edits');
+  assert.throws(() => normalizeSession({tabs:[{path:'/a', dirty:true, text:'draft', savedText:'x'.repeat(5*1024*1024+1)}]}), /Recovery baseline exceeds/);
+});
+
 test('session disk writes are atomic, keep previous snapshot on validation failure and protect files', async () => {
   const temp = await fsp.mkdtemp(path.join(os.tmpdir(), 'jotta-session-'));
   try {

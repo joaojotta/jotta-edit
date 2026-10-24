@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.1.5 — Visual conflict resolution (24 Oct 2026)
 
+- Add visual conflict resolution on desktop and web: compare the latest file with your editable buffer, copy individual changes, load the latest file with Undo support, save the resolved result or preserve a copy with Save As. Check on save and when returning to the app, and expose Compare with latest file in View and the command palette.
+- Guard local desktop saves and recheck staged browser writes against newer external changes. Preserve the saved baseline in dirty recovery sessions so restarting does not silently approve external edits.
 - Add GitHub Actions builds for x64 Windows portable EXE, Linux Flatpak and AppImage packages, with downloadable artifacts and draft releases for matching version tags.
 - Add AppImage and combined Linux build commands, and include the desktop workflow in source archives.
 
