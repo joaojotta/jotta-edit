@@ -6,7 +6,7 @@ const path = require('node:path');
 const pkg = require('../package.json');
 
 test('Flatpak target and runtime are configured', () => {
-  assert.deepEqual(pkg.build.linux.target, ['flatpak']);
+  assert.ok(pkg.build.linux.target.includes('flatpak'));
   assert.equal(pkg.build.flatpak.runtimeVersion, '25.08');
   assert.equal(pkg.build.flatpak.baseVersion, '25.08');
   assert.ok(pkg.build.flatpak.finishArgs.includes('--filesystem=home'));

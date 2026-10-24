@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add GitHub Actions builds for x64 Windows portable EXE, Linux Flatpak and AppImage packages, with downloadable artifacts and draft releases for matching version tags.
+- Add AppImage and combined Linux build commands, and include the desktop workflow in source archives.
+
 ## 1.1.4 — Document outline and remote connections (24 Oct 2026)
 
 - Add a Document outline sidebar for Markdown headings, JavaScript/TypeScript symbols, PHP/Python function and class declarations, and CSS/SCSS/Less selectors. Follow the focused editor and unsaved edits, filter entries, highlight the current section and jump to its source line.

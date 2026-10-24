@@ -61,6 +61,17 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 
 ## Desktop or browser
 
-**Linux** ships as a Flatpak. **Windows** ships as a portable executable: **no installation required**.
+**Linux** ships as a Flatpak or AppImage. **Windows** ships as a portable executable: **no installation required**.
 
 The **web edition** is an installable, offline-capable app with browser workspaces, folder and ZIP import/export, and direct local file or folder access where the browser supports it.
+
+## Build packages on GitHub
+
+The [desktop workflow](.github/workflows/build-desktop.yml) builds x64 Windows portable EXE, Linux Flatpak and Linux AppImage packages, plus a source archive.
+
+- **Try a build:** push the workflow to your default branch, open **Actions → Build desktop packages → Run workflow**, and select a branch. Download the packages from **Artifacts** on the completed run (kept for 14 days).
+- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.1.4` followed by `git push origin v1.1.4`. The workflow checks that the tag matches `package.json`, builds the packages, and attaches them to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact.
+
+GitHub Actions must be enabled for the repository. The workflow uses GitHub's built-in token; no personal access token is required. Windows packages are unsigned unless you configure code signing.
+
+For local builds, use Node.js 24, run `npm ci` and `npx --no-install install-electron --no`, then `npm run dist:windows` on Windows, `npm run dist:appimage` on Linux, or `bash scripts/build-flatpak.sh` for Flatpak (including runtime setup). `npm run dist:linux` builds both Linux formats once the Flatpak prerequisites are installed. Outputs go to `release/`.

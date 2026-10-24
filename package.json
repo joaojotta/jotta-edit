@@ -18,6 +18,8 @@
     "dist:flatpak": "npm run build:web && electron-builder --linux flatpak --x64",
     "check:config": "node scripts/validate-build-config.cjs",
     "dist:windows": "npm run build:web && electron-builder --win portable --x64",
+    "dist:appimage": "npm run build:web && electron-builder --linux AppImage --x64",
+    "dist:linux": "npm run build:web && electron-builder --linux flatpak AppImage --x64",
     "dev:web": "vite --config vite.web.config.mjs --host 127.0.0.1",
     "build:pwa": "npm run licenses:generate && vite build --config vite.web.config.mjs && node scripts/verify-web-build.cjs",
     "preview:pwa": "vite preview --config vite.web.config.mjs --host 127.0.0.1",
@@ -64,7 +66,8 @@
     },
     "linux": {
       "target": [
-        "flatpak"
+        "flatpak",
+        "AppImage"
       ],
       "category": "Development",
       "icon": "assets/icons",
@@ -112,6 +115,9 @@
           "/share/licenses/pt.jotta.edit/THIRD-PARTY-NOTICES.md"
         ]
       ]
+    },
+    "appImage": {
+      "artifactName": "Jotta-Edit-${version}-linux-${arch}.${ext}"
     },
     "win": {
       "target": [

@@ -49,7 +49,7 @@ test('failed flushes leave original remote contents intact',async t=>{
  await assert.rejects(writeRemoteText(file,'ours',{expectedText:'before',io}),/Disconnected during upload/);
  assert.equal(await fs.readFile(file,'utf8'),'before');assert.deepEqual(await fs.readdir(root),['file.txt']);
 });
-test('v1.1.0 exposes remote folders, retains both palettes and has no account integration or workflows',async()=>{
+test('v1.1.0 exposes remote folders, retains both palettes and has no account integration',async()=>{
  const read=name=>fs.readFile(path.join(__dirname,'..',name),'utf8');
  const {syntaxPalettes,syntaxThemeChoices}=await import('../src/syntax-themes.js');
  assert.equal(require('../package.json').version,'1.1.4');
@@ -63,5 +63,4 @@ test('v1.1.0 exposes remote folders, retains both palettes and has no account in
  assert.doesNotMatch(await read('electron/preload.cjs'),/githubState|githubTokenHelp/);
  assert.doesNotMatch(await read('web/browser-api.js'),/connectRemoteFolder|github/i);
  assert.doesNotMatch(await read('VERSION_HISTORY.md'),/github/i);assert.match(await read('VERSION_HISTORY.md'),/1\.1\.0 — Remote folders/);
- await assert.rejects(fs.stat(path.join(__dirname,'..','.github')),error=>error.code==='ENOENT');
 });
