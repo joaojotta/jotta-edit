@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.6 — HTML and embedded CSS outline (24 Oct 2026)
+
+- Add HTML document outlines with nested elements, IDs and classes on desktop and web.
+- Include CSS selectors and grouping rules from embedded `<style>` blocks, including those inside `<head>`, with navigation and current-section highlighting at their original HTML source positions. Ignore comments and script contents, tolerate incomplete edits, and keep the existing outline size and entry limits.
+- Update desktop, web and package metadata to version 1.1.6.
+
 ## 1.1.5 — Visual conflict resolution (24 Oct 2026)
 
 - Add visual conflict resolution on desktop and web: compare the latest file with your editable buffer, copy individual changes, load the latest file with Undo support, save the resolved result or preserve a copy with Save As. Check on save and when returning to the app, and expose Compare with latest file in View and the command palette.

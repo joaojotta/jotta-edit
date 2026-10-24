@@ -31,7 +31,7 @@ export function installDocumentOutline({monaco,sidebar,documentRef=document,load
     try{
       const result=await load(model,monaco);
       if(run!==generation||model.isDisposed()||model.getVersionId()!==requestedVersion)return;
-      entries=result.entries;status.textContent=tr(!result.supported?'Outline supports Markdown, JavaScript, TypeScript, PHP, Python and CSS.':result.tooLarge?'This document is too large for the outline.':result.limited?'Showing the first 1,000 outline entries.':entries.length?'Select an entry to jump to it.':'No headings, functions or selectors found.');render();
+      entries=result.entries;status.textContent=tr(!result.supported?'Outline supports Markdown, HTML, JavaScript, TypeScript, PHP, Python and CSS.':result.tooLarge?'This document is too large for the outline.':result.limited?'Showing the first 1,000 outline entries.':entries.length?'Select an entry to jump to it.':'No headings, elements, functions or selectors found.');render();
     }catch{if(run===generation)status.textContent=tr('Could not load outline. Try Refresh.');}
   }
   function schedule(){++generation;clearTimeout(timer);entries=[];rows=[];list.replaceChildren();if(!panel.hidden)timer=setTimeout(refresh,220);}

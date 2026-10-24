@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.1.5</strong> &nbsp;·&nbsp; Visual conflict resolution
+  <strong>Version 1.1.6</strong> &nbsp;·&nbsp; HTML and embedded CSS outline
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 | **Tabs & split editing** | Work with multiple files in two resizable panes and compare a document with its saved version. |
 | **Visual conflict resolution** | Compare external file changes with your edits, copy individual changes, and save your chosen result with another check for newer changes. |
 | **Quick navigation** | Jump to files or lines, switch languages and find commands through the command palette. |
-| **Document outline** | Filter and jump between Markdown headings, JavaScript/TypeScript symbols, PHP/Python declarations and CSS selectors from the sidebar. |
+| **Document outline** | Filter and jump between Markdown headings, JavaScript/TypeScript symbols, PHP/Python declarations, HTML elements and CSS selectors, including CSS inside HTML `<style>` blocks, from the sidebar. |
 | **Project search & replace** | Search across files and unsaved drafts, preview replacements and choose which files to change. |
 | **Code assistance** | Use syntax highlighting, automatic language detection, multiple cursors, Emmet expansion and optional language-server completion on desktop. |
 | **Formatting** | Format code with Prettier, enable format on save and choose your indentation and line-width preferences. |
@@ -71,7 +71,7 @@ The **web edition** is an installable, offline-capable app with browser workspac
 The [desktop workflow](.github/workflows/build-desktop.yml) builds x64 Windows portable EXE, Linux Flatpak and Linux AppImage packages, plus a source archive.
 
 - **Try a build:** push the workflow to your default branch, open **Actions → Build desktop packages → Run workflow**, and select a branch. Download the packages from **Artifacts** on the completed run (kept for 14 days).
-- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.1.5` followed by `git push origin v1.1.5`. The workflow checks that the tag matches `package.json`, builds the packages, and attaches them to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact.
+- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.1.6` followed by `git push origin v1.1.6`. The workflow checks that the tag matches `package.json`, builds the packages, and attaches them to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact.
 
 GitHub Actions must be enabled for the repository. The workflow uses GitHub's built-in token; no personal access token is required. Windows packages are unsigned unless you configure code signing.
 

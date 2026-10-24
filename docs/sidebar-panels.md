@@ -9,6 +9,7 @@ Outline follows the document in the focused editor, including either pane of a s
 Supported documents:
 
 - Markdown: ATX (`# Heading`) and setext headings, with heading levels shown by indentation. Fenced/indented code and front matter are excluded.
+- HTML: nested elements labelled with their tag, ID and classes. CSS selectors and grouping rules inside `<style>` blocks (including those in `<head>`) appear beneath the style element and navigate to their original HTML source positions. Comments and script contents are excluded; incomplete markup and CSS remain navigable while editing.
 - JavaScript and TypeScript: functions, methods, classes and other symbols provided by the language service.
 - PHP and Python: named function and class declarations, excluding comments and quoted strings.
 - CSS, SCSS and Less: selectors and grouping rules such as media queries, including nested selectors.
@@ -29,4 +30,4 @@ The web build hides Connections because browsers cannot directly connect to FTP,
 
 ## Validation
 
-Tests cover Markdown/code/CSS parsing, outline limits and stale results, exclusive sidebar views, operation state transitions, byte progress, sanitized failures, bounded activity history, reconnect and retry behavior. A local SFTP fixture exercises real streamed downloads, guarded uploads and reconnects. Desktop smoke checks exercise the actual Monaco JavaScript worker, CSS outline, heading navigation and the connection panel using an isolated app profile.
+Tests cover Markdown/code/CSS parsing, HTML hierarchy and embedded CSS source ranges, outline limits and stale results, exclusive sidebar views, operation state transitions, byte progress, sanitized failures, bounded activity history, reconnect and retry behavior. A local SFTP fixture exercises real streamed downloads, guarded uploads and reconnects. Desktop smoke checks exercise the actual Monaco JavaScript worker, CSS outline, heading navigation and the connection panel using an isolated app profile.

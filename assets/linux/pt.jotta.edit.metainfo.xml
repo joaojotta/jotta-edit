@@ -27,6 +27,11 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.1.6" date="2026-10-24">
+      <description>
+        <p>Navigate HTML elements, IDs and classes in the document outline, including CSS selectors and grouping rules in embedded style blocks with their original source positions.</p>
+      </description>
+    </release>
     <release version="1.1.5" date="2026-10-24">
       <description>
         <p>Compare external file changes with your edits, select individual changes and save the resolved file with another check for newer changes.</p>

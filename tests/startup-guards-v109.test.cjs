@@ -37,7 +37,7 @@ test('all statically-referenced UI element IDs exist in the packaged HTML', () =
 
 test('launcher still provides X11 socket and does not add broad D-Bus permissions', () => {
  const pkg = JSON.parse(read('package.json'));
- assert.equal(pkg.version, '1.1.5');
+ assert.equal(pkg.version, '1.1.6');
  assert.ok(pkg.build.flatpak.finishArgs.includes('--socket=x11'));
  assert.ok(!pkg.build.flatpak.finishArgs.includes('--socket=system-bus'));
 });

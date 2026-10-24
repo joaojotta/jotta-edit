@@ -35,5 +35,5 @@ test('format settings are persisted and passed to both formatting entry points',
   assert.match(main, /applyPlainTextHighlights\(\)/);
   assert.match(main, /formatCode\(original,[\s\S]*?printWidth: state\.formatWidth/);
   assert.match(main, /formatCode\(source,[\s\S]*?printWidth: state\.formatWidth/);
-  assert.equal(require('../package.json').version, '1.1.5');
+  assert.equal(require('../package.json').version, '1.1.6');
 });

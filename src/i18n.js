@@ -19,14 +19,14 @@ const PT = {
   'Refresh outline':'Atualizar estrutura','Filter outline':'Filtrar estrutura','Find a heading or symbol…':'Procurar um título ou símbolo…',
   'Open a document to see its outline.':'Abra um documento para ver a sua estrutura.',
   'Document symbols':'Símbolos do documento','Loading outline…':'A carregar a estrutura…',
-  'Outline supports Markdown, JavaScript, TypeScript, PHP, Python and CSS.':'A estrutura suporta Markdown, JavaScript, TypeScript, PHP, Python e CSS.',
+  'Outline supports Markdown, HTML, JavaScript, TypeScript, PHP, Python and CSS.':'A estrutura suporta Markdown, HTML, JavaScript, TypeScript, PHP, Python e CSS.',
   'This document is too large for the outline.':'Este documento é demasiado grande para a estrutura.',
   'Showing the first 1,000 outline entries.':'A mostrar as primeiras 1 000 entradas da estrutura.',
   'Select an entry to jump to it.':'Selecione uma entrada para saltar para a respetiva posição.',
-  'No headings, functions or selectors found.':'Não foram encontrados títulos, funções ou seletores.',
+  'No headings, elements, functions or selectors found.':'Não foram encontrados títulos, elementos, funções ou seletores.',
   'No outline entries match.':'Nenhuma entrada da estrutura corresponde à pesquisa.',
   'Could not load outline. Try Refresh.':'Não foi possível carregar a estrutura. Tente Atualizar.',
-  'Function':'Função','Class':'Classe','Selector':'Seletor','Symbol':'Símbolo','Line':'Linha',
+  'Function':'Função','Class':'Classe','Element':'Elemento','Selector':'Seletor','Symbol':'Símbolo','Line':'Linha',
   'Connect…':'Ligar…','Connect a server to see its status and file activity.':'Ligue a um servidor para ver o estado e a atividade dos ficheiros.',
   'Servers':'Servidores','File activity':'Atividade dos ficheiros','Clear completed':'Limpar concluídas','No file operations yet.':'Ainda não há operações de ficheiros.',
   'Remote file operations':'Operações de ficheiros remotos','Reconnect':'Voltar a ligar','Connected':'Ligado','Disconnected':'Desligado','Failed':'Falhou',
@@ -515,7 +515,7 @@ const PT = {
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
   'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
-  'untitled':'sem-título', 'Version 1.1.5':'Versão 1.1.5'
+  'untitled':'sem-título', 'Version 1.1.6':'Versão 1.1.6'
 };
 
 const originalTexts = new WeakMap();

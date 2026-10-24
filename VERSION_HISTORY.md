@@ -1,5 +1,10 @@
 # Version history — Jotta Edit
 
+## 1.1.6 — HTML and embedded CSS outline (24 Oct 2026)
+
+- Navigate nested HTML elements, IDs and classes in the document outline on desktop and web.
+- Show embedded CSS selectors and grouping rules beneath their `<style>` element, including styles inside `<head>`, with original source positions.
+
 ## 1.1.5 — Visual conflict resolution (24 Oct 2026)
 
 - Compare the latest external file with your editable buffer, copy individual changes, load the latest version with Undo support, or save a resolved result or separate copy.

@@ -1,6 +1,6 @@
 import {lexer} from 'marked';
 
-export const OUTLINE_LANGUAGES=new Set(['markdown','javascript','typescript','css','scss','less','php','python']);
+export const OUTLINE_LANGUAGES=new Set(['markdown','html','javascript','typescript','css','scss','less','php','python']);
 const LIMIT=1000;
 const compact=text=>String(text).replace(/\s+/g,' ').trim().slice(0,240);
 function headingText(tokens){return (tokens||[]).map(t=>t.type==='image'?t.text:t.tokens?headingText(t.tokens):t.type==='html'?'':t.text||t.raw||'').join('');}
@@ -75,21 +75,53 @@ export function cssOutline(symbols){
   }
   return entries;
 }
+async function stylesheetOutline(document,language){
+  // Use Monaco's pinned service directly; the CSS contribution does not export
+  // a worker accessor. The same parser handles standalone and embedded CSS.
+  const {getCSSLanguageService,getSCSSLanguageService,getLESSLanguageService}=await import('../node_modules/monaco-editor/esm/external/vscode-css-languageservice/lib/esm/cssLanguageService.js');
+  const service=(language==='scss'?getSCSSLanguageService:language==='less'?getLESSLanguageService:getCSSLanguageService)();
+  return cssOutline(service.findDocumentSymbols(document,service.parseStylesheet(document)));
+}
+export async function htmlOutline(source,uri,version){
+  const [{getLanguageService},{TextDocument}]=await Promise.all([
+    import('../node_modules/monaco-editor/esm/external/vscode-html-languageservice/lib/esm/htmlLanguageService.js'),
+    import('../node_modules/monaco-editor/esm/external/vscode-languageserver-textdocument/lib/esm/main.js')
+  ]);
+  const document=TextDocument.create(uri,'html',version,source),tree=getLanguageService().parseHTMLDocument(document),entries=[];
+  const pending=tree.roots.map(node=>({node,depth:0})).reverse();
+  // Walk iteratively so deeply nested markup cannot exhaust the call stack.
+  while(pending.length&&entries.length<=LIMIT){
+    const {node,depth}=pending.pop();
+    if(!node.tag)continue;
+    const attributes=Object.fromEntries(Object.entries(node.attributes||{}).map(([name,value])=>[name.toLowerCase(),(value||'').replace(/^['"]|['"]$/g,'').trim()]));
+    const name=compact(node.tag+(attributes.id?'#'+attributes.id:'')+(attributes.class?attributes.class.split(/\s+/).map(value=>'.'+value).join(''):''));
+    const start=document.positionAt(node.start),end=document.positionAt(node.end);
+    entries.push({name,kind:'Element',depth,line:start.line+1,column:start.character+1,endLine:end.line+1,endColumn:end.character+1});
+    if(node.tag.toLowerCase()==='style'&&node.startTagEnd!==undefined&&(!attributes.type||attributes.type.toLowerCase()==='text/css')){
+      const offset=node.startTagEnd,css=TextDocument.create(uri,'css',version,source.slice(offset,node.endTagStart??node.end));
+      for(const item of await stylesheetOutline(css,'css')){
+        if(entries.length>LIMIT)break;
+        // Translate both ends back into the HTML document, including columns
+        // when a selector starts on the same line as its opening style tag.
+        const from=document.positionAt(offset+css.offsetAt({line:item.line-1,character:item.column-1}));
+        const to=document.positionAt(offset+css.offsetAt({line:item.endLine-1,character:item.endColumn-1}));
+        entries.push({...item,depth:depth+1+item.depth,line:from.line+1,column:from.character+1,endLine:to.line+1,endColumn:to.character+1});
+      }
+    }
+    for(let i=node.children.length-1;i>=0;i--)pending.push({node:node.children[i],depth:depth+1});
+  }
+  return entries;
+}
 export async function documentOutline(model,monaco){
   const language=model.getLanguageId();if(!OUTLINE_LANGUAGES.has(language))return {entries:[],supported:false};
   if(model.getValueLength()>2*1024*1024)return {entries:[],supported:true,tooLarge:true};
   let entries;
   if(language==='markdown')entries=markdownOutline(model.getValue());
+  else if(language==='html')entries=await htmlOutline(model.getValue(),model.uri.toString(),model.getVersionId());
   else if(['css','scss','less'].includes(language)){
-    // Monaco's pinned CSS service is also usable directly. Its CSS contribution
-    // does not export the worker accessor supplied by the TypeScript service.
-    const [{getCSSLanguageService,getSCSSLanguageService,getLESSLanguageService},{TextDocument}]=await Promise.all([
-      import('../node_modules/monaco-editor/esm/external/vscode-css-languageservice/lib/esm/cssLanguageService.js'),
-      import('../node_modules/monaco-editor/esm/external/vscode-languageserver-textdocument/lib/esm/main.js')
-    ]);
-    const service=(language==='scss'?getSCSSLanguageService:language==='less'?getLESSLanguageService:getCSSLanguageService)();
+    const {TextDocument}=await import('../node_modules/monaco-editor/esm/external/vscode-languageserver-textdocument/lib/esm/main.js');
     const document=TextDocument.create(model.uri.toString(),language,model.getVersionId(),model.getValue());
-    entries=cssOutline(service.findDocumentSymbols(document,service.parseStylesheet(document)));
+    entries=await stylesheetOutline(document,language);
   }else if(['javascript','typescript'].includes(language)){
     const api=monaco.languages.typescript,worker=await api[language==='typescript'?'getTypeScriptWorker':'getJavaScriptWorker']();
     entries=navigationOutline(await (await worker(model.uri)).getNavigationTree(model.uri.toString()),model);

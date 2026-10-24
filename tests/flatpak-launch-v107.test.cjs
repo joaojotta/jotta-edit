@@ -9,7 +9,7 @@ const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 const { fileArguments } = require('../electron/launch-paths.cjs');
 
 test('Flatpak starts through X11 backend, not forced Wayland/Vulkan path', () => {
-  assert.equal(pkg.version, '1.1.5');
+  assert.equal(pkg.version, '1.1.6');
   assert.equal(pkg.build.flatpak.useWaylandFlags, false);
   assert.ok(pkg.build.flatpak.finishArgs.includes('--socket=x11'));
   assert.ok(!pkg.build.flatpak.finishArgs.includes('--socket=wayland'));

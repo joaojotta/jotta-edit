@@ -63,7 +63,7 @@ test('manual icon colours override automatic palettes and reset falls back to pa
 
 test('Explorer palette selection persists; syntax and interface theme changes repaint icons', () => {
   const main = read('src/main.js'), html = read('index.html'), css = read('src/style.css');
-  assert.equal(require('../package.json').version, '1.1.5');
+  assert.equal(require('../package.json').version, '1.1.6');
   assert.match(main, /explorerIconPalette: normalizeExplorerIconPalette\(stored\('explorerIconPalette', 'auto'\)\)/);
   assert.match(main, /remember\('explorerIconPalette', state\.explorerIconPalette\)/);
   assert.match(main, /iconPaletteChoice\.addEventListener\('change'/);
