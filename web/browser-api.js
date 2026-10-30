@@ -3,6 +3,8 @@ import {getMeta, putMeta, getFile, putFile, addFile, allFiles, mutateFiles, upda
 import {readZip, writeZip, safeArchivePath} from './zip.js';
 import {markdownTarget,markdownImageType,externalMarkdownLink} from '../shared/markdown-paths.mjs';
 import {printMarkdown} from './markdown-export.js';
+import {imageType, imageData, fileByteLimit} from '../shared/image-files.mjs';
+import {fontType,fontData} from '../shared/font-files.mjs';
 
 const MAX_BYTES=5*1024*1024;
 const IGNORE=new Set(['node_modules','.git','vendor','.cache','dist','build']);
@@ -33,11 +35,34 @@ function selectFiles({directory=false,multiple=false,accept=''}) {
   });
 }
 async function inspectFile(file) {
-  if(file.size>MAX_BYTES) throw new Error(`${file.name} is larger than 5 MB`);
+  if(file.size>fileByteLimit(file.name)) throw new Error(`${file.name} exceeds the file size limit`);
   const data=new Uint8Array(await file.arrayBuffer());
   if (data.includes(0)) return {binary:data};
   try {return {content:new TextDecoder('utf-8',{fatal:true}).decode(data)};}
   catch {return {binary:data};}
+}
+async function openData(file) {
+  const type = imageType(file.name);
+  const font=fontType(file.name);
+  if (!type && !font) return {content:await checkText(file)};
+  if (font && file.size>fileByteLimit(file.name)) throw new Error('Font exceeds the 20 MB limit');
+  if (file.size > fileByteLimit(file.name)) throw new Error(type==='image/svg+xml' ? 'SVG exceeds the 5 MB editor limit' : 'Image exceeds the 20 MB limit');
+  const binary = new Uint8Array(await file.arrayBuffer());
+  if (font) return {content:'',binary,font:fontData(file.name,binary)};
+  const image = imageData(file.name, binary);
+  return {content:type === 'image/svg+xml' ? new TextDecoder().decode(binary) : '', binary, image};
+}
+function storedData(path, value) {
+  if (fontType(path)) {
+    const bytes=value.binary?new Uint8Array(value.binary):utf8.encode(value.content||'');
+    return {content:'',font:fontData(path,bytes)};
+  }
+  if (!imageType(path)) {
+    if(value.binary) throw new Error('Binary file cannot be edited as text');
+    return {content:value.content};
+  }
+  const bytes = value.binary ? new Uint8Array(value.binary) : utf8.encode(value.content || '');
+  return {content:imageType(path)==='image/svg+xml' ? new TextDecoder().decode(bytes) : '', image:imageData(path,bytes)};
 }
 async function checkText(file) {
   const item=await inspectFile(file);
@@ -52,6 +77,10 @@ function downloadFile(name, content) {
   name = cleanName(name);
   if (typeof content !== 'string' || utf8.encode(content).length > MAX_BYTES) throw new Error('Text exceeds 5 MB');
   downloadBlob(new Blob([content], {type:'text/plain;charset=utf-8'}), name);
+}
+function downloadImage(name, image) {
+  const binary = atob(image.url.slice(image.url.indexOf(',') + 1));
+  downloadBlob(new Blob([Uint8Array.from(binary, char => char.charCodeAt(0))], {type:image.type}), cleanName(name));
 }
 let activeRoot=null,activeMode='virtual',nativeRoot=null;
 async function context() {
@@ -122,7 +151,7 @@ async function nativeTree(root,options={}) {
       if(!options.showHidden && name.startsWith('.'))continue;
       if(h.kind==='directory' && IGNORE.has(name))continue;
       const path=here+'/'+name;
-      if(h.kind==='directory') items.push({path,name,dir:true,children:await walk(h,path,depth+1)});
+      if(h.kind==='directory') items.push({path,name,dir:true,children:options.shallow?[]:await walk(h,path,depth+1),...(options.shallow?{incomplete:true}:{})});
       else {count++;items.push({path,name,dir:false});}
     }
     return items.sort((a,b)=>Number(b.dir)-Number(a.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}));
@@ -150,11 +179,12 @@ async function virtualTree(root,options={}) {
   }
   function order(list) { list.sort((a,b)=>Number(b.dir)-Number(a.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}));for(const i of list)if(i.dir)order(i.children); else delete i.children; }
   order(nodes);
+  if(options.shallow)for(const node of nodes)if(node.dir){node.children=[];node.incomplete=true;}
   return {root,nodes,count,truncated:count>=MAX_COUNT};
 }
 async function tree(root,options) {
   const ctx=await contextForPath(root);
-  return ctx.mode==='native' && root===ctx.root ? nativeTree(root,options):virtualTree(root,options);
+  return ctx.mode==='native' && within(ctx.root,root) ? nativeTree(root,options):virtualTree(root,options);
 }
 async function uniqueRoot(name) {
   const cleaned=cleanName(name);
@@ -176,7 +206,7 @@ async function virtualImport(files,name) {
     try { imported.push({path:root+'/'+source,...await inspectFile(file),mtimeMs:Date.now()}); }
     catch(error) { skipped.push(file.name); console.warn('Skipped file import:',error.message); }
   }
-  if(skipped.length && !window.confirm(`${skipped.length} files exceed the 5 MB browser limit. Skip them and continue?`))return null;
+  if(skipped.length && !window.confirm(`${skipped.length} files exceed the browser file size limits. Skip them and continue?`))return null;
   if(!imported.length) throw new Error('No supported files were selected');
   await mutateFiles([],imported);await setWorkspace(root,'virtual');
   return root;
@@ -222,14 +252,14 @@ async function importZip() {
   await setWorkspace(root,'virtual');return root;
 }
 async function exportProject(root) {
-  const ctx=await context();if(!root)throw new Error('Open a folder first');
+  if(!root)throw new Error('Open a folder first');const ctx=await contextForPath(root);
   const listing=await tree(root,{showHidden:true});
   const paths=[];function walk(nodes){for(const n of nodes)n.dir?walk(n.children):paths.push(n.path);}walk(listing.nodes);
   const files=[],skipped=[];for(const path of paths){try{
     let content;
     if(ctx.mode==='native' && within(root,path)) {
       const file=await (await resolveHandle(path)).getFile();
-      if(file.size>MAX_BYTES)throw new Error('File larger than 5 MB');
+      if(file.size>fileByteLimit(file.name))throw new Error('File exceeds browser file size limit');
       const entry=await inspectFile(file);content=entry.binary||entry.content;
     } else {const entry=await getFile(path);if(!entry)throw new Error('File missing');content=entry.binary||entry.content;}
     files.push({name:path.slice(root.length+1),content});
@@ -255,7 +285,7 @@ async function retainLocalFile(handle, opened = null, openPaths = []) {
   }
   const path = previous?.path || '/local-files/' + crypto.randomUUID() + '/' + cleanName(handle.name);
   if (opened || !previous) await putFile({...previous, path, handle, saveMode:'local',
-    ...(opened ? {content:opened.content, mtimeMs:opened.mtimeMs} : {})});
+    ...(opened ? {content:opened.content, binary:opened.binary, mtimeMs:opened.mtimeMs} : {})});
   return path;
 }
 async function localPermission(handle, write = false, request = false) {
@@ -267,19 +297,20 @@ async function localPermission(handle, write = false, request = false) {
 async function chooseFiles({openPaths = []} = {}) {
   if (typeof window.showOpenFilePicker === 'function') {
     let handles;
-    try { handles = await window.showOpenFilePicker({multiple:true}); }
+    try { handles = await window.showOpenFilePicker({multiple:true,id:'jotta-open-files'}); }
     catch (error) { if (error.name === 'AbortError') return []; throw error; }
     const paths = [];
     for (const handle of handles) {
-      const file = await handle.getFile(), content = await checkText(file);
-      paths.push(await retainLocalFile(handle, {content, mtimeMs:file.lastModified}, openPaths));
+      const file = await handle.getFile(), data = await openData(file);
+      paths.push(await retainLocalFile(handle, {...data, mtimeMs:file.lastModified}, openPaths));
     }
     return paths;
   }
   const files=await selectFiles({multiple:true});const paths=[];
   for(const file of files) {
     const path='/imports/'+crypto.randomUUID()+'/'+cleanName(file.name);
-    await putFile({path,content:await checkText(file),mtimeMs:file.lastModified || Date.now(),saveMode:'download'}); paths.push(path);
+    const data=await openData(file);
+    await putFile({path,content:data.content,binary:data.binary,mtimeMs:file.lastModified || Date.now(),saveMode:'download'}); paths.push(path);
   }
   return paths;
 }
@@ -298,16 +329,30 @@ async function saveLocation(path) {
   const ctx = await contextForPath(path);
   return ctx.mode === 'native' && within(ctx.root,path) ? 'Local folder' : 'Browser storage';
 }
+async function statFile(path) {
+  try {
+    const record=await getFile(path);
+    if(record?.saveMode==='local'){
+      await localPermission(record.handle);const file=await record.handle.getFile();return {exists:true,mtimeMs:file.lastModified,size:file.size};
+    }
+    if(path.startsWith('/local-files/'))return {exists:false};
+    const ctx=await contextForPath(path);
+    if(ctx.mode==='native'&&within(ctx.root,path)){
+      const file=await (await resolveHandle(path)).getFile();return {exists:true,mtimeMs:file.lastModified,size:file.size};
+    }
+    return record&&!record.dir?{exists:true,mtimeMs:record.mtimeMs||0,size:record.binary?.byteLength??utf8.encode(record.content||'').length}:{exists:false};
+  }catch(error){if(error.name==='NotFoundError')return {exists:false};throw error;}
+}
 async function readFile(path, {fresh = false} = {}) {
   const cached = await getFile(path);
   if (cached?.saveMode === 'local') {
     try {
       await localPermission(cached.handle);
       const file = await cached.handle.getFile();
-      return {path,name:base(path),content:await checkText(file),mtimeMs:file.lastModified};
+      return {path,name:base(path),...await openData(file),mtimeMs:file.lastModified};
     } catch (error) {
       if (['NotAllowedError','SecurityError','NotFoundError'].includes(error.name) || error.message.startsWith('File access expired')) {
-        if (!fresh && typeof cached.content === 'string') return {path,name:base(path),content:cached.content,mtimeMs:cached.mtimeMs};
+        if (!fresh && typeof cached.content === 'string') return {path,name:base(path),...storedData(path,cached),mtimeMs:cached.mtimeMs};
       }
       throw error;
     }
@@ -316,14 +361,15 @@ async function readFile(path, {fresh = false} = {}) {
   const ctx=await contextForPath(path);
   if(ctx.mode==='native' && within(ctx.root,path)) {
     const handle=await resolveHandle(path); const file=await handle.getFile();
-    return {path,name:base(path),content:await checkText(file),mtimeMs:file.lastModified};
+    return {path,name:base(path),...await openData(file),mtimeMs:file.lastModified};
   }
   const value=await getFile(path);if(!value)throw new Error('File not found');
   if(value.dir)throw new Error('Cannot open a folder as a file');
-  if(value.binary)throw new Error('Binary file cannot be edited as text');
-  return {path,name:base(path),content:value.content,mtimeMs:value.mtimeMs||0};
+  return {path,name:base(path),...storedData(path,value),mtimeMs:value.mtimeMs||0};
 }
 async function saveFile(path,content,options={}) {
+  if(fontType(path)) throw new Error('Fonts are read-only.');
+  if(imageType(path) && imageType(path)!=='image/svg+xml') throw new Error('Images are read-only.');
   if(typeof content!=='string'||utf8.encode(content).length>MAX_BYTES)throw new Error('Text exceeds 5 MB');
   const existing = await getFile(path);
   let localHandle = null;
@@ -351,7 +397,7 @@ async function saveFile(path,content,options={}) {
     catch (error) { try { await writable.abort?.(); } catch {} throw error; }
     let notice = localHandle ? 'Saved to local file.' : 'Saved to local folder.';
     if (localHandle) {
-      try { await putFile({...existing, content, mtimeMs:Date.now()}); }
+      try { await putFile({...existing, content, binary:undefined, mtimeMs:Date.now()}); }
       catch { notice = 'Saved to local file. Browser recovery copy could not be updated.'; }
     }
     await capture([{text:content, kind:'save'}]);
@@ -380,7 +426,7 @@ async function saveAsDialog(suggestion, {openPaths = []} = {}) {
   return '/downloads/' + crypto.randomUUID() + '/' + cleanName(typed);
 }
 async function projectMutation(type,root,source,dest) {
-  const ctx=await context();
+  const ctx=await contextForPath(root);
   if(!root||root!==ctx.root||!within(root,source)||source===root)throw new Error('Entry is outside the current project');
   if(type==='rename')dest=parent(source)+'/'+cleanName(dest);
   if(type==='move') {
@@ -427,7 +473,7 @@ async function projectMutation(type,root,source,dest) {
   return type==='delete'?{path:source}:{oldPath:source,path:dest,historyWarning};
 }
 async function createEntry(root, folder, name, kind) {
-  const ctx = await context();
+  const ctx = await contextForPath(root);
   if (!root || root !== ctx.root || !within(root, folder)) throw new Error('Destination is outside the current project');
   if (!['file', 'folder'].includes(kind)) throw new Error('Invalid entry type');
   name = cleanName(name);
@@ -449,7 +495,7 @@ async function createEntry(root, folder, name, kind) {
 async function renameEntry(root,source,name){return projectMutation('rename',root,source,name);}
 async function moveEntry(root,source,folder){return projectMutation('move',root,source,folder);}
 async function deleteEntry(root, source) {
-  const ctx = await context();
+  const ctx = await contextForPath(root);
   if (!root || root !== ctx.root || !within(root, source) || source === root) throw new Error('Entry is outside the current project');
   const trash = root + '/.jotta-trash';
   if (within(trash, source)) throw new Error('Restore items from .jotta-trash before moving them to Trash again');
@@ -535,11 +581,11 @@ export const browserApi={
     if(format==='pdf')return printMarkdown(html);
     downloadBlob(new Blob([html],{type:'text/html;charset=utf-8'}),cleanName(name));return {canceled:false};
   },
-  platform:'web', prepareSave, saveLocation, reopenWorkspace, downloadFile, chooseFolder, newWorkspace, importDirectory, importZip, exportProject,
+  platform:'web', prepareSave, saveLocation, reopenWorkspace, downloadFile, downloadImage, chooseFolder, newWorkspace, importDirectory, importZip, exportProject,
   listHistory:async path=>historyList(pruneHistory(await getMeta('local-history',[])),path),
   getHistory:async(path,id)=>{const record=pruneHistory(await getMeta('local-history',[])).find(r=>r.path===path&&r.id===id);if(!record)throw new Error('This history version is no longer available.');return record;},
   captureHistory:(path,text)=>updateHistory(records=>appendHistory(records,path,[{text,kind:'restore-backup'}])),
-  scanFolder:tree, chooseFiles, readFile, saveFile, saveAsDialog,
+  scanFolder:tree, chooseFiles, readFile, statFile, saveFile, saveAsDialog,
   createEntry,renameEntry,moveEntry,deleteEntry,searchProject:projectSearch,completePath,
   getSession:()=>getMeta('session',{}),setSession:session=>putMeta('session',session),
   getWindowPrefs:async()=>({nativeFrame:true}),setWindowPrefs:async()=>({nativeFrame:true}),

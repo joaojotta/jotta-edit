@@ -1,5 +1,8 @@
+import {installImageViewer} from './image-viewer.js';
+import {installFontPreview} from './font-preview.js';
+import {readOnlyDocument} from '../shared/font-files.mjs';
 // Views share document models; each pane owns its selection and scroll state.
-export function installEditorLayout({monaco, primary, host, getDocuments, options, configure, activate, tr = s => s, displayPath = path => path}) {
+export function installEditorLayout({monaco, primary, host, getDocuments, options, configure, activate, documentOptions=()=>({}), tr = s => s, displayPath = path => path}) {
   const make = (tag, className, parent) => {
     const node = document.createElement(tag); node.className = className; parent.appendChild(node); return node;
   };
@@ -40,6 +43,11 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
     select.setAttribute('aria-label', tr(panes.length ? 'Right editor file' : 'Left editor file'));
     node.appendChild(editorHost); editorHost.classList.add('pane-editor');
     const pane = {node, heading, select, editor:target, id:null, views:new Map()};
+    pane.editorHost = editorHost;
+    pane.imageView = installImageViewer({host:make('div', '', node), tr,
+      activate:() => { if (active !== pane) notify(pane); }, changed:() => {refresh(); layout(); notify(pane); focusPane(pane);}});
+    pane.fontView = installFontPreview({host:make('div', 'font-preview', node),tr,activate:()=>{if(active!==pane)notify(pane);}});
+    node.appendChild(editorHost);
     panes.push(pane);
     target.onDidFocusEditorText(() => notify(pane));
     select.onchange = () => {
@@ -71,14 +79,19 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   });
   function remember(pane) { if (pane.id) pane.views.set(pane.id, pane.editor.saveViewState()); }
   function assign(pane, doc) {
-    if (pane.id !== (doc?.id || null) || pane.editor.getModel() !== (doc?.model || null)) {
-      remember(pane); pane.id = doc?.id || null; pane.editor.setModel(doc?.model || null);
+    const model = readOnlyDocument(doc) ? null : doc?.model || null;
+    if (pane.id !== (doc?.id || null) || pane.editor.getModel() !== model) {
+      remember(pane); pane.id = doc?.id || null; pane.editor.setModel(model);
       if (doc) pane.editor.restoreViewState(pane.views.get(doc.id) || doc.viewState || null);
     }
+    pane.editor.updateOptions(documentOptions(doc));
   }
   function refresh() {
     const docs = getDocuments();
     for (const pane of panes) {
+      const doc = docs.find(doc => doc.id === pane.id);
+      const imageVisible=pane.imageView.show(doc),fontVisible=pane.fontView.show(doc);
+      pane.editorHost.hidden = imageVisible||fontVisible;
       pane.select.replaceChildren();
       for (const doc of docs) {
         const option = make('option', '', pane.select); option.value = doc.id;
@@ -94,8 +107,9 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   function selectDocument(doc) {
     closeComparison(false);
     assign(active, doc); refresh(); notify(active);
-    if (doc) active.editor.focus();
+    if (doc) focusPane(active);
   }
+  function focusPane(pane) { if(pane.fontView.visible)pane.fontView.focus();else if (pane.imageView.visible) pane.imageView.focus(); else pane.editor.focus(); }
   function toggleSplit() {
     if (!getDocuments().length) return;
     closeComparison(false);
@@ -115,10 +129,10 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
       const doc = getDocuments().find(doc => doc.id !== active.id) || getDocuments().find(doc => doc.id === active.id);
       assign(panes[1], doc); active = panes[1];
     }
-    refresh(); resize(ratio); notify(active); active.editor.focus();
+    refresh(); resize(ratio); notify(active); focusPane(active);
   }
   function compareSaved(doc, snapshot = null) {
-    if (!doc) return;
+    if (!doc || readOnlyDocument(doc)) return;
     closeComparison(false); assign(active, doc); remember(active);
     if (!diff) {
       diff = monaco.editor.createDiffEditor(diffHost, {...options(), originalEditable:false, readOnly:false,
@@ -129,6 +143,7 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
       // Read-only original focus must keep Save/Format/Undo targeted at the working copy.
       diff.getOriginalEditor().onDidFocusEditorText(() => { if (comparison) notify(active, diff.getModifiedEditor()); });
     }
+    diff.updateOptions(documentOptions(doc));
     original = monaco.editor.createModel(snapshot ? snapshot.text : doc.savedText, doc.model.getLanguageId());
     conflictActions = snapshot?.conflict || null;
     conflictBar.hidden = !conflictActions;
@@ -147,7 +162,7 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
     diff.setModel(null); original.dispose(); original = null; comparison = null; diffWrap.hidden = true;
     conflictActions = null; conflictBar.hidden = true;
     active.editor.restoreViewState(view); refresh(); layout(); notify(active);
-    if (focus) active.editor.focus();
+    if (focus) focusPane(active);
   }
   function removeDocument(id, fallback) {
     if (comparison === id) closeComparison(false);
@@ -160,7 +175,7 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   }
   function rebind(doc, old) {
     for (const pane of panes) if (pane.editor.getModel() === old) {
-      const view = pane.editor.saveViewState(); pane.editor.setModel(doc.model); pane.editor.restoreViewState(view);
+      const view = pane.editor.saveViewState(); pane.editor.setModel(readOnlyDocument(doc) ? null : doc.model); pane.editor.restoreViewState(view);
     }
     if (comparison === doc.id) {
       const view = diff.getModifiedEditor().saveViewState();
@@ -171,8 +186,24 @@ export function installEditorLayout({monaco, primary, host, getDocuments, option
   }
   function layout() { for (const pane of panes) if (!pane.node.hidden) pane.editor.layout(); if (comparison) diff.layout(); }
   function updateOptions(value) { for (const pane of panes) pane.editor.updateOptions(value); diff?.updateOptions(value); }
+  function applyDocumentOptions(){
+    for(const pane of panes)pane.editor.updateOptions(documentOptions(getDocuments().find(doc=>doc.id===pane.id)));
+    if(comparison)diff.updateOptions(documentOptions(getDocuments().find(doc=>doc.id===comparison)));
+  }
+  function preserveDocumentViews(doc,change){
+    const targets=panes.filter(pane=>pane.editor.getModel()===doc.model).map(pane=>pane.editor);
+    if(comparison===doc.id)targets.push(diff.getModifiedEditor());
+    const views=targets.map(target=>[target,target.saveViewState()]);
+    try{return change();}finally{for(const [target,view]of views)target.restoreViewState(view);}
+  }
   refresh(); resize(.5);
-  return {selectDocument, toggleSplit, compareSaved, closeComparison, removeDocument, rebind, refresh, layout, updateOptions,
+  return {selectDocument, toggleSplit, compareSaved, closeComparison, removeDocument, rebind, refresh, layout, updateOptions, applyDocumentOptions, preserveDocumentViews,
+    fontZoom(delta) {if(!active.fontView.visible)return false;active.fontView.zoom(delta);return true;},
+    fontReset() {if(!active.fontView.visible)return false;active.fontView.reset();return true;},
+    imageZoom(delta) {if (!active.imageView.visible) return false; active.imageView.zoom(delta); return true;},
+    imageReset() {if (!active.imageView.visible) return false; active.imageView.reset(); return true;},
+    isVisibleElsewhere:id => panes.some(pane => pane !== active && !pane.node.hidden && pane.id === id) || comparison === id,
+    get activePaneId() { return active === first ? 'primary' : 'secondary'; },
     get split() { return split; }, get comparing() { return Boolean(comparison); },
     get comparisonId() { return comparison; }, get resolving() { return Boolean(conflictActions); }};
 }

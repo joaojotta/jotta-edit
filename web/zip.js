@@ -1,7 +1,8 @@
 /** Dependency-free ZIP store writer and bounded ZIP reader for browser project backups. */
+import {fileByteLimit} from '../shared/image-files.mjs';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const MAX_FILES = 2000, MAX_FILE = 5 * 1024 * 1024, MAX_TOTAL = 40 * 1024 * 1024;
+const MAX_FILES = 2000, MAX_TOTAL = 40 * 1024 * 1024;
 let crcTable;
 function crc32(data) {
   crcTable ||= Array.from({length:256}, (_, n) => {
@@ -30,7 +31,7 @@ export function writeZip(files) {
     if (!safeArchivePath(file.name) || file.name.endsWith('/')) throw new Error('Invalid ZIP entry name');
     const name = encoder.encode(file.name);
     const bytes = typeof file.content === 'string' ? encoder.encode(file.content) : file.content;
-    if (bytes.length > MAX_FILE || (total += bytes.length) > MAX_TOTAL) throw new Error('ZIP project exceeds browser file limits');
+    if (bytes.length > fileByteLimit(file.name) || (total += bytes.length) > MAX_TOTAL) throw new Error('ZIP project exceeds browser file limits');
     const crc=crc32(bytes);
     const local=new Uint8Array(30+name.length); const l=new DataView(local.buffer);
     l.setUint32(0,0x04034b50,true); l.setUint16(4,20,true); l.setUint16(6,0x800,true);
@@ -63,7 +64,8 @@ export async function readZip(blob) {
     const name=decoder.decode(bytes.subarray(at+46,at+46+n));
     const offset=d.getUint32(at+42,true);at+=46+n+extra+comment;
     if(!safeArchivePath(name) || name.endsWith('/')) continue;
-    if(original>MAX_FILE || (total+=original)>MAX_TOTAL) throw new Error('ZIP extracted size exceeds browser limits');
+    const limit=fileByteLimit(name);
+    if(original>limit || (total+=original)>MAX_TOTAL) throw new Error('ZIP extracted size exceeds browser limits');
     if(method!==0 && method!==8) throw new Error('Unsupported ZIP compression method');
     if(offset+30>bytes.length || d.getUint32(offset,true)!==0x04034b50) throw new Error('Invalid ZIP entry');
     const nameLen=d.getUint16(offset+26,true), extraLen=d.getUint16(offset+28,true);
@@ -78,7 +80,7 @@ export async function readZip(blob) {
         while(true) {
           const {value,done}=await reader.read();if(done)break;
           length+=value.length;
-          if(length>MAX_FILE) {await reader.cancel();throw new Error('ZIP entry exceeds decompressed size limit');}
+          if(length>limit) {await reader.cancel();throw new Error('ZIP entry exceeds decompressed size limit');}
           parts.push(value);
         }
       } finally {reader.releaseLock();}

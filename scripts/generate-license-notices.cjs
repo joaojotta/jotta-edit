@@ -35,7 +35,7 @@ function generateLicenseNotices(output = path.join(root, 'public', 'licenses')) 
     });
   fs.mkdirSync(output, {recursive:true});
   fs.copyFileSync(path.join(root, 'LICENSE'), path.join(output, 'LICENSE.txt'));
-  for (const file of ['GPL-3.0-or-later.txt', 'CC0-1.0.txt']) fs.copyFileSync(path.join(root, 'licenses', file), path.join(output, file));
+  for (const file of ['GPL-3.0-or-later.txt', 'CC0-1.0.txt', 'NotoColorEmoji-OFL.txt']) fs.copyFileSync(path.join(root, 'licenses', file), path.join(output, file));
   fs.writeFileSync(path.join(output, 'THIRD-PARTY-NOTICES.txt'),
     'Jotta Edit third-party software notices\n\nThird-party components retain the following copyright and licence notices.\n\n' + sections.join('\n\n'));
   return packages.size;

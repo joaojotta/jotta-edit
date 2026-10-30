@@ -8,7 +8,7 @@ const imports = Promise.all([import('../src/custom-syntax-themes.js'),import('..
 
 test('custom themes duplicate built-ins without modifying them and can be restored', async () => {
   const [custom, syntax] = await imports;
-  assert.equal(require('../package.json').version, '1.1.6');
+  assert.equal(require('../package.json').version, '1.2.1');
   const old = JSON.stringify(syntax.syntaxPalettes['vscode-dark-plus']);
   const created = custom.createCustomTheme({}, 'vscode-dark-plus', 'Personal Dark');
   assert.equal(created.id, 'custom-1');
@@ -82,5 +82,9 @@ test('interface colours validate and persist independently for dark and light sc
   const html=read('index.html'),main=read('src/main.js');
   assert.match(html,/id="theme-ui-colours"/);
   assert.match(html,/id="theme-ui-reset"/);
-  assert.match(main,/applyInterfaceColours\(document\.documentElement, state\.interfaceColours, state\.theme\)/);
+  // Interface colours are applied through interfaceColoursForMode(), which layers
+  // explicit overrides (state.interfaceColours) on top of the active syntax
+  // theme's derived defaults, so picking a theme re-colours the whole window.
+  assert.match(main,/applyInterfaceColours\(document\.documentElement, interfaceColoursForMode\(state\.theme\), state\.theme\)/);
+  assert.match(main,/\{ \.\.\.deriveInterfaceColoursFromPalette\(palette\), \.\.\.state\.interfaceColours\[mode\] \}/);
 });

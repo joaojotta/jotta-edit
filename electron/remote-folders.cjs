@@ -137,8 +137,8 @@ class RemoteFolders {
     }
     return options?.withFileTypes?out:out.map(x=>x.name);
   },'list');}
-  async readFile(file,options){return this.run(file,async(c,p,s,progress)=>{p=await this.safe(c,p,s);let bytes;try{const stat=await c.stat(p);if(!stat.isFile())throw new Error('Not a regular file');if(stat.size>MAX_BYTES)throw new Error('File exceeds the 5 MB editor limit');progress(0,stat.size,'Downloading');bytes=await c.read(p,value=>progress(value,stat.size,'Downloading'));progress(bytes.length,bytes.length,'Downloading');}catch(e){if(/^(File exceeds|Not a regular)/.test(e.message))throw e;throw cleanError(e);}
-    if(bytes.length>MAX_BYTES)throw new Error('File exceeds the 5 MB editor limit');const encoding=typeof options==='string'?options:options?.encoding;return encoding?bytes.toString(encoding):bytes;},'read');}
+  async readFile(file,options){return this.run(file,async(c,p,s,progress)=>{p=await this.safe(c,p,s);const {fileByteLimit}=await import('../shared/image-files.mjs');const limit=fileByteLimit(p);let bytes;try{const stat=await c.stat(p);if(!stat.isFile())throw new Error('Not a regular file');if(stat.size>limit)throw new Error('File exceeds the '+(limit/1024/1024)+' MB limit');progress(0,stat.size,'Downloading');bytes=await c.read(p,value=>progress(value,stat.size,'Downloading'));progress(bytes.length,bytes.length,'Downloading');}catch(e){if(/^(File exceeds|Not a regular)/.test(e.message))throw e;throw cleanError(e);}
+    if(bytes.length>limit)throw new Error('File exceeds the '+(limit/1024/1024)+' MB limit');const encoding=typeof options==='string'?options:options?.encoding;return encoding?bytes.toString(encoding):bytes;},'read');}
   async mkdir(file){return this.run(file,async(c,p,s)=>{p=await this.safe(c,p,s,{missingLeaf:true});try{return await c.mkdir(p);}catch(e){throw cleanError(e);}},'create');}
   async open(file,flags){
     if(flags!=='wx')throw new Error('Unsupported remote open operation.');

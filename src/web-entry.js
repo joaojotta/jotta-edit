@@ -1,4 +1,5 @@
 import {browserApi} from '../web/browser-api.js';
+import {installWebToolbar} from './web-toolbar.js';
 // Load the complete interface stylesheet from the INITIAL web entrypoint.
 // main.js is loaded dynamically; relying on its CSS imports alone could
 // leave the HTML unstyled until that chunk is fetched and evaluated.
@@ -11,11 +12,11 @@ window.slate = browserApi;
 document.body.classList.add('jotta-web');
 const $=id=>document.getElementById(id);
 const report=(message)=>{const el=$('status-message');if(el)el.textContent=message;};
-window.addEventListener('jotta:web-ready',()=>{document.querySelectorAll('.web-workspace-actions button:not(#web-download-file):not(#web-save-file):not(#web-save-as)').forEach(button=>button.disabled=false);});
+const toolbar=installWebToolbar({api:browserApi});
 const action=(id,fn)=>$(id).addEventListener('click',async()=>{
-  const button=$(id);button.disabled=true;
+  toolbar.setWorkspaceBusy(true);
   try {await fn();} catch(error){report(error.message||String(error));console.error(error);}
-  finally{button.disabled=false;}
+  finally{toolbar.setWorkspaceBusy(false);}
 });
 const announce=root=>window.dispatchEvent(new CustomEvent('jotta:web-open-folder',{detail:{root}}));
 // Folder handles require a user gesture; the browser API opens the picker directly in click handlers.
@@ -27,12 +28,8 @@ action('web-open-folder',async()=>{const folder=await browserApi.chooseFolder();
 action('web-import-folder',async()=>{const folder=await browserApi.importDirectory();if(folder)announce(folder);});
 action('web-import-zip',async()=>{const folder=await browserApi.importZip();if(folder)announce(folder);});
 action('web-export-zip',async()=>{
-  const root=await (await import('../web/storage.js')).getMeta('workspace-root');
+  const root=toolbar.root;if(!root)return;
   const count=await browserApi.exportProject(root);report(`Exported ${count} files to ZIP`);
-});
-window.addEventListener('jotta:workspace-opened',event=>{
-  const root=event.detail.root;const tag=document.querySelector('.web-identity small');
-  if(tag)tag.textContent='Workspace · '+root.split('/').pop();
 });
 if(!('showDirectoryPicker' in window))$('web-open-folder').title='Import a browser-managed copy of a folder';
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) {

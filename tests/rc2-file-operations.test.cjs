@@ -79,7 +79,7 @@ test('RC2 JSX is wired for colour sliders, dragging, unsaved highlighting and th
   assert.match(source, /detectLanguage\(doc\.model\.getValue\(\)\)/);
   assert.match(source, /row\.addEventListener\('contextmenu'/);
   assert.match(source, /row\.addEventListener\('dragstart'/);
-  assert.match(source, /api\.deleteEntry\(state\.root/);
+  assert.match(source, /api\.deleteEntry\(operationRoot/);
   assert.match(html, /id="explorer-action-overlay"/);
 });
 

@@ -1,5 +1,6 @@
 // A review is tied to one document model, path and saved baseline. Reading a
 // newer file never changes that baseline or the user's working copy.
+import {readOnlyDocument} from '../shared/font-files.mjs';
 export function createFileConflicts({api, isOpen, present, changed}) {
   const reviews = new WeakMap(), requests = new WeakMap();
   const valid = (doc, review) => isOpen(doc) && doc.path === review.path &&
@@ -10,7 +11,7 @@ export function createFileConflicts({api, isOpen, present, changed}) {
   }
   function clear(doc) { reviews.delete(doc); requests.delete(doc); }
   async function check(doc) {
-    if (!doc?.path || !isOpen(doc)) return null;
+    if (!doc?.path || readOnlyDocument(doc) || !isOpen(doc)) return null;
     const source = {path:doc.path, model:doc.model, base:doc.savedText}, token = {};
     requests.set(doc, token);
     const latest = await api.readFile(source.path, {fresh:true});

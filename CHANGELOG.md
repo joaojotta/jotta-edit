@@ -1,5 +1,59 @@
 # Changelog
 
+## 1.2.1 — C/C++ tools and console controls (29 Oct 2026)
+
+- Resize the build panel by dragging its top edge or using the keyboard; remember its height and keep it within the window when resizing or leaving fullscreen.
+- Add fullscreen program output with Escape to return, plus independent, saved console text sizing using Ctrl+wheel, Ctrl++/Ctrl+-, Ctrl+0 and toolbar controls. Keep program input available in fullscreen.
+- Add desktop C/C++ Build & Run support with installed GCC/G++ or Clang, single-file compilation, CMake/Make project detection, CTest and configurable Make test targets. Save changed project files before building, stream bounded output with clickable compiler diagnostics, accept program arguments and console input, and stop process trees. Include per-project build settings, configurable shortcuts and Flatpak host-tool execution. See [C/C++ setup](docs/c-cpp.md).
+- Support C/C++ format on save and Format Document through clang-format, inheriting project styles and applying editor indentation and line-width preferences.
+- Add a saved Program output only option to hide build output, commands, input echoes and editor completion messages while keeping program stdout and stderr.
+- Update desktop, web and package metadata to version 1.2.1.
+
+## 1.2.0 — Image and font previews, extended zoom and colour emoji (28 Oct 2026)
+
+- Open PNG, JPEG/JFIF, GIF/APNG, WebP, AVIF, BMP, ICO and SVG images in desktop and web tabs, including connected remote folders. Preserve GIF animation and transparency; add fit-to-pane, actual-size and image zoom controls, Ctrl++/Ctrl+-, Ctrl+0 and Ctrl+wheel. Raster images are read-only and web downloads preserve their original bytes.
+- Switch SVG tabs between the rendered image and editable source code. Keep unsaved edits when switching views, preview the current code safely as an image, and use the existing guarded save and session recovery flows.
+- Preview TTF, OTF, WOFF and WOFF2 font files in read-only desktop and web tabs, including remote folders. Type custom sample text, inspect letters and numbers, change preview size with controls or Ctrl++/Ctrl+-, Ctrl+0 and Ctrl+wheel, and download the original font in the web app. Release loaded fonts when leaving the preview and report corrupt or unsupported files.
+- Raise the editor and Markdown preview font-size limit to 72px, Explorer to 48px and interface to 32px. Keep the current default sizes and include the expanded range in settings transfers.
+- Bundle Noto Color Emoji for offline emoji rendering, including ☕, with emoji glyphs taking priority over monochrome symbols in editor and interface fonts.
+- Add Preferences → Shortcuts on desktop and web: record and assign command shortcuts, detect conflicts, unassign bindings and reset individual commands or all shortcuts. Apply changes immediately, update menu and toolbar hints, and include overrides in validated settings transfers.
+- Add multiple project folders with File → Add Folder to Workspace and a matching Explorer button, plus Add Remote Folder to Workspace on desktop. Keep up to 20 separate roots, search and replace across all folders, preserve per-folder editor preferences, refresh each root and restore the folder list with the session. Removing a root preserves open documents; overlapping roots and cross-root moves are rejected.
+- Update desktop, web and package metadata to version 1.2.0.
+
+## 1.1.9 — Compact editor actions menu (27 Oct 2026)
+
+- Replace the row of editor action icons with one compact ellipsis menu on desktop and web, leaving more room for file tabs. Keep Split editor, Compare with saved version, Markdown preview, Live Preview, Format document, Quick open and Command palette together, with icons and shortcut hints.
+- Support keyboard navigation, Escape dismissal, checked view states and focus restoration. Preserve existing keyboard shortcuts and the desktop Live Preview browser chooser; keep unavailable web actions disabled.
+- Update desktop, web and package metadata to version 1.1.9.
+
+## 1.1.8 — Navigation, settings and Markdown improvements (25 Oct 2026)
+
+- Group the web toolbar into workspace, Import and file-save controls. Show the workspace name, unsaved status and a primary Save or Download file action that follows the file's save destination. Keep Save As, download copies and workspace ZIP export available, with keyboard-accessible menus and a responsive layout.
+- Add independent Markdown preview text sizing with Ctrl++/Ctrl+-, Ctrl+0, Ctrl+wheel and header controls. Remember the size, include it in settings transfers, and scale headings and code without changing export styling.
+- Extend Ctrl+P into Go to Anything: fuzzy file and draft matching, `:42` or `:42:8` for a position, `@name` for document symbols, and `file.css:42` to open a file at a line. Ignore stale symbol lookups after edits or navigation.
+- Remember separate last-used Open File and Open Folder locations in the desktop picker, filter files and folders as you type, and open validated multi-file selections with range selection and visible-file selection controls. Keep native browser multi-file selection and directory memory where available.
+- Automatically refresh visible Explorer folders and open files on desktop and web. Reload clean documents as undoable edits while preserving split-pane views; keep dirty buffers under the existing conflict checks. Preserve buffers when files are renamed or deleted externally, pause checks in hidden windows and dialogs, and use slower checks for connected remote folders. Toggle this in Preferences → Explorer.
+- Make breadcrumb folders clickable on desktop and web: browse their immediate contents, open files and reveal folders in Explorer, including local, browser and connected remote workspaces.
+- Add preview and pinned tabs. Single-click an Explorer or breadcrumb file to preview it; double-click, edit, save or pin to keep it. Replace only clean previews in the same editor pane, preserve files visible in another pane, and restore pinned tabs across restarts.
+- Add named colour favourites with editable names and preserved opacity, plus the 12 most recently applied colours. Keep older saved colours, show transparency on a checkerboard, and synchronise favourites and recents across split editor panes.
+- Export and import global settings as JSON from Preferences → General on desktop and web, including custom themes, interface and Explorer colours, colour favourites, fonts and editor preferences. Validate and review imports before applying, preserve open documents and project overrides, and exclude credentials, server favourites and workspace paths.
+- Update desktop, web and package metadata to version 1.1.8.
+
+## 1.1.7 — Global theming, colour favourites and in-app file picker (25 Oct 2026)
+
+- Derive the interface's own colours (background, panels, sidebar, borders, accent, text) from the selected code syntax theme, unless overridden in Interface colours. Themes now re-colour the whole window, not just the editor.
+- Split the custom syntax Theme editor and Interface colours sections out of the Themes tab into their own Theme Editor tab in Preferences.
+- Keep favourite colour swatches square, with separate, centred remove buttons.
+- Increase the inline colour selection swatches in CSS by 3px and reduce their horizontal spacing by 3px on each side.
+- Disable Monaco's built-in CSS/HTML property-hover documentation and native colour decorator, which stacked unrelated MDN reference text under the colour tool's swatch on hover. The in-editor colour tool is unaffected.
+- Add CSS code completion inside embedded `<style>` blocks in HTML documents (Monaco's bundled HTML language worker had no embedded-CSS awareness at all).
+- Open File now browses through the same in-app folder browser as Open Folder on desktop, instead of the native OS file dialog. The web build keeps its native picker.
+- Add a Database file icon for `.sql`, `.sqlite` and `.db` files, with a matching Explorer icon colour and preferences entry.
+- Animate the Explorer sidebar with a 100ms collapse/expand transition, reclaiming its space for the editor and restoring its saved width; dragging its splitter to resize is unaffected.
+- Fix the vertical alignment of the unsaved-changes dot next to the file name in tabs by drawing it as a circle instead of a text glyph.
+- Add Open File and Open Folder buttons to the Explorer toolbar on desktop and web. Place the Explorer label and Search control in a row above the action icons, with Refresh aligned at the right.
+- Update desktop, web and package metadata to version 1.1.7.
+
 ## 1.1.6 — HTML and embedded CSS outline (24 Oct 2026)
 
 - Add HTML document outlines with nested elements, IDs and classes on desktop and web.

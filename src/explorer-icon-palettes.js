@@ -24,7 +24,7 @@ export const explorerIconPaletteChoices = Object.freeze([
 const iconNames = [
   'folder.svg', 'file.svg', 'html5.svg', 'css3.svg', 'js.svg', 'json.svg',
   'php.svg', 'markdown.svg', 'txt.svg', 'fonts.svg', 'png.svg', 'jpeg.svg', 'gif.svg',
-  'svg.svg', 'webp.svg', 'image.svg', 'audio.svg', 'video.svg', 'package.svg'
+  'svg.svg', 'webp.svg', 'image.svg', 'audio.svg', 'video.svg', 'package.svg', 'database.svg'
 ];
 export const explorerIconNames = Object.freeze(iconNames);
 
@@ -37,7 +37,7 @@ function palette(folder, file, html, css, js, json, php, text, fonts, image, svg
     'markdown.svg': css, 'txt.svg': text, 'fonts.svg': fonts, 'png.svg': image,
     'jpeg.svg': image, 'gif.svg': image, 'svg.svg': svg,
     'webp.svg': image, 'image.svg': image, 'audio.svg': audio,
-    'video.svg': video, 'package.svg': archive
+    'video.svg': video, 'package.svg': archive, 'database.svg': json
   });
 }
 

@@ -24,7 +24,22 @@
     <div id="menu-layer" class="menu-layer hidden" aria-hidden="true"></div>
     <div class="workbench">
       <aside id="sidebar" class="sidebar">
-        <div class="sidebar-header"><div class="sidebar-views" role="group" aria-label="Sidebar view"><button id="btn-explorer" class="section-caption" type="button" aria-pressed="true">EXPLORER</button><button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button></div><div class="sidebar-actions"><button id="btn-favourites" type="button" title="Favourites…" aria-label="Favourites…"><img class="button-icon" src="/ui-icons/star.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-remote-folder" type="button" title="Open Remote Folder…" aria-label="Open Remote Folder…" hidden><img class="button-icon" src="/ui-icons/folder-cloud.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-add-folder" title="Open folder" aria-label="Open folder"><img class="button-icon" src="/ui-icons/folder-add.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-reload" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+        <div class="sidebar-header">
+          <div class="sidebar-heading">
+            <div class="sidebar-views" role="group" aria-label="Sidebar view">
+              <button id="btn-explorer" class="section-caption" type="button" aria-pressed="true">EXPLORER</button>
+              <button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button>
+            </div>
+            <button id="btn-reload" class="sidebar-refresh" type="button" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button>
+          </div>
+          <div class="sidebar-actions" role="group" aria-label="Explorer">
+            <button id="btn-explorer-open-file" type="button" title="Open File…" aria-label="Open File"><img class="button-icon" src="/ui-icons/file.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-explorer-open-folder" type="button" title="Open Folder…" aria-label="Open Folder"><img class="button-icon" src="/ui-icons/folder.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-add-folder" type="button" title="Add Folder to Workspace…" aria-label="Add Folder to Workspace…"><img class="button-icon" src="/ui-icons/folder-add.svg" alt="" aria-hidden="true"></button>
+            <button id="btn-favourites" type="button" title="Favourites…" aria-label="Favourites…"><img class="button-icon" src="/ui-icons/star.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-remote-folder" type="button" title="Open Remote Folder…" aria-label="Open Remote Folder…" hidden><img class="button-icon" src="/ui-icons/folder-cloud.svg" alt="" aria-hidden="true" draggable="false"></button>
+          </div>
+        </div>
 
         <nav class="sidebar-panel-tabs" aria-label="Document and connection panels">
           <button id="btn-outline" type="button" aria-pressed="false" aria-controls="document-outline" title="Document outline"><img class="button-icon" src="/ui-icons/list-unordered.svg" alt="" aria-hidden="true"><span>Outline</span></button>
@@ -67,7 +82,17 @@
       </aside>
       <div id="splitter" class="splitter" role="separator" aria-label="Resize sidebar"></div>
       <main id="main-area" class="main-area">
-        <div class="tabs-bar"><div id="tabs" class="tabs"></div><div class="tab-tools"><button id="btn-split" title="Split editor (Ctrl+&#92;)" aria-label="Split editor">◫</button><button id="btn-compare" title="Compare with saved version" aria-label="Compare with saved version">⇄</button><button id="btn-markdown-preview" type="button" title="Markdown preview (Ctrl+Shift+V)" aria-label="Markdown preview" aria-pressed="false" hidden><img class="button-icon" src="/ui-icons/markdown-preview.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-preview" title="Open Live Preview" aria-label="Open Live Preview"><img id="preview-toolbar-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-format" title="Format document (Shift+Alt+F)" aria-label="Format document"><img class="button-icon" src="/ui-icons/formatter.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-quick" title="Quick open (Ctrl+P)" aria-label="Quick open"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button><button id="btn-palette" title="Command palette (Ctrl+Shift+P)" aria-label="Command palette"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"></button></div></div>
+        <div class="tabs-bar"><div id="tabs" class="tabs"></div><div class="tab-tools"><button id="btn-editor-actions" type="button" title="Editor actions" aria-label="Editor actions" aria-haspopup="menu" aria-expanded="false" aria-controls="editor-actions-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></button></div></div>
+        <div id="editor-actions-menu" class="editor-actions-menu" role="menu" aria-label="Editor actions" hidden>
+          <button id="btn-split" type="button" role="menuitemcheckbox" tabindex="-1" aria-checked="false" title="Split editor (Ctrl+&#92;)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1"></rect><path d="M12 4v16"></path></svg><span class="menu-label">Split editor</span><span class="menu-accel" aria-hidden="true">Ctrl+&#92;</span></button>
+          <button id="btn-compare" type="button" role="menuitemcheckbox" tabindex="-1" aria-checked="false" title="Compare with saved version"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"></path></svg><span class="menu-label">Compare with saved version</span></button>
+          <button id="btn-markdown-preview" type="button" role="menuitemcheckbox" tabindex="-1" aria-checked="false" title="Markdown preview (Ctrl+Shift+V)" hidden><img class="button-icon" src="/ui-icons/markdown-preview.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Markdown preview</span><span class="menu-accel" aria-hidden="true">Ctrl+Shift+V</span></button>
+          <button id="btn-preview" type="button" role="menuitem" tabindex="-1" title="Open Live Preview"><img id="preview-toolbar-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Open Live Preview</span></button>
+          <button id="btn-format" type="button" role="menuitem" tabindex="-1" title="Format document (Shift+Alt+F)"><img class="button-icon" src="/ui-icons/formatter.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Format document</span><span class="menu-accel" aria-hidden="true">Shift+Alt+F</span></button>
+          <div class="menu-sep" role="separator"></div>
+          <button id="btn-quick" type="button" role="menuitem" tabindex="-1" title="Quick open (Ctrl+P)"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Quick open</span><span class="menu-accel" aria-hidden="true">Ctrl+P</span></button>
+          <button id="btn-palette" type="button" role="menuitem" tabindex="-1" title="Command palette (Ctrl+Shift+P)"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Command palette</span><span class="menu-accel" aria-hidden="true">Ctrl+Shift+P</span></button>
+        </div>
         <div id="breadcrumbs" class="breadcrumbs">START</div>
         <div id="markdown-tools" class="markdown-tools" role="toolbar" aria-label="Markdown formatting" hidden></div>
         <div id="editor-wrap" class="editor-wrap"><section id="editor-stage" class="editor-stage"><div id="editor" class="editor"></div>
@@ -75,7 +100,7 @@
         </section>
           <div id="markdown-divider" class="markdown-divider" role="separator" aria-label="Resize Markdown preview" aria-orientation="vertical" aria-valuemin="20" aria-valuemax="80" aria-valuenow="50" tabindex="0" hidden></div>
           <aside id="markdown-preview" class="markdown-preview" aria-label="Markdown preview" hidden>
-            <header class="markdown-preview-heading"><strong id="markdown-preview-title">Markdown preview</strong><button id="markdown-refresh" type="button" title="Refresh Markdown preview" aria-label="Refresh Markdown preview"><img class="button-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button><button id="markdown-close" type="button" title="Close Markdown preview" aria-label="Close Markdown preview"><img class="button-icon" src="/ui-icons/close.svg" alt="" aria-hidden="true" draggable="false"></button></header>
+            <header class="markdown-preview-heading"><strong id="markdown-preview-title">Markdown preview</strong><button id="markdown-font-decrease" type="button" title="Decrease Markdown preview text size" aria-label="Decrease Markdown preview text size">A−</button><button id="markdown-font-reset" type="button" title="Reset Markdown preview text size" aria-label="Reset Markdown preview text size">14px</button><button id="markdown-font-increase" type="button" title="Increase Markdown preview text size" aria-label="Increase Markdown preview text size">A+</button><button id="markdown-refresh" type="button" title="Refresh Markdown preview" aria-label="Refresh Markdown preview"><img class="button-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button><button id="markdown-close" type="button" title="Close Markdown preview" aria-label="Close Markdown preview"><img class="button-icon" src="/ui-icons/close.svg" alt="" aria-hidden="true" draggable="false"></button></header>
             <article id="markdown-content" class="markdown-content" tabindex="0" aria-label="Rendered Markdown"></article>
             <p id="markdown-status" class="markdown-status" role="status" aria-live="polite"></p>
           </aside>
@@ -125,15 +150,17 @@
       <div id="settings-tabs" class="settings-tabs" role="tablist" aria-label="Preferences sections">
         <button type="button" id="settings-tab-editor" class="settings-tab" role="tab" aria-controls="settings-pane-editor" aria-selected="true" tabindex="0" data-settings-tab="editor">Editor</button>
         <button type="button" id="settings-tab-themes" class="settings-tab" role="tab" aria-controls="settings-pane-themes" aria-selected="false" tabindex="-1" data-settings-tab="themes">Themes</button>
+        <button type="button" id="settings-tab-theme-editor" class="settings-tab" role="tab" aria-controls="settings-pane-theme-editor" aria-selected="false" tabindex="-1" data-settings-tab="theme-editor">Theme Editor</button>
         <button type="button" id="settings-tab-explorer" class="settings-tab" role="tab" aria-controls="settings-pane-explorer" aria-selected="false" tabindex="-1" data-settings-tab="explorer">Explorer</button>
+        <button type="button" id="settings-tab-shortcuts" class="settings-tab" role="tab" aria-controls="settings-pane-shortcuts" aria-selected="false" tabindex="-1" data-settings-tab="shortcuts">Shortcuts</button>
         <button type="button" id="settings-tab-general" class="settings-tab" role="tab" aria-controls="settings-pane-general" aria-selected="false" tabindex="-1" data-settings-tab="general">General</button>
       </div>
       <div class="settings-fields">
         <div id="settings-pane-editor" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-editor" tabindex="0">
         <label>Editor font <span class="jotta-font-combo"><input id="setting-font" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="font-menu" spellcheck="false" autocomplete="off" placeholder="Choose or type a font" maxlength="65"><button id="font-toggle" type="button" aria-label="Show installed fonts" title="Show installed fonts">⌄</button></span></label>
         <label>Interface font <span class="jotta-font-combo"><input id="setting-ui-font" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ui-font-menu" autocomplete="off" spellcheck="false" placeholder="Choose a system font" maxlength="65"><button id="ui-font-toggle" type="button" aria-label="Show installed fonts" title="Show installed fonts">⌄</button></span></label>
-        <div class="settings-two"><label>Editor font size <input id="setting-size" type="number" min="10" max="36" step="1"></label>
-        <label>UI font size <input id="setting-ui-size" type="number" min="11" max="22" step="1" title="Interface size; editor font size is separate"></label></div>
+        <div class="settings-two"><label>Editor font size <input id="setting-size" type="number" min="10" max="72" step="1"></label>
+        <label>UI font size <input id="setting-ui-size" type="number" min="11" max="32" step="1" title="Interface size; editor font size is separate"></label></div>
         <label>Line spacing <select id="setting-leading"><option value="1.35">Compact</option><option value="1.55">Comfortable</option><option value="1.75">Spacious</option></select></label>
         <section class="project-settings"><label class="setting-check"><input id="setting-project-settings" type="checkbox"> Use project-specific editor settings</label><p id="setting-project-path"></p><p>Applies to indentation, tab width, word wrap and formatting in this workspace. Themes and interface preferences stay global. Turn off to use global defaults.</p></section>
         <div class="settings-two"><label>Indentation <select id="setting-indent"><option value="spaces">Spaces</option><option value="tabs">Tabs</option></select></label>
@@ -169,6 +196,8 @@
           <code><span data-token="function">print</span>(<span data-token="variable">greeting</span>, <span data-token="number">42</span>);</code>
           <code>&lt;<span data-token="tag">div</span> <span data-token="attribute">class</span>=<span data-token="string">"demo"</span>&gt;…&lt;/<span data-token="tag">div</span>&gt;</code>
         </div>
+        </div>
+        <div id="settings-pane-theme-editor" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-theme-editor" tabindex="0" hidden>
         <section id="custom-theme-editor" class="custom-theme-editor" aria-labelledby="custom-theme-heading">
           <div class="theme-editor-heading">
             <div><h3 id="custom-theme-heading">Theme editor</h3>
@@ -210,6 +239,7 @@
         </div>
         <div id="settings-pane-explorer" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-explorer" tabindex="0" hidden>
         <label class="setting-check"><input id="setting-hidden-files" type="checkbox"> Show hidden files in Explorer</label>
+        <label class="setting-check"><input id="setting-auto-refresh" type="checkbox"> Automatically refresh folders and clean files</label>
         <div class="icon-colour-settings">
           <label>Explorer icon palette <select id="setting-icon-palette" aria-label="Explorer icon palette"></select></label>
           <div id="setting-icon-palette-preview" class="icon-palette-preview" aria-label="Icon palette preview" role="img"></div>
@@ -218,11 +248,23 @@
           <p class="icon-colour-note">Automatic colours follow the code syntax theme. Individual icon colours override the selected palette; Automatic resets that icon to its palette default.</p>
         </div>
         </div>
+        <div id="settings-pane-shortcuts" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-shortcuts" tabindex="0" hidden></div>
         <div id="settings-pane-general" class="settings-pane" role="tabpanel" aria-labelledby="settings-tab-general" tabindex="0" hidden>
         <label>Live preview browser <span class="preview-browser-choice"><img id="preview-browser-icon" class="button-icon" src="/ui-icons/default-browser.svg" alt="" aria-hidden="true" draggable="false"><select id="setting-preview-browser"><option value="default">System default</option><option value="firefox">Firefox</option><option value="chrome">Chrome</option></select></span></label>
         <label>Window decoration <select id="setting-frame"><option value="native">System window frame (KDE/GNOME)</option><option value="custom">Jotta Edit custom frame</option></select></label>
         <label>Language <select id="setting-language"><option value="system">System default</option><option value="pt-PT">Português (Portugal)</option><option value="en">English</option></select></label>
         <p id="frame-note" class="settings-note hidden">Restart Jotta Edit to apply your window decoration change.</p>
+        <section class="custom-theme-editor settings-transfer" aria-labelledby="settings-transfer-heading">
+          <div class="theme-editor-heading"><div><h3 id="settings-transfer-heading">Settings export and import</h3><p>Move themes, colours, fonts and global editor preferences between devices.</p></div></div>
+          <p class="settings-transfer-note">Credentials, server favourites, workspace paths and open documents are excluded. Project-specific settings stay on this device.</p>
+          <div class="settings-transfer-actions"><button id="settings-export" type="button">Export settings…</button><button id="settings-import" type="button">Import settings…</button><input id="settings-import-file" type="file" accept=".json,application/json" hidden></div>
+          <div id="settings-import-review" class="settings-import-review" hidden>
+            <p id="settings-import-summary"></p>
+            <p>Import replaces the included global settings and colour collections. Open documents and project-specific settings are preserved.</p>
+            <div class="settings-transfer-actions"><button id="settings-import-apply" type="button" class="primary">Apply imported settings</button><button id="settings-import-cancel" type="button">Cancel import</button></div>
+          </div>
+          <p id="settings-transfer-status" role="status" aria-live="polite"></p>
+        </section>
         </div>
       </div>
       <div class="modal-actions"><button id="settings-restart" class="primary hidden">Restart to apply</button><button id="settings-done" class="primary">Done</button></div>
@@ -233,6 +275,8 @@
       <div class="modal-header"><h2 id="folder-picker-title">Open Folder</h2><button id="folder-picker-close" class="modal-close" type="button" aria-label="Close folder browser">×</button></div>
       <form id="folder-picker-form"><label for="folder-picker-location">Folder path</label><div class="folder-picker-location-row"><input id="folder-picker-location" type="text" autocomplete="off" spellcheck="false"><button type="submit">Go</button></div></form>
       <div class="folder-picker-navigation"><button id="folder-picker-home" type="button">Home folder</button><button id="folder-picker-up" type="button">Parent folder</button><label><input id="folder-picker-hidden" type="checkbox"> Show hidden folders</label></div>
+      <label class="folder-picker-filter-label">Filter files and folders<input id="folder-picker-filter" type="search" autocomplete="off" spellcheck="false" placeholder="Type to filter…"></label>
+      <div id="folder-picker-multiple" class="folder-picker-multiple" hidden><button id="folder-picker-select-all" type="button">Select visible files</button><button id="folder-picker-select-none" type="button">Clear selection</button><span id="folder-picker-selection" role="status" aria-live="polite"></span></div>
       <p id="folder-picker-status" role="status" aria-live="polite"></p>
       <div id="folder-picker-list" aria-label="Subfolders"></div>
       <div class="modal-actions"><button id="folder-picker-cancel" type="button">Cancel</button><button id="folder-picker-open" class="primary" type="button" disabled>Open folder</button></div>
@@ -262,7 +306,7 @@
   <div id="about-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
     <section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
       <div class="modal-header"><h2 id="about-title">About Jotta Edit</h2><button id="about-close" class="modal-close" aria-label="Close About">×</button></div>
-      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.1.6</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
+      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.2.1</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
       <div class="modal-actions"><button id="about-done" class="primary">Close</button></div>
     </section>
   </div>

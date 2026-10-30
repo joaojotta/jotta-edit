@@ -31,3 +31,7 @@ The GPL requires corresponding source availability when distributing covered
 application builds. Distribute the applicable source and build scripts along
 with, or through equivalent access alongside, the binaries. Third-party
 licence notices alone do not replace that requirement.
+
+Noto Color Emoji (Copyright 2013 Google LLC) is bundled in public/fonts/
+under the SIL Open Font License 1.1. Its original notice and licence are in
+licenses/NotoColorEmoji-OFL.txt and accompany desktop and web builds.

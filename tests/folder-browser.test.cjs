@@ -9,8 +9,11 @@ test('in-app browsing lists only folders, filters hidden entries and accepts typ
  const home=await fs.mkdtemp(path.join(os.tmpdir(),'jotta-picker-'));t.after(()=>fs.rm(home,{recursive:true,force:true}));
  for(const folder of ['folder10','folder2','.hidden'])await fs.mkdir(path.join(home,folder));await fs.writeFile(path.join(home,'file.txt'),'file');
  const browser=new FolderBrowser(home);const listing=await browser.list();assert.deepEqual(listing.folders.map(x=>x.name),['folder2','folder10']);assert.equal(listing.home,home);
+ assert.deepEqual(listing.files.map(x=>x.name),['file.txt']);
  assert.equal((await browser.list('~',{showHidden:true})).folders.length,3);assert.equal(await browser.select('~/folder2'),path.join(home,'folder2'));
  await assert.rejects(browser.select(path.join(home,'file.txt')),/Not a folder/);await assert.rejects(browser.list('relative'),/absolute/);await assert.rejects(browser.list('/tmp/\0'),/absolute/);
+ assert.equal(await browser.selectFile('~/file.txt'),path.join(home,'file.txt'));
+ await assert.rejects(browser.selectFile('~/folder2'),/Not a file/);
 });
 test('a stalled filesystem never blocks cancelling or browsing another folder',async()=>{
  const browser=new FolderBrowser('/home/test',{timeout:25,io:{readdir:target=>target==='/stalled'?new Promise(()=>{}):Promise.resolve([])}});
@@ -18,11 +21,24 @@ test('a stalled filesystem never blocks cancelling or browsing another folder',a
 });
 function dom(ids){const elements={};for(const id of ids)elements[id]={value:'',textContent:'',disabled:false,hidden:false,checked:false,children:[],setAttribute(){},focus(){},append(...children){this.children.push(...children);},replaceChildren(){this.children=[];},querySelectorAll(){return [];},addEventListener(event,handler){this[event]=handler;}};return {elements,documentRef:{getElementById:id=>elements[id],createElement:()=>({setAttribute(){},append(){}})}};}
 test('folder picker discards late navigation and cancellation, and validates an edited destination',async()=>{
- const {elements,documentRef}=dom(['folder-picker-status','folder-picker-open','folder-picker-list','folder-picker-up','folder-picker-location','folder-picker-hidden','folder-picker-form','folder-picker-home','folder-picker-cancel','folder-picker-close','folder-picker-overlay']);
+ const {elements,documentRef}=dom(['folder-picker-status','folder-picker-open','folder-picker-list','folder-picker-up','folder-picker-location','folder-picker-hidden','folder-picker-form','folder-picker-home','folder-picker-cancel','folder-picker-close','folder-picker-overlay','folder-picker-title']);
  const {installFolderPicker}=await import('../src/folder-picker.js');let finish,selected=[];
  const picker=installFolderPicker({api:{browseFolders:()=>new Promise(resolve=>{finish=resolve;}),selectFolder:async value=>{selected.push(value);return value;}},show(){picker.hide();},close(){picker.hide();},documentRef});
  const cancelled=picker.choose();picker.hide();finish({path:'/late',parent:'/',folders:[]});assert.equal(await cancelled,null);await new Promise(resolve=>setImmediate(resolve));assert.equal(elements['folder-picker-location'].value,'');
  const opened=picker.choose();finish({path:'/home/test',parent:'/home',folders:[]});await new Promise(resolve=>setImmediate(resolve));elements['folder-picker-location'].value='/typed';await elements['folder-picker-open'].onclick();assert.equal(await opened,'/typed');assert.deepEqual(selected,['/typed']);
+});
+test('folder picker in file mode lists files alongside folders and validates the clicked file before resolving',async()=>{
+ const {elements,documentRef}=dom(['folder-picker-status','folder-picker-open','folder-picker-list','folder-picker-up','folder-picker-location','folder-picker-hidden','folder-picker-form','folder-picker-home','folder-picker-cancel','folder-picker-close','folder-picker-overlay','folder-picker-title']);
+ const {installFolderPicker}=await import('../src/folder-picker.js');let finish,picked=[];
+ const picker=installFolderPicker({api:{browseFolders:()=>new Promise(resolve=>{finish=resolve;}),selectFile:async value=>{picked.push(value);return value;}},show(){},close(){picker.hide();},documentRef});
+ const opened=picker.choose({allowFiles:true});
+ assert.equal(elements['folder-picker-title'].textContent,'Open File');assert.equal(elements['folder-picker-open'].hidden,true);
+ finish({path:'/home/test',parent:'/home',folders:[{name:'src',path:'/home/test/src'}],files:[{name:'readme.txt',path:'/home/test/readme.txt'}]});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(elements['folder-picker-list'].children.length,2,'one folder row and one file row');
+ const [folderRow,fileRow]=elements['folder-picker-list'].children;
+ folderRow.onclick();assert.equal(picked.length,0,'clicking a folder must navigate, not resolve');
+ fileRow.onclick();assert.equal(await opened,'/home/test/readme.txt');assert.deepEqual(picked,['/home/test/readme.txt']);
 });
 test('remote dialog clears passwords, handles in-app trust and discards cancelled results',async t=>{
  const {elements,documentRef}=dom(['remote-form','remote-connect','remote-location','remote-username','remote-password','remote-status','remote-close','remote-cancel','remote-trust','remote-host-key','remote-save-favourite','remote-save-credentials','remote-saved-credentials','remote-storage-help']);const previous=global.document;global.document=documentRef;t.after(()=>{global.document=previous;});

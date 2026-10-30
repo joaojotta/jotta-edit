@@ -15,7 +15,9 @@ The preview follows unsaved edits in the active editor. It also follows the focu
 
 ## Preview controls
 
-Toggle with **Ctrl+Shift+V**, **View → Markdown preview**, or the toolbar preview button. Closing the panel remembers the hidden state. The formatting toolbar remains available. Drag the divider, or focus it and use Left/Right/Home, to resize the source and preview. The panel hides when the active document is not Markdown and returns for Markdown files.
+Toggle with **Ctrl+Shift+V**, **View → Markdown preview**, **… → Markdown preview** at the right of the file tabs, or the preview button in the Markdown formatting toolbar. Closing the panel remembers the hidden state. The formatting toolbar remains available. Drag the divider, or focus it and use Left/Right/Home, to resize the source and preview. The panel hides when the active document is not Markdown and returns for Markdown files.
+
+Increase or decrease preview text with **Ctrl++**, **Ctrl+-** or **Ctrl+wheel** while the preview is focused or hovered. **Ctrl+0** restores 14px. You can also use **A−**, **A+** and the size/reset button in the preview header. The preview remembers its own 10–36px size independently of the source editor and Explorer, including in settings exports. Headings and code scale with the text; exported HTML and PDF retain their print styling.
 
 The preview supports headings, paragraphs, emphasis, fenced code, quotes, lists, checklists, tables, images and links. Text is selectable. Heading links such as `#my-heading` scroll within the preview, relative file links open in the editor, and HTTP/HTTPS/mail links open through the system browser or handler after a click.
 

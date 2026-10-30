@@ -1,5 +1,5 @@
 import {tr} from './i18n.js';
-import {projectPathContains, searchProjectFiles, replacementPlans, replaceProjectMatches} from './project-search.js';
+import {projectPathContains, projectSearchLabel, searchProjectFiles, replacementPlans, replaceProjectMatches} from './project-search.js';
 
 export function installProjectSearch({api, getRoot, getDocuments, openMatch, applyChanges, undoChanges, saveChanges, revealSidebar, focusEditor,showView}) {
   const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@ export function installProjectSearch({api, getRoot, getDocuments, openMatch, app
       const label = document.createElement('label'); label.className = 'project-search-file-label';
       const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(file.path); checkbox.disabled = busy;
       checkbox.addEventListener('change', () => { checkbox.checked ? selected.add(file.path) : selected.delete(file.path); controls(); });
-      const name = document.createElement('span'); name.textContent = file.path.replace(/\\/g,'/').slice(searchedRoot.replace(/\\/g,'/').replace(/\/+$/,'').length + 1); name.title = file.path;
+      const name = document.createElement('span'); name.textContent = projectSearchLabel(searchedRoot,file.path); name.title = file.path;
       const count = document.createElement('small'); count.textContent = String(file.matches.length);
       label.append(checkbox, name, count); group.append(label);
       const lines = file.text.split('\n'), lineGroups = new Map();
@@ -66,14 +66,19 @@ export function installProjectSearch({api, getRoot, getDocuments, openMatch, app
     if (!query) { status(tr('Enter text to search.')); return; }
     status(tr('Searching…'));
     try {
-      const listing = await api.scanFolder(root, {showHidden:false});
+      const roots=Array.isArray(root)?root:[root];
+      const listings=await Promise.allSettled(roots.map(folder=>api.scanFolder(folder,{showHidden:false})));
+      const available=listings.filter(result=>result.status==='fulfilled').map(result=>result.value);
+      if(!available.length)throw listings[0].reason;
+      const listing={nodes:available.flatMap(listing=>listing.nodes),truncated:available.length<roots.length||available.some(listing=>listing.truncated)};
       if (id !== request || getRoot() !== root) return;
       const paths = [];
       const walk = nodes => { for (const node of nodes) node.dir ? walk(node.children || []) : paths.push(node.path); };
       walk(listing.nodes);
       const buffers = new Map();
       for (const doc of getDocuments()) if (doc.path && projectPathContains(root, doc.path)) {
-        const parts = doc.path.replace(/\\/g,'/').slice(root.replace(/\\/g,'/').replace(/\/+$/,'').length + 1).split('/');
+        const owner=roots.find(root=>projectPathContains(root,doc.path));
+        const parts = doc.path.replace(/\\/g,'/').slice(owner.replace(/\\/g,'/').replace(/\/+$/,'').length + 1).split('/');
         if (parts.some(part => part.startsWith('.') || ['node_modules','vendor','dist','build'].includes(part))) continue;
         buffers.set(doc.path, doc.text); paths.push(doc.path);
       }

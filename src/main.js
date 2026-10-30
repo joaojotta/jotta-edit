@@ -11,9 +11,10 @@ import TsWorker from '../node_modules/monaco-editor/esm/vs/language/typescript/t
 import 'monaco-editor/min/vs/editor/editor.main.css';
 import { abbreviationAt, indentedExpansion } from './emmet.js';
 import { insertionForExpansion, snippetForExpansion } from './emmet-caret.js';
-import { formatCode, formatLanguages, hasMixedPhpHtml } from './formatting.js';
+import { formatCode, formatLanguages as availableFormatLanguages, hasMixedPhpHtml } from './formatting.js';
 import { normalizeFormatterWidth, normalizePlainTextHighlight, plainTextHighlightOptions } from './editor-behaviour.js';
 import { pathContext, filterPathItems } from './path-completion.js';
+import { installStyleBlockCompletion } from './style-block-completion.js';
 import { workspacePreferences } from './workspace-preferences.js';
 import { installRecentWorkspaces } from './recent-workspaces.js';
 import { installFavourites, browserFavourites } from './favourites.js';
@@ -22,6 +23,15 @@ import { installRemoteFolders } from './remote-folders.js';
 import { installMarkdownPanel } from './markdown-panel.js';
 import { installLocalHistory } from './local-history-panel.js';
 import { installEditorLayout } from './editor-layout.js';
+import {imageType, imageData} from '../shared/image-files.mjs';
+import {readOnlyDocument} from '../shared/font-files.mjs';
+import { installEditorActions } from './editor-actions.js';
+import { installNativeBuildPanel } from './native-build-panel.js';
+import './native-build.css';
+import { keepTab, pinTab, replaceablePreview } from './tab-state.js';
+import { installBreadcrumbs } from './breadcrumbs.js';
+import { fuzzyScore, parseAnythingQuery, anythingResults } from './goto-anything.js';
+import { createAutomaticRefresh } from './automatic-refresh.js';
 import { createFileConflicts, isFileConflict } from './file-conflicts.js';
 import { installProjectSearch } from './project-search-panel.js';
 import { installSidebarViews } from './sidebar-views.js';
@@ -35,9 +45,14 @@ import { registerSyntaxThemes, normalizeSyntaxTheme, resolveSyntaxTheme, syntaxT
   syntaxPaletteFor, setCustomSyntaxPalettes, registerCustomSyntaxThemes } from './syntax-themes.js';
 import { readCustomThemes, createCustomTheme, CUSTOM_THEME_FIELDS, CUSTOM_THEME_LIMIT,
   exportCustomTheme, importCustomTheme, validateCustomTheme } from './custom-syntax-themes.js';
-import { interfaceColourFields, readInterfaceColours, setInterfaceColour, applyInterfaceColours } from './interface-theme.js';
+import { interfaceColourFields, readInterfaceColours, setInterfaceColour, applyInterfaceColours, deriveInterfaceColoursFromPalette } from './interface-theme.js';
 import { explorerIconPaletteChoices, normalizeExplorerIconPalette, explorerIconColour } from './explorer-icon-palettes.js';
 import { installSettingsTabs, installSettingsDragging } from './settings-tabs.js';
+import {createKeyboardShortcuts,installKeyboardShortcutEditor} from './keyboard-shortcuts.js';
+import {shortcutCommands,matchShortcut,shortcutFromEvent,effectiveShortcut} from '../shared/keyboard-shortcuts.mjs';
+import {owningFolder,validateFolderAddition,workspaceTree,captureWorkspaceTree,folderContains} from './workspace-folders.js';
+import { exportSettings, parseSettingsImport, storeSettingsImport } from './settings-transfer.js';
+import { installSettingsTransfer } from './settings-transfer-panel.js';
 import { installFontMenu } from './font-menu.js';
 import { requiredElement, editorInputTarget } from './dom-guards.js';
 import { tr, locale, configureLanguage, translateDom, translateMessage } from './i18n.js';
@@ -53,20 +68,43 @@ self.MonacoEnvironment = {
   }
 };
 
+// Monaco's bundled CSS/HTML language modes ship their own generic
+// property-hover (MDN-sourced documentation, e.g. "Sets the background
+// color of an element...") and their own native colour decorator/picker.
+// Both fire over the same colour values our own colour tool
+// (color-picker.js) already decorates and edits, stacking a wall of
+// documentation text under the swatch on hover and duplicating the colour
+// UI. There is no per-token way to suppress just the overlap, and
+// `setModeConfiguration` only takes effect if set before the language mode's
+// first use, so this must run immediately after importing monaco, before any
+// CSS/HTML/SCSS/LESS model is ever created.
+for (const language of ['css', 'scss', 'less']) {
+  monaco.languages.css[`${language}Defaults`].setModeConfiguration({
+    ...monaco.languages.css[`${language}Defaults`].modeConfiguration, hovers: false, colors: false
+  });
+}
+for (const language of ['html', 'handlebar', 'razor']) {
+  monaco.languages.html[`${language}Defaults`].setModeConfiguration({
+    ...monaco.languages.html[`${language}Defaults`].modeConfiguration, hovers: false, colors: false
+  });
+}
+installStyleBlockCompletion(monaco);
+
 const api = {...window.slate};
+const formatLanguages = new Set([...availableFormatLanguages].filter(language => api.formatNativeCode || !['c','cpp'].includes(language)));
 const $ = id => requiredElement(document, id);
 const stored = (name, fallback) => localStorage.getItem('jotta.' + name) ?? localStorage.getItem('slate.' + name) ?? fallback;
-let workspacePrefs, recentWorkspaces, favouritesPanel;
+let workspacePrefs, recentWorkspaces, favouritesPanel, editorActions, nativeBuildPanel;
 const remember = (name, value) => {
   if (!workspacePrefs?.remember(state.root, name, value)) localStorage.setItem('jotta.' + name, String(value));
 };
-function fontCss(name) { return `"${String(name || 'Monospace').replace(/["\\]/g, '')}", monospace`; }
-function boundedExplorerSize(size) { return Math.min(26, Math.max(11, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
-function boundedUiSize(size) { return Math.min(22, Math.max(11, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
-function boundedSize(size) { return Math.min(36, Math.max(10, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
+function fontCss(name) { return `"Jotta Emoji", "${String(name || 'Monospace').replace(/["\\]/g, '')}", monospace`; }
+function boundedExplorerSize(size) { return Math.min(48, Math.max(11, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
+function boundedUiSize(size) { return Math.min(32, Math.max(11, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
+function boundedSize(size) { return Math.min(72, Math.max(10, Number.isFinite(Number(size)) ? Math.round(Number(size)) : 14)); }
 
 const state = {
-  root: null, nodes: [], files: [], tabs: [], active: null, nextUntitled: 1,
+  root: null, folders: [], workspacePaths: [], nodes: [], files: [], tabs: [], active: null, nextUntitled: 1,
   removedFolders: new Set(), iconColours: {},
   expanded: new Set(), sidebarOpen: stored('sidebar', 'true') !== 'false',
   sidebarWidth: Number(stored('sidebar-width', '230')),
@@ -91,6 +129,8 @@ const state = {
   nativeFrame: true,
   formatOnSave: stored('formatOnSave', 'true') !== 'false',
   showHidden: stored('showHidden', 'false') === 'true',
+  autoRefresh: stored('autoRefresh', 'true') !== 'false',
+  remoteRoot: false,
   palette: null, paletteItems: [], paletteIndex: 0, queryId: 0
 };
 workspacePrefs = workspacePreferences(localStorage, {indentMode:state.indentMode, tabSize:state.tabSize,
@@ -101,10 +141,16 @@ let localHistoryPanel;
 let remoteFoldersPanel, folderPicker;
 let sidebarViews,outlinePanel,remoteConnectionPanel;
 let markdownPanel;
-let settingsDrag = null;
+let settingsDrag = null,settingsTabs,shortcutEditor;
+const shortcuts=createKeyboardShortcuts(localStorage,()=>queueMicrotask(refreshShortcutHints));
+let workspaceRevision=0;
 let editor;
 let statusTimeout;
 let editorLayout;
+let breadcrumbs;
+let automaticRefresh;
+let fileOpenGeneration = 0;
+let lastExplorerClick = null, lastTabClick = null;
 let fileConflicts;
 const savingDocuments = new WeakSet();
 const colorEditors = new Map();
@@ -117,8 +163,30 @@ function displayPath(p) {
   return api.platform === 'web' && /^\/(local-files|imports|downloads)\//.test(path) ? basename(path) : path;
 }
 function relative(p) {
-  const r = normalizedSlashes(state.root); const target = normalizedSlashes(p);
-  return r && target.startsWith(r + '/') ? target.slice(r.length + 1) : displayPath(target);
+  const target=normalizedSlashes(p),owner=folderFor(p);
+  if(!owner)return displayPath(target);
+  const path=target.slice(normalizedSlashes(owner).replace(/\/$/,'').length+1);
+  return state.folders.length>1?basename(owner)+'/'+path:path;
+}
+
+function folderFor(file) {return owningFolder(state.folders,file)?.path || null;}
+function workspaceSearchRoot(){return state.workspacePaths.length>1?state.workspacePaths:state.root;}
+function syncWorkspaceTree(){
+  state.workspacePaths=state.folders.map(folder=>folder.path);
+  state.nodes=workspaceTree(state.folders);
+  state.files=[...new Set(collectFiles(filterRemovedFolders(state.nodes)))];
+}
+function updateWorkspaceHeading(){
+  const multiple=state.folders.length>1;
+  $('project-name').textContent=multiple?tr('Workspace')+' · '+state.folders.length:state.root?basename(state.root).toUpperCase():tr('NO FOLDER OPEN');
+  $('project-name').title=state.folders.map(folder=>folder.uri||folder.path).join('\n');
+  $('window-title').textContent=state.root?(multiple?tr('Workspace')+' · '+state.folders.length+' · ':'')+state.root:tr('Untitled workspace');
+  $('btn-close-project').classList.toggle('hidden',!state.root);
+  if(api.platform==='web')window.dispatchEvent(new CustomEvent('jotta:workspace-opened',{detail:{root:state.root,folders:state.workspacePaths}}));
+}
+function activateWorkspaceFolder(path){
+  if(!path||path===state.root||!state.folders.some(folder=>folder.path===path))return;
+  state.root=path;state.remoteRoot=state.folders.some(folder=>folder.remote);applyWorkspaceSettings();updateWorkspaceHeading();persist();
 }
 function languageOf(file) {
   const extension = (file || '').split('.').pop().toLowerCase();
@@ -164,9 +232,19 @@ function updateSyntaxThemePreview() {
     if (item) item.style.color = palette[colorKey];
   }
 }
+// A syntax theme's background/foreground/widget/border/accent double as
+// sensible defaults for the interface colours that aren't explicitly
+// overridden, so picking a theme re-colours the whole window, not just the
+// editor. Explicit overrides from the interface colour editor always win.
+function interfaceColoursForMode(mode) {
+  const palette = syntaxPaletteFor(resolveSyntaxTheme(state.syntaxTheme, state.theme));
+  return { [mode]: { ...deriveInterfaceColoursFromPalette(palette), ...state.interfaceColours[mode] } };
+}
 function applySyntaxTheme() {
   monaco.editor.setTheme(resolveSyntaxTheme(state.syntaxTheme, state.theme));
   updateSyntaxThemePreview();
+  applyInterfaceColours(document.documentElement, interfaceColoursForMode(state.theme), state.theme);
+  if (document.getElementById('theme-ui-colours')) refreshInterfaceColourEditor();
   if (colorEditors.size) requestAnimationFrame(() => { for (const picker of colorEditors.values()) picker.refresh(); });
   if (editor) { renderTree(); renderTabs(); }
   updateIconColourPreview();
@@ -179,8 +257,6 @@ function setSyntaxTheme(choice) {
 function setTheme(theme) {
   state.theme = theme === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = state.theme;
-  applyInterfaceColours(document.documentElement, state.interfaceColours, state.theme);
-  if (document.getElementById('theme-ui-colours')) refreshInterfaceColourEditor();
   applySyntaxTheme();
   remember('theme', state.theme);
 }
@@ -198,6 +274,7 @@ let sessionSaveChain = Promise.resolve();
 function sessionSnapshot() {
   return {
     root: state.root,
+    folders:state.workspacePaths.slice(),
     files: state.tabs.filter(doc => !!doc.path).map(doc => doc.path), // legacy compatibility
     activeIndex: state.tabs.findIndex(doc => doc.id === state.active),
     nextUntitled: state.nextUntitled,
@@ -205,6 +282,7 @@ function sessionSnapshot() {
       path: doc.path || null,
       name: doc.name,
       dirty: doc.dirty,
+      ...(doc.pinned ? {pinned:true} : {}),
       language: doc.path ? undefined : doc.model.getLanguageId(),
       // Clean files are reloaded from disk; drafts and dirty files need a local copy.
       ...(!doc.path || doc.dirty ? { text: doc.model.getValue() } : {}),
@@ -253,7 +331,7 @@ async function startLivePreview() {
     clearTimeout(previewTimer);
     await previewChain;
     previewUntitled = untitled ? doc.id : null;
-    await api.startPreview({root: state.root && (!entry || isPathUnder(entry, state.root)) ? state.root : parent(entry) || null, entry, buffers: previewBuffers(), browser: state.previewBrowser});
+    await api.startPreview({root: folderFor(entry)|| (untitled?state.root:null)||parent(entry)||null, entry, buffers: previewBuffers(), browser: state.previewBrowser});
     previewRunning = true;
     queuePreviewUpdate();
     showStatus(/\.php$/i.test(entry || '') ? 'PHP preview started — save PHP changes to reload' : 'Live preview started — updates as you type');
@@ -272,11 +350,12 @@ function setActive(id) {
 }
 function activateEditor(target, doc) {
   editor = target;
+  if(doc?.path)activateWorkspaceFolder(folderFor(doc.path));
   colorEditor = colorEditors.get(target) || colorEditor;
   state.active = doc?.id || null;
   $('welcome').classList.toggle('hidden', Boolean(doc));
   $('editor').classList.toggle('visible', Boolean(doc));
-  $('breadcrumbs').textContent = doc ? relative(doc.path) || doc.name : tr('START');
+  renderBreadcrumbs();
   document.title = doc ? `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit` : 'Jotta Edit';
   renderTabs(); renderTree(); updateStatus(); persist();
   markdownPanel?.activate(doc,target);
@@ -297,15 +376,16 @@ function attachDocumentListener(doc) {
     }
     projectSearch?.invalidate();
     const wasDirty = doc.dirty;
-    doc.dirty = doc.model.getValue() !== doc.savedText;
-    if (wasDirty !== doc.dirty) {
+    const wasPreview = !doc.refreshing && keepTab(doc);
+    doc.dirty = Boolean(doc.missing) || doc.model.getValue() !== doc.savedText;
+    if (wasDirty !== doc.dirty || wasPreview) {
       renderTabs();
       if (doc.id === state.active) document.title = `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit`;
     }
     persist();
   });
 }
-function addDocument(file, content = '', mtimeMs = null) {
+function addDocument(file, content = '', mtimeMs = null, {preview = false, previewPane = null, activate = true, image = null, font = null} = {}) {
   const existing = file && state.tabs.find(t => t.path === file);
   if (existing) { setActive(existing.id); return existing; }
   const id = crypto.randomUUID();
@@ -313,10 +393,11 @@ function addDocument(file, content = '', mtimeMs = null) {
   const lang = file ? languageOf(file) : (detectLanguage(content) || 'plaintext');
   const model = monaco.editor.createModel(content, lang, modelUri(file, id));
   applyIndentToModel(model);
-  const doc = { id, path: file, name, model, savedText: content, mtimeMs, dirty: false, viewState: null, listener: null, detectTimer: null };
+  const doc = { id, path: file, name, model, savedText: content, mtimeMs, dirty: false, viewState: null, listener: null, detectTimer: null,
+    image, font, pinned:false, preview:Boolean(file && preview), previewPane, workspaceRoot:file ? folderFor(file) : null };
   attachDocumentListener(doc);
   state.tabs.push(doc);
-  setActive(id);
+  if (activate) setActive(id); else renderTabs();
   persist();
   return doc;
 }
@@ -325,14 +406,25 @@ function newMarkdown(){
   monaco.editor.setModelLanguage(doc.model,'markdown');setActive(doc.id);persist();
 }
 async function openFile(file, opts = {}) {
+  const request = ++fileOpenGeneration;
+  const pane = editorLayout?.activePaneId || 'primary';
   try {
-    const existing = state.tabs.find(t => t.path === file);
-    if (existing) setActive(existing.id);
-    else {
+    let doc = state.tabs.find(t => t.path === file);
+    if (!doc) {
       const data = await api.readFile(file);
-      addDocument(data.path, data.content, data.mtimeMs);
-    }
-    if (opts.line) {
+      const current = request === fileOpenGeneration && (editorLayout?.activePaneId || 'primary') === pane;
+      if (opts.preview && !current) return false;
+      doc = state.tabs.find(t => t.path === data.path);
+      if (!doc) {
+        const replace = opts.preview ? replaceablePreview(state.tabs, pane, id => editorLayout?.isVisibleElsewhere(id)) : null;
+        doc = addDocument(data.path, data.content, data.mtimeMs, {preview:opts.preview,previewPane:pane,activate:current,image:data.image,font:data.font});
+        if (replace && replace.preview && !replace.dirty && !replace.pinned) disposeDocument(replace);
+      } else if (current) setActive(doc.id);
+    } else setActive(doc.id);
+    if (!opts.preview && keepTab(doc)) { renderTabs(); persist(); }
+    if (state.active !== doc.id || (editorLayout?.activePaneId || 'primary') !== pane) return true;
+    if (opts.line && !readOnlyDocument(doc)) {
+      if (doc.image) {doc.imageCode = true; editorLayout.refresh();}
       const line = Math.max(1, Math.min(Math.floor(opts.line), getEditorModel().getLineCount()));
       editor.revealLineInCenter(line);
       const column = Math.max(1, Math.min(opts.column || 1, getEditorModel().getLineMaxColumn(line)));
@@ -344,12 +436,16 @@ async function openFile(file, opts = {}) {
   } catch (err) { showStatus(`Cannot open: ${err.message}`, 6500);return false; }
 }
 async function restoreSavedSession(saved) {
-  if (saved.root) await openFolder(saved.root);
+  const roots=Array.isArray(saved.folders)&&saved.folders.length?saved.folders:saved.root?[saved.root]:[];
+  for(const root of roots)await openFolder(root,{add:state.folders.length>0});
+  activateWorkspaceFolder(saved.root);
   if (Array.isArray(saved.tabs)) {
     for (const item of saved.tabs) {
       if (!item || typeof item !== 'object') continue;
+      let restored = null;
       if (!item.path) {
         const doc = addDocument(null);
+        restored = doc;
         if (typeof item.name === 'string' && item.name.trim()) doc.name = item.name;
         if (typeof item.text === 'string') doc.model.setValue(item.text);
         if (typeof item.language === 'string' && monaco.languages.getLanguages().some(l => l.id === item.language)) {
@@ -359,7 +455,8 @@ async function restoreSavedSession(saved) {
       } else {
         try {
           const disk = await api.readFile(item.path);
-          const doc = addDocument(disk.path, disk.content, disk.mtimeMs);
+          const doc = addDocument(disk.path, disk.content, disk.mtimeMs, {image:disk.image,font:disk.font});
+          restored = doc;
           if (item.dirty && typeof item.text === 'string') {
             if (typeof item.savedText === 'string') doc.savedText = item.savedText;
             doc.model.setValue(item.text);
@@ -369,12 +466,14 @@ async function restoreSavedSession(saved) {
           // A moved/deleted file must not make its unsaved edits disappear.
           if (item.dirty && typeof item.text === 'string') {
             const recovered = addDocument(null);
+            restored = recovered;
             recovered.name = `recovered-${basename(item.path)}`;
             recovered.model.setValue(item.text);
             showStatus(`Recovered unsaved changes from ${basename(item.path)}`, 8000);
           }
         }
       }
+      if (restored) { restored.pinned = item.pinned === true; keepTab(restored); }
     }
     state.nextUntitled = Math.max(state.nextUntitled, Number.isSafeInteger(saved.nextUntitled) ? saved.nextUntitled : 1);
     const index = Number.isInteger(saved.activeIndex) ? saved.activeIndex : -1;
@@ -386,14 +485,27 @@ async function restoreSavedSession(saved) {
   renderTabs();
 }
 async function chooseFile() {
-  try { const files = await api.chooseFiles({openPaths:state.tabs.map(doc => doc.path).filter(Boolean)}); for (const file of files) await openFile(file); }
-  catch (error) { showStatus(`Cannot open: ${error.message}`, 7500); }
+  const openSelection=async files=>{
+    const added=new Set(files.filter(file=>!state.tabs.some(doc=>doc.path===file)));
+    if(state.tabs.length+added.size>50){showStatus(tr('Open up to 50 tabs. Close some tabs before opening this selection.'),7500);return;}
+    for(const file of files)await openFile(file);
+  };
+  try {
+    // Desktop browses files the same in-app way it browses folders to open
+    // (folder-picker.js); the web build has no such browser (there's nowhere
+    // to browse an arbitrary filesystem path from a page), so it keeps using
+    // the native File System Access picker via api.chooseFiles.
+    if (folderPicker) { const files = await folderPicker.choose({allowFiles:true,multiple:true}); await openSelection(files || []); return; }
+    const files = await api.chooseFiles({openPaths:state.tabs.map(doc => doc.path).filter(Boolean)});
+    await openSelection(files);
+  } catch (error) { showStatus(`Cannot open: ${error.message}`, 7500); }
 }
 function downloadActiveFile() {
   const doc = activeDocument();
   if (!doc || !api.downloadFile) return;
   try {
-    api.downloadFile(doc.name, doc.model.getValue());
+    if (readOnlyDocument(doc)) api.downloadImage(doc.name, doc.font||doc.image);
+    else api.downloadFile(doc.name, doc.model.getValue());
     showStatus('File download started');
   } catch (error) { showStatus(error.message, 7500); }
 }
@@ -408,6 +520,7 @@ async function reviewLatestFile(doc = activeDocument()) {
   return false;
 }
 async function checkExternalFile() {
+  if(automaticRefresh&&state.autoRefresh){await automaticRefresh.check({force:true});return;}
   const doc = activeDocument();
   if (!doc?.path || !fileConflicts || savingDocuments.has(doc) || isModalOpen() || !$('confirm-overlay').classList.contains('hidden')) return;
   const previous = fileConflicts.current(doc);
@@ -428,7 +541,8 @@ async function useLatestFile(doc, review) {
 }
 async function save(doc = activeDocument(), saveAs = false, review = null) {
   if (!doc || savingDocuments.has(doc)) return false;
-  savingDocuments.add(doc);
+  if (readOnlyDocument(doc)) {showStatus(tr(doc.font?'Fonts are read-only.':'Images are read-only.')); return false;}
+  savingDocuments.add(doc);updateWebToolbar();
   const sourcePath = doc.path, sourceModel = doc.model;
   const stillOpen = () => state.tabs.includes(doc) && doc.path === sourcePath && doc.model === sourceModel;
   let dest = doc.path;
@@ -448,7 +562,8 @@ async function save(doc = activeDocument(), saveAs = false, review = null) {
     }
     const expectedText = dest === doc.path ? (review ? fileConflicts.expectedText(doc, review) : doc.savedText) : undefined;
     let formatIssue = '';
-    if (!review && state.formatOnSave && formatLanguages.has(doc.model.getLanguageId())) {
+    const filePreferences=workspacePrefs.settings(folderFor(doc.path)||doc.workspaceRoot||state.root);
+    if (!review && filePreferences.formatOnSave && formatLanguages.has(doc.model.getLanguageId())) {
       if (doc.model.getLanguageId() === 'php' && hasMixedPhpHtml(doc.model.getValue())) {
         formatIssue = 'mixed PHP/HTML not autoformatted';
       } else if (!await formatDocument(doc, { quiet: true })) {
@@ -463,6 +578,9 @@ async function save(doc = activeDocument(), saveAs = false, review = null) {
       const old = doc.model;
       doc.listener?.dispose();
       doc.path = dest; doc.name = basename(dest);
+      const svg = imageType(dest)==='image/svg+xml';
+      if (svg && !doc.image) doc.imageCode = true;
+      doc.image = svg ? imageData(dest,new TextEncoder().encode(old.getValue())) : null;
       const lang = languageOf(dest);
       doc.model = monaco.editor.createModel(old.getValue(), lang, modelUri(dest, doc.id));
       applyIndentToModel(doc.model);
@@ -471,18 +589,20 @@ async function save(doc = activeDocument(), saveAs = false, review = null) {
       old.dispose();
     }
     doc.savedText = value;
+    doc.missing = false;
+    keepTab(doc);
     doc.mtimeMs = saved.mtimeMs;
     doc.dirty = doc.model.getValue() !== value;
     fileConflicts.clear(doc);
     if (editorLayout.resolving && editorLayout.comparisonId === doc.id) editorLayout.closeComparison();
     renderTabs(); updateStatus(); persist();
     if (state.active === doc.id) {
-      $('breadcrumbs').textContent = relative(doc.path) || doc.name;
+      renderBreadcrumbs();
       document.title = `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit`;
     }
     const issues = [formatIssue, saved.historyWarning && tr(saved.historyWarning), saved.notice && tr(saved.notice)].filter(Boolean).join(' · ');
     showStatus(issues ? `Saved ${doc.name} · ${issues}` : `Saved ${doc.name}`, issues ? 7500 : 3000);
-    if (state.root && normalizedSlashes(dest).startsWith(normalizedSlashes(state.root) + '/')) refreshFolder().catch(() => {});
+    if (folderFor(dest)) refreshFolder().catch(() => {});
     return true;
   } catch (err) {
     if (isFileConflict(err) && stillOpen() && dest === doc.path) {
@@ -492,9 +612,11 @@ async function save(doc = activeDocument(), saveAs = false, review = null) {
       } catch { /* Keep the original save error if the latest file cannot be read. */ }
     }
     showStatus(`Save failed: ${err.message}`, 7500); return false;
-  } finally { savingDocuments.delete(doc); }
+  } finally { savingDocuments.delete(doc);updateWebToolbar(); }
 }
+let pendingConfirmChanges = null;
 function confirmChanges(doc) {
+  pendingConfirmChanges?.('cancel');
   return new Promise(resolve => {
     $('confirm-description').textContent = translateMessage(`The file “${doc.name}” has unsaved changes. Do you want to save them?`);
     const overlay = $('confirm-overlay');
@@ -504,11 +626,13 @@ function confirmChanges(doc) {
       $('confirm-save').removeEventListener('click', onSave);
       $('confirm-discard').removeEventListener('click', onDiscard);
       $('confirm-cancel').removeEventListener('click', onCancel);
+      pendingConfirmChanges = null;
       resolve(choice);
     };
     const onSave = () => clean('save');
     const onDiscard = () => clean('discard');
     const onCancel = () => clean('cancel');
+    pendingConfirmChanges = clean;
     $('confirm-save').addEventListener('click', onSave);
     $('confirm-discard').addEventListener('click', onDiscard);
     $('confirm-cancel').addEventListener('click', onCancel);
@@ -525,12 +649,19 @@ async function closeDocument(id) {
   const index = state.tabs.findIndex(t => t.id === id);
   if (index === -1) return;
   const doc = state.tabs[index];
+  if (doc.id === state.active) ++fileOpenGeneration;
   if (!await canDiscard(doc)) return;
+  if (!state.tabs.includes(doc)) return;
+  disposeDocument(doc);
+}
+function disposeDocument(doc) {
+  const index = state.tabs.indexOf(doc);
+  if (index < 0) return;
   if (doc.id === state.active) doc.viewState = editor.saveViewState();
   clearTimeout(doc.detectTimer);
   doc.listener?.dispose();
   state.tabs.splice(index, 1);
-  editorLayout.removeDocument(id, state.tabs[Math.min(index, state.tabs.length - 1)] || null);
+  editorLayout.removeDocument(doc.id, state.tabs[Math.min(index, state.tabs.length - 1)] || null);
   renderTabs();
   doc.model.dispose();
   persist();
@@ -544,49 +675,66 @@ async function closeApp() {
   }
 }
 function selectDocument(id) {
+  ++fileOpenGeneration;
   const current = activeDocument();
   if (current) current.viewState = editor.saveViewState();
   setActive(id);
+}
+function updateWebToolbar(){
+  if(api.platform!=='web')return;
+  const doc=activeDocument();
+  window.dispatchEvent(new CustomEvent('jotta:web-document-changed',{detail:{root:state.root,
+    document:doc?{id:doc.id,path:doc.path,name:doc.name,dirty:doc.dirty,missing:doc.missing,readOnly:readOnlyDocument(doc),font:Boolean(doc.font),saving:savingDocuments.has(doc)}:null}}));
 }
 function renderTabs() {
   editorLayout?.refresh();
   for (const [id, pressed] of [['btn-split', editorLayout?.split], ['btn-compare', editorLayout?.comparing]]) {
     const button = $(id);
-    button.disabled = !activeDocument();
-    button.setAttribute('aria-pressed', String(Boolean(pressed)));
+    button.disabled = !activeDocument() || (id === 'btn-compare' && readOnlyDocument(activeDocument()));
+    button.setAttribute('aria-checked', String(Boolean(pressed)));
   }
-  const downloadButton = document.getElementById('web-download-file');
-  if (downloadButton) downloadButton.disabled = !activeDocument();
-  for (const id of ['web-save-file','web-save-as']) { const button = document.getElementById(id); if (button) button.disabled = !activeDocument(); }
-  const location = document.getElementById('web-save-location'), doc = activeDocument();
-  if (location && api.saveLocation) {
-    const path = doc?.path;
-    location.textContent = tr(doc ? 'Choose save location' : 'No file open');
-    if (doc) api.saveLocation(path).then(label => { if (activeDocument() === doc && doc.path === path) location.textContent = tr(label); }).catch(() => {});
-  }
+  updateWebToolbar();
   const container = $('tabs');
   container.replaceChildren();
   for (const doc of state.tabs) {
     const tab = document.createElement('div');
-    tab.className = `tab${doc.id === state.active ? ' active' : ''}`;
-    tab.title = displayPath(doc.path) || doc.name;
-    const dot = document.createElement('span'); dot.className = 'tab-dot'; dot.textContent = doc.dirty ? '●' : ' '; 
-    const label = document.createElement('span'); label.className = 'tab-name'; label.textContent = doc.name;
+    tab.className = `tab${doc.id === state.active ? ' active' : ''}${doc.preview ? ' preview-tab' : ''}${doc.pinned ? ' pinned-tab' : ''}`;
+    tab.dataset.documentId = doc.id;
+    tab.title = (displayPath(doc.path) || doc.name) + (doc.missing ? ` · ${tr('File missing — buffer preserved')}` : '') + (doc.preview ? ` · ${tr('Preview — double-click to keep open')}` : '');
+    const dot = document.createElement('span'); dot.className = `tab-dot${doc.dirty ? ' tab-dot-visible' : ''}`;
+    const label = document.createElement('span'); label.className = 'tab-name'; label.textContent = doc.name + (doc.missing ? ` (${tr('Missing')})` : '');
     const close = document.createElement('button'); close.className = 'tab-close'; close.textContent = '×'; close.title = `${tr('Close')} ${doc.name}`;
     close.addEventListener('click', (e) => { e.stopPropagation(); closeDocument(doc.id); });
-    tab.addEventListener('click', () => selectDocument(doc.id));
+    const pin = document.createElement('button'); pin.type='button'; pin.className='tab-pin';
+    pin.title=tr(doc.pinned ? 'Unpin tab' : 'Pin tab'); pin.setAttribute('aria-label',pin.title);pin.setAttribute('aria-pressed',String(doc.pinned));
+    const pinIcon=makeIcon('/ui-icons/pin.svg');pinIcon.className='button-icon';pin.append(pinIcon);
+    pin.addEventListener('click',event=>{event.stopPropagation();pinTab(state.tabs,doc);renderTabs();persist();});
+    tab.addEventListener('click', event => {
+      const now=Date.now();
+      if(event.detail>1 || (lastTabClick?.id===doc.id && now-lastTabClick.time<450)) keepDocument(doc);
+      lastTabClick={id:doc.id,time:now}; selectDocument(doc.id);
+    });
+    tab.addEventListener('dblclick',()=>keepDocument(doc));
     tab.addEventListener('auxclick', e => { if (e.button === 1) closeDocument(doc.id); });
     const icon = makeThemedIcon(fileIconPath(doc.name), 'file-glyph tab-file-icon');
-    tab.append(icon, dot, label, close); container.append(tab);
+    tab.append(icon, dot, label, pin, close); container.append(tab);
   }
   container.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function keepDocument(doc = activeDocument()) {
+  if (keepTab(doc)) {renderTabs();persist();}
+}
+function renderBreadcrumbs() {
+  const doc=activeDocument();
+  breadcrumbs?.render(doc ? {path:doc.path,name:doc.name,root:folderFor(doc.path)||doc.workspaceRoot||state.root,platform:api.platform} : null);
 }
 // Icon colours are keyed by the shipped SVG name, never arbitrary image URLs.
 const iconTypes = [
   ['folder.svg','Folder'],['file.svg','Other files'],['html5.svg','HTML'],['css3.svg','CSS'],['js.svg','JavaScript'],
   ['json.svg','JSON'],['php.svg','PHP'],['markdown.svg','Markdown'],['txt.svg','Text'],['fonts.svg','Fonts'],
   ['png.svg','PNG'],['jpeg.svg','JPEG'],['gif.svg','GIF'],['svg.svg','SVG'],
-  ['webp.svg','WebP'],['image.svg','Images'],['audio.svg','Audio'],['video.svg','Video'],['package.svg','Packages']
+  ['webp.svg','WebP'],['image.svg','Images'],['audio.svg','Audio'],['video.svg','Video'],['package.svg','Packages'],
+  ['database.svg','Database']
 ];
 const iconTypeNames = new Set(iconTypes.map(([name]) => name));
 // Load settings only after icon names have been initialized.
@@ -649,19 +797,17 @@ function filterRemovedFolders(nodes) {
 }
 function removeFolderFromView(path) {
   projectSearch?.reset();
-  if (path === state.root) {
-    state.root = null; state.nodes = []; state.files = [];
-    applyWorkspaceSettings();
-    state.expanded.clear(); state.removedFolders.clear();
-    $('project-name').textContent = tr('NO FOLDER OPEN');
-    $('project-name').removeAttribute('title');
-    $('window-title').textContent = tr('Untitled workspace');
-    $('btn-close-project').classList.add('hidden');
-    persist();
-  } else state.removedFolders.add(path);
-  state.files = collectFiles(filterRemovedFolders(state.nodes));
-  renderTree();
+  const index=state.folders.findIndex(folder=>folder.path===path);
+  if(index>=0){
+    ++workspaceRevision;captureWorkspaceTree(state.folders,state.nodes);state.folders.splice(index,1);
+    if(state.root===path)state.root=state.folders[0]?.path||null;
+    state.remoteRoot=state.folders.some(folder=>folder.remote);
+    for(const expanded of state.expanded)if(folderContains(path,expanded))state.expanded.delete(expanded);
+    syncWorkspaceTree();applyWorkspaceSettings();updateWorkspaceHeading();persist();
+  }else state.removedFolders.add(path);
+  state.files=collectFiles(filterRemovedFolders(state.nodes));renderTree();updateWebToolbar();
 }
+
 function makeIcon(src, label = '') {
   const img = document.createElement('img');
   img.src = interfaceAssetUrl(src); img.alt = ''; img.draggable = false; img.setAttribute('aria-hidden', 'true');
@@ -674,10 +820,11 @@ function fileIconPath(name, isDir = false) {
   if (['js','jsx','mjs','cjs','ts','tsx'].includes(ext)) return '/file-icons/js.svg';
   if (ext === 'php' || ext === 'phtml') return '/file-icons/php.svg';
   if (ext === 'json' || ext === 'jsonc') return '/file-icons/json.svg';
+  if (['sql','sqlite','db'].includes(ext)) return '/file-icons/database.svg';
   if (ext === 'html' || ext === 'htm') return '/file-icons/html5.svg';
   if (ext === 'css' || ext === 'scss' || ext === 'less') return '/file-icons/css3.svg';
-  if (ext === 'png') return '/file-icons/png.svg';
-  if (['jpg','jpeg'].includes(ext)) return '/file-icons/jpeg.svg';
+  if (['png','apng'].includes(ext)) return '/file-icons/png.svg';
+  if (['jpg','jpeg','jfif'].includes(ext)) return '/file-icons/jpeg.svg';
   if (ext === 'gif') return '/file-icons/gif.svg';
   if (ext === 'svg') return '/file-icons/svg.svg';
   if (ext === 'webp') return '/file-icons/webp.svg';
@@ -708,12 +855,17 @@ function refreshPathsAfterMove(oldPath, nextPath) {
     doc.listener?.dispose();
     doc.path = movedPath(doc.path, oldPath, nextPath);
     doc.name = basename(doc.path);
+    if (!readOnlyDocument(doc)) {
+      const svg = imageType(doc.path)==='image/svg+xml';
+      if (svg && !doc.image) doc.imageCode = true;
+      doc.image = svg ? imageData(doc.path,new TextEncoder().encode(old.getValue())) : null;
+    }
     doc.model = monaco.editor.createModel(old.getValue(), languageOf(doc.path), modelUri(doc.path, doc.id));
     applyIndentToModel(doc.model);
     attachDocumentListener(doc);
     editorLayout.rebind(doc, old);
     if (wasSelected) {
-      $('breadcrumbs').textContent = relative(doc.path);
+      renderBreadcrumbs();
       document.title = `${doc.name}${doc.dirty ? ' •' : ''} — Jotta Edit`;
     }
     doc.viewState = viewState;
@@ -754,7 +906,9 @@ function closeDeletedDocuments(source) {
 function hideExplorerContext() {
   const menu = $('explorer-menu'); menu.classList.add('hidden'); menu.setAttribute('aria-hidden','true');
 }
+let pendingExplorerAction = null;
 function askExplorerAction(type, name) {
+  pendingExplorerAction?.(null);
   return new Promise(resolve => {
     const overlay = $('explorer-action-overlay');
     const isRename = type === 'rename';
@@ -774,8 +928,10 @@ function askExplorerAction(type, name) {
       cancel.removeEventListener('click', onCancel);
       input.removeEventListener('keydown', onKey);
       overlay.removeEventListener('pointerdown', onBackdrop);
+      pendingExplorerAction = null;
       resolve(value);
     };
+    pendingExplorerAction = finish;
     const confirm = $('explorer-action-confirm'), cancel = $('explorer-action-cancel'), input = $('explorer-action-name');
     const onConfirm = () => finish(needsName ? input.value : true);
     const onCancel = () => finish(null);
@@ -791,10 +947,14 @@ async function explorerOperation(type, source, targetFolder = null) {
   hideExplorerContext();
   let historyWarning = '';
   try {
+    const operationRoot=folderFor(source);
+    if(!operationRoot)throw new Error(tr('Folder is no longer available.'));
+    if(source===operationRoot&&!['new-file','new-folder'].includes(type))throw new Error(tr('Remove workspace folders from Explorer instead.'));
+    if(type==='move'&&folderFor(targetFolder)!==operationRoot)throw new Error(tr('Move files within the same workspace folder.'));
     if (type === 'new-file' || type === 'new-folder') {
       const answer = await askExplorerAction(type, '');
       if (answer === null || !answer.trim()) return;
-      const result = await api.createEntry(state.root, source, answer, type === 'new-folder' ? 'folder' : 'file');
+      const result = await api.createEntry(operationRoot, source, answer, type === 'new-folder' ? 'folder' : 'file');
       state.expanded.add(source);
       if (result.dir) state.expanded.add(result.path);
       if (answer.startsWith('.')) { state.showHidden = true; remember('showHidden', true); }
@@ -810,16 +970,16 @@ async function explorerOperation(type, source, targetFolder = null) {
       if (type === 'rename' && (answer === basename(source) || !answer)) return;
       if (!await protectOpenDocuments(source)) return;
       if (type === 'rename') {
-        const result = await api.renameEntry(state.root, source, answer);
+        const result = await api.renameEntry(operationRoot, source, answer);
         refreshPathsAfterMove(result.oldPath,result.path);
         historyWarning = result.historyWarning || '';
       } else {
-        await api.deleteEntry(state.root, source);
+        await api.deleteEntry(operationRoot, source);
         closeDeletedDocuments(source);
       }
     } else {
       if (!targetFolder || !await protectOpenDocuments(source)) return;
-      const result = await api.moveEntry(state.root, source, targetFolder);
+      const result = await api.moveEntry(operationRoot, source, targetFolder);
       refreshPathsAfterMove(result.oldPath,result.path);
       historyWarning = result.historyWarning || '';
     }
@@ -831,7 +991,7 @@ function showExplorerContext(event, node) {
   event.preventDefault(); event.stopPropagation();
   const menu = $('explorer-menu');
   menu.classList.remove('hidden'); menu.setAttribute('aria-hidden','false');
-  const isRoot = node.path === state.root;
+  const isRoot = state.folders.some(folder=>folder.path===node.path);
   $('explorer-new-file').hidden = !node.dir;
   $('explorer-new-folder').hidden = !node.dir;
   $('explorer-rename').hidden = isRoot;
@@ -867,6 +1027,8 @@ function renderTree() {
     for (const node of nodes) {
       const row = document.createElement('div');
       row.className = 'file-row' + (node.dir ? ' directory' : '') + (!node.dir && activeDocument()?.path === node.path ? ' selected' : '');
+      row.dataset.path = node.path;
+      if(node.workspaceRoot){row.dataset.workspaceRoot='true';row.title=node.path;}
       row.style.paddingLeft = `${11 + depth * 13}px`;
       row.tabIndex = 0;
       const chevron = document.createElement('span'); chevron.className = 'chevron';
@@ -887,9 +1049,14 @@ function renderTree() {
       }
 
       if(node.error)row.title=tr(node.error);
-      const activate = async () => {
+      const activate = async (event = {}) => {
         if(node.error){showStatus(node.error,6500);return;}
-        if(!node.dir){openFile(node.path);return;}
+        if(node.workspaceRoot)activateWorkspaceFolder(node.path);
+        if(!node.dir){
+          const now=Date.now(),keep=event.detail>1||(lastExplorerClick?.path===node.path&&now-lastExplorerClick.time<450);
+          lastExplorerClick={path:node.path,time:now};
+          openFile(node.path,{preview:!keep});return;
+        }
         if(state.expanded.has(node.path)){state.expanded.delete(node.path);renderTree();return;}
         state.expanded.add(node.path);renderTree();
         const source=findExplorerNode(state.nodes,node.path);
@@ -907,7 +1074,7 @@ function renderTree() {
         }catch(error){if(state.root===root){state.expanded.delete(node.path);showStatus(error.message,6500);}}
         finally{source.loading=false;if(state.root===root)renderTree();}
       };
-      row.draggable = true;
+      row.draggable = !node.workspaceRoot;
       row.addEventListener('dragstart', event => {
         if (event.target.closest?.('button')) { event.preventDefault(); return; }
         draggingExplorerEntry = node.path;
@@ -918,12 +1085,14 @@ function renderTree() {
       if (node.dir) attachDropTarget(row, node.path);
       row.addEventListener('contextmenu', event => showExplorerContext(event, node));
       row.addEventListener('keydown', event => {
+        if(node.workspaceRoot&&['Delete','F2'].includes(event.key)){event.preventDefault();return;}
         if (event.key === 'Delete') { event.preventDefault(); event.stopPropagation(); explorerOperation('delete', node.path); }
         if (event.key === 'F2') { event.preventDefault(); explorerOperation('rename',node.path); }
         if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) showExplorerContext(event, node);
       });
       row.addEventListener('click', activate);
-      row.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); activate(); } });
+      if(!node.dir)row.addEventListener('dblclick',()=>openFile(node.path,{preview:false}));
+      row.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if(node.dir)activate();else openFile(node.path,{preview:false}); } });
       tree.append(row);
       if (node.dir && state.expanded.has(node.path)) addNodes(node.children || [], depth + 1);
     }
@@ -932,7 +1101,7 @@ function renderTree() {
 }
 function findExplorerNode(nodes, wanted) {
   for(const node of nodes){
-    if(node.path===wanted)return node;
+    if(node.path.replace(/\\/g,'/')===wanted.replace(/\\/g,'/'))return node;
     if(node.dir){const found=findExplorerNode(node.children||[],wanted);if(found)return found;}
   }
   return null;
@@ -942,13 +1111,48 @@ function collectFiles(nodes, output = []) {
   return output;
 }
 async function refreshFolder({ restoreFolders = false } = {}) {
-  if (restoreFolders) state.removedFolders.clear();
-  if (!state.root) return;
-  const listing = await api.scanFolder(state.root, { showHidden: state.showHidden });
-  state.nodes = listing.nodes;
-  state.files = collectFiles(filterRemovedFolders(state.nodes));
-  renderTree();
-  if (listing.truncated) showStatus('Explorer limited to first 8,000 files', 6000);
+  if(restoreFolders)state.removedFolders.clear();
+  if(!state.root)return;
+  const revision=workspaceRevision,folders=state.folders.slice();let truncated=false,changed=false;
+  const results=await Promise.allSettled(folders.map(folder=>api.scanFolder(folder.path,{showHidden:state.showHidden})));
+  if(revision!==workspaceRevision)return;
+  results.forEach((result,index)=>{if(result.status==='fulfilled'){folders[index].nodes=result.value.nodes;delete folders[index].error;truncated ||= result.value.truncated;changed=true;}else{folders[index].error=result.reason.message;showStatus(result.reason.message,6500);}});
+  if(changed){syncWorkspaceTree();projectSearch?.invalidate();renderTree();}
+  if(truncated)showStatus('Explorer limited to first 8,000 files',6000);
+}
+
+async function revealExplorerFolder(folder) {
+  if (!folderFor(folder)) {
+    if (!await openFolder(folder,{add:state.folders.length>0})) return false;
+  }
+  const root=folderFor(folder);activateWorkspaceFolder(root);state.expanded.add(root);
+  const parts=normalizedSlashes(folder).slice(normalizedSlashes(root).length).split('/').filter(Boolean);
+  if(parts.some(part=>part.startsWith('.'))&&!state.showHidden){
+    state.showHidden=true;remember('showHidden',true);$('setting-hidden-files').checked=true;
+    await refreshFolder();if(state.root!==root)return false;
+  }
+  sidebarViews.show('explorer');
+  let current=root;
+  const separator=root.includes('\\')?'\\':'/';
+  for(const part of parts){
+    current=current.replace(/[\\/]$/,'')+separator+part;
+    state.removedFolders.delete(current);
+    let node=findExplorerNode(state.nodes,current);
+    if(!node)throw new Error(tr('Folder is no longer available.'));
+    if(node.error)throw new Error(node.error);
+    state.removedFolders.delete(node.path);
+    current=node.path;state.expanded.add(node.path);
+    if(node.incomplete||!node.children?.length){
+      const listing=await api.scanFolder(node.path,{showHidden:state.showHidden,shallow:true});
+      if(state.root!==root||findExplorerNode(state.nodes,current)!==node)return false;
+      node.children=listing.nodes;node.incomplete=false;
+    }
+  }
+  state.files=collectFiles(filterRemovedFolders(state.nodes));renderTree();
+  const row=[...$('file-tree').children].find(item=>normalizedSlashes(item.dataset.path)===normalizedSlashes(folder));
+  if(row){row.scrollIntoView({block:'center'});row.focus();}
+  else {$('project-name').tabIndex=0;$('project-name').focus();}
+  return true;
 }
 async function retryRemoteOperation(operation){
   if(operation.kind==='save'){
@@ -958,48 +1162,50 @@ async function retryRemoteOperation(operation){
   }
   if(operation.kind==='read'){
     const data=await api.readFile(operation.file),existing=state.tabs.find(doc=>doc.path===operation.file);
-    if(existing)setActive(existing.id);else addDocument(data.path,data.content,data.mtimeMs);
+    if(existing)setActive(existing.id);else addDocument(data.path,data.content,data.mtimeMs,{image:data.image,font:data.font});
     return true;
   }
   if(operation.kind==='list'){
     await api.scanFolder(operation.file,{showHidden:state.showHidden});
-    if(state.root===operation.root)await refreshFolder();
+    if(state.folders.some(folder=>folder.path===operation.root))await refreshFolder();
     return true;
   }
   return false;
 }
-async function openFolder(folder = null, {isCurrent=()=>true}={}) {
-  const previousRoot = state.root;
+async function openFolder(folder = null, {isCurrent=()=>true,add=false}={}) {
+  ++fileOpenGeneration;
+  const previousRoot=state.root,revision=workspaceRevision;
   try {
-    const p = folder || await api.chooseFolder();
-    if (!p) return false;
-    if (api.reopenWorkspace) await api.reopenWorkspace(p);
-    const listing = await api.scanFolder(p, {showHidden:state.showHidden});
+    const p=folder||await api.chooseFolder();if(!p)return false;
+    if(add){
+      if(state.folders.some(folder=>folder.path===p)){activateWorkspaceFolder(p);return true;}
+      validateFolderAddition(state.folders,p);
+    }
+    if(api.reopenWorkspace)await api.reopenWorkspace(p);
+    const listing=await api.scanFolder(p,{showHidden:state.showHidden});
     const remoteInfo=await api.remoteInfo?.(p);
-    if(!isCurrent())return false;
-    state.root = p;
-    void favouritesPanel?.refresh().catch(()=>{});
-    markdownPanel?.refresh();
-    applyWorkspaceSettings();
-    projectSearch?.reset();
-    state.removedFolders.clear(); state.expanded.clear(); state.expanded.add(p);
-    state.nodes = listing.nodes; state.files = collectFiles(listing.nodes);
-    $('project-name').textContent = basename(p).toUpperCase();
-    $('btn-close-project').classList.remove('hidden');
-    $('project-name').title = remoteInfo?.uri || p; $('window-title').textContent = remoteInfo?.uri || p;
-    if (!state.sidebarOpen) toggleSidebar();
-    renderTree(); persist();
-    try { workspacePrefs.opened(p); recentWorkspaces?.render(); }
-    catch (error) { showStatus(error.message, 6500); return true; }
-    if (api.platform === 'web') window.dispatchEvent(new CustomEvent('jotta:workspace-opened', {detail:{root:p}}));
-    if(listing.truncated)showStatus('Explorer limited to first 8,000 files',6000);
-    else showStatus(`Opened ${basename(p)} · ${state.files.length} files`);
+    if(!isCurrent()||revision!==workspaceRevision)return false;
+    captureWorkspaceTree(state.folders,state.nodes);
+    if(!add){state.folders=[];state.removedFolders.clear();state.expanded.clear();}
+    state.folders.push({path:p,nodes:listing.nodes,remote:Boolean(remoteInfo),uri:remoteInfo?.uri});
+    ++workspaceRevision;state.root=p;state.remoteRoot=state.folders.some(folder=>folder.remote);state.expanded.add(p);
+    syncWorkspaceTree();applyWorkspaceSettings();projectSearch?.reset();updateWorkspaceHeading();
+    void favouritesPanel?.refresh().catch(()=>{});markdownPanel?.refresh();
+    if(!state.sidebarOpen)toggleSidebar();renderTree();persist();renderBreadcrumbs();
+    try{workspacePrefs.opened(p);recentWorkspaces?.render();}catch(error){showStatus(error.message,6500);}
+    showStatus(listing.truncated?'Explorer limited to first 8,000 files':`Opened ${basename(p)} · ${state.files.length} files`,6000);
     return true;
-  } catch (err) {
+  } catch(err){
     if(!isCurrent())return false;
-    if (api.reopenWorkspace && previousRoot) await api.reopenWorkspace(previousRoot, false).catch(() => {});
-    showStatus(`Cannot open folder: ${err.message}`, 6500); return false;
+    if(api.reopenWorkspace&&previousRoot)await api.reopenWorkspace(previousRoot,false).catch(()=>{});
+    showStatus(`Cannot open folder: ${err.message}`,6500);return false;
   }
+}
+function addWorkspaceFolder(){return openFolder(null,{add:true});}
+
+function documentEditorOptions(doc){
+  const settings=workspacePrefs.settings(folderFor(doc?.path)||doc?.workspaceRoot||state.root);
+  return {tabSize:settings.tabSize,insertSpaces:settings.indentMode==='spaces',wordWrap:settings.wrap?'on':'off'};
 }
 function projectEditorSettings() {
   return {indentMode:state.indentMode, tabSize:state.tabSize, wrap:state.wordWrap,
@@ -1016,6 +1222,7 @@ function applyWorkspaceSettings() {
   state.wordWrap = settings.wrap; state.formatOnSave = settings.formatOnSave; state.formatWidth = settings.formatWidth;
   for (const doc of state.tabs) applyIndentToModel(doc.model);
   editorLayout?.updateOptions({tabSize:state.tabSize, insertSpaces:state.indentMode === 'spaces', wordWrap:state.wordWrap ? 'on' : 'off'});
+  editorLayout?.applyDocumentOptions();
   $('setting-indent').value = state.indentMode; $('setting-tab-size').value = String(state.tabSize);
   $('setting-word-wrap').checked = state.wordWrap; $('setting-format-save').checked = state.formatOnSave;
   $('setting-format-width').value = state.formatWidth;
@@ -1028,8 +1235,9 @@ function updateSidebarToggle() {
   icon.src = interfaceAssetUrl(state.sidebarOpen
     ? '/ui-icons/sidebar-fold.svg'
     : '/ui-icons/sidebar-unfold.svg');
-  button.title = tr(action);
-  button.setAttribute('aria-label', tr(action));
+  const binding=shortcuts.label('sidebar');
+  button.title=tr(action).replace('Ctrl+B',binding).replace(/ \(\)$/,'');
+  button.setAttribute('aria-label',button.title);
   button.setAttribute('aria-expanded', String(state.sidebarOpen));
 }
 function toggleSidebar() {
@@ -1050,19 +1258,22 @@ function setWordWrap(enabled) {
   state.wordWrap = Boolean(enabled);
   remember('wrap', String(state.wordWrap));
   editorLayout.updateOptions({ wordWrap: state.wordWrap ? 'on' : 'off' });
+  editorLayout.applyDocumentOptions();
   const checkbox = document.getElementById('setting-word-wrap');
   if (checkbox) checkbox.checked = state.wordWrap;
   showStatus(`Word wrap ${state.wordWrap ? 'enabled' : 'disabled'}`);
 }
 function toggleWrap() { setWordWrap(!state.wordWrap); }
 function applyIndentToModel(model) {
-  model.updateOptions({ tabSize: state.tabSize, indentSize: state.tabSize, insertSpaces: state.indentMode === 'spaces' });
+  const owner=folderFor(model.uri?.fsPath),settings=owner?workspacePrefs.settings(owner):{tabSize:state.tabSize,indentMode:state.indentMode};
+  model.updateOptions({ tabSize: settings.tabSize, indentSize: settings.tabSize, insertSpaces: settings.indentMode === 'spaces' });
 }
 function applyIndentation() {
   for (const doc of state.tabs) applyIndentToModel(doc.model);
   remember('tabSize', state.tabSize);
   remember('indentMode', state.indentMode);
   editorLayout.updateOptions({ tabSize: state.tabSize, insertSpaces: state.indentMode === 'spaces' });
+  editorLayout.applyDocumentOptions();
   updateStatus();
 }
 function applyExplorerTypography() {
@@ -1101,7 +1312,7 @@ function setupExplorerZoom() {
 }
 function applyUiTypography() {
   state.uiFontFamily = String(state.uiFontFamily || 'Rubik').replace(/[\"\\]/g, '').trim().slice(0,65) || 'Rubik';
-  document.documentElement.style.setProperty('--ui-font-family', `"${state.uiFontFamily}", system-ui, sans-serif`);
+  document.documentElement.style.setProperty('--ui-font-family', `"Jotta Emoji", "${state.uiFontFamily}", system-ui, sans-serif`);
   remember('uiFontFamily', state.uiFontFamily);
   state.uiFontSize = boundedUiSize(state.uiFontSize);
   document.documentElement.style.setProperty('--ui-font-size', `${state.uiFontSize}px`);
@@ -1129,6 +1340,22 @@ function adjustFont(delta) {
   applyTypography();
   if (!$('settings-overlay').classList.contains('hidden')) $('setting-size').value = String(state.fontSize);
 }
+function adjustTextSize(delta,event){
+  if(nativeBuildPanel?.zoomTarget(event))nativeBuildPanel.adjustFont(delta);
+  else if(markdownPanel?.zoomTarget(event))markdownPanel.adjustFont(delta);
+  else if(explorerZoomTarget(event))adjustExplorerFont(delta);
+  else if(editorLayout?.fontZoom(delta))return;
+  else if(editorLayout?.imageZoom(delta))return;
+  else adjustFont(delta);
+}
+function resetTextSize(event){
+  if(nativeBuildPanel?.zoomTarget(event))nativeBuildPanel.resetFont();
+  else if(markdownPanel?.zoomTarget(event))markdownPanel.resetFont();
+  else if(explorerZoomTarget(event)){state.explorerFontSize=14;applyExplorerTypography();}
+  else if(editorLayout?.fontReset())return;
+  else if(editorLayout?.imageReset())return;
+  else {state.fontSize=14;applyTypography();}
+}
 function applyPlainTextHighlights() {
   if (!editor) return;
   editor.updateOptions(plainTextHighlightOptions(editor.getModel()?.getLanguageId(), state.plainTextHighlights));
@@ -1138,7 +1365,7 @@ function updateStatus() {
   const doc = activeDocument();
   const pos = editor?.getPosition();
   $('status-position').textContent = pos ? `Ln ${pos.lineNumber}, Col ${pos.column}` : 'Ln 1, Col 1';
-  $('status-language').textContent = doc ? tr(titleCase(doc.model.getLanguageId())) : tr('Plain Text');
+  $('status-language').textContent = doc?.font ? doc.font.type : doc?.image ? doc.image.type : doc ? tr(titleCase(doc.model.getLanguageId())) : tr('Plain Text');
   $('status-indent').textContent = `${tr(state.indentMode === 'spaces' ? 'Spaces' : 'Tabs')}: ${state.tabSize}`;
   $('status-format').textContent = tr(state.formatOnSave ? 'Fmt Save: On' : 'Fmt Save: Off');
   $('status-format').title = tr('Toggle format on save');
@@ -1152,7 +1379,7 @@ function toggleFormatOnSave() {
 }
 
 async function formatDocument(doc = activeDocument(), { quiet = false } = {}) {
-  if (!doc) return false;
+  if (!doc || readOnlyDocument(doc)) return false;
   const model = doc.model;
   const language = model.getLanguageId();
   if (!formatLanguages.has(language)) {
@@ -1162,8 +1389,8 @@ async function formatDocument(doc = activeDocument(), { quiet = false } = {}) {
   try {
     const original = model.getValue();
     const formatted = await formatCode(original, {
-      language, filename: doc.path || doc.name, printWidth: state.formatWidth, tabWidth: model.getOptions().tabSize,
-      useTabs: !model.getOptions().insertSpaces
+      language, filename: doc.path || doc.name, printWidth: normalizeFormatterWidth(workspacePrefs.settings(folderFor(doc.path)||doc.workspaceRoot||state.root).formatWidth), tabWidth: model.getOptions().tabSize,
+      useTabs: !model.getOptions().insertSpaces, nativeFormatter: api.formatNativeCode
     });
     if (formatted == null || formatted === original) {
       if (!quiet) showStatus('Already formatted');
@@ -1193,10 +1420,11 @@ function registerFormatting() {
     monaco.languages.registerDocumentFormattingEditProvider(language, {
       async provideDocumentFormattingEdits(model, options) {
         const source = model.getValue();
+        const doc = state.tabs.find(doc => doc.model === model);
         try {
           const formatted = await formatCode(source, {
-            language, filename: model.uri.path, printWidth: state.formatWidth,
-            tabWidth: options.tabSize, useTabs: !options.insertSpaces
+            language, filename: doc?.path || doc?.name || model.uri.fsPath, printWidth: state.formatWidth,
+            tabWidth: options.tabSize, useTabs: !options.insertSpaces, nativeFormatter: api.formatNativeCode
           });
           if (!formatted || formatted === source || model.getValue() !== source) return [];
           return [{ range: model.getFullModelRange(), text: formatted }];
@@ -1289,22 +1517,16 @@ function setupEmmet(editor) {
 }
 
 
-function fuzzyScore(text, query) {
-  if (!query) return 0;
-  text = text.toLocaleLowerCase(); query = query.toLocaleLowerCase();
-  const direct = text.indexOf(query);
-  if (direct !== -1) return 2000 - direct * 3 - text.length * 0.1;
-  let score = 0, at = 0, prev = -2;
-  for (const char of query) {
-    const i = text.indexOf(char, at);
-    if (i === -1) return -Infinity;
-    score += i === prev + 1 ? 18 : 5;
-    if (i === 0 || '/._-'.includes(text[i - 1])) score += 25;
-    at = i + 1; prev = i;
-  }
-  return score - text.length * .12;
-}
 const commands = [
+  ...(api.startNativeBuild ? [
+    {label:'Build & Run',command:'native-build-panel',description:'',run:()=>nativeBuildPanel.show()},
+    {label:'Build C/C++',command:'native-build',description:'F7',run:()=>nativeBuildPanel.start('build')},
+    {label:'Build and run C/C++',command:'native-run',description:'F6',run:()=>nativeBuildPanel.start('run')},
+    {label:'Test C/C++',command:'native-test',description:'Ctrl+F6',run:()=>nativeBuildPanel.start('test')},
+    {label:'Stop build or program',command:'native-stop',description:'Shift+F6',run:()=>handleMenuCommand('native-stop')}
+  ] : []),
+  {label:'Add Folder to Workspace…',command:'add-folder',description:'',run:addWorkspaceFolder},
+  {label:'Keyboard shortcuts',command:'keyboard-shortcuts',description:'',run:()=>handleMenuCommand('keyboard-shortcuts')},
   {label:'Document outline',description:'',run:()=>outlinePanel.show()},
   ...(api.getRemoteActivity?[{label:'Remote connections',description:'',run:()=>remoteConnectionPanel.show()}]:[]),
   ...(api.startPreview ? [{ label: 'Open Live Preview', description: '', run: startLivePreview }] : []),
@@ -1323,6 +1545,8 @@ const commands = [
   { label: 'Save file', description: 'Ctrl+S', run: () => save() },
   { label: 'Save as…', description: 'Ctrl+Shift+S', run: () => save(activeDocument(), true) },
   { label: 'Close file', description: 'Ctrl+W', run: () => activeDocument() && closeDocument(state.active) },
+  { label: 'Keep preview tab open', description: '', run: () => keepDocument() },
+  { label: 'Toggle pin on active tab', description: '', run: () => {pinTab(state.tabs,activeDocument());renderTabs();persist();} },
   { label: 'Split editor', description: 'Ctrl+\\', run: () => editorLayout.toggleSplit() },
   { label: 'Local History…', description: '', run: () => localHistoryPanel.open() },
   { label: 'Compare with saved version', description: '', run: () => editorLayout.compareSaved(activeDocument()) },
@@ -1336,8 +1560,8 @@ const commands = [
   { label: 'Toggle minimap', description: '', run: toggleMinimap },
   { label: 'Toggle word wrap', description: 'Alt+Z', run: toggleWrap },
   { label: 'Toggle light/dark theme', description: '', run: () => setTheme(state.theme === 'dark' ? 'light' : 'dark') },
-  { label: 'Increase font size', description: 'Ctrl++', run: () => adjustFont(1) },
-  { label: 'Decrease font size', description: 'Ctrl+-', run: () => adjustFont(-1) },
+  { label: 'Increase font size', description: 'Ctrl++', run: () => adjustTextSize(1) },
+  { label: 'Decrease font size', description: 'Ctrl+-', run: () => adjustTextSize(-1) },
   { label: 'Format document', description: 'Shift+Alt+F', run: () => formatDocument() },
   { label: 'Toggle format on save', description: '', run: toggleFormatOnSave },
   { label: 'Preferences…', description: 'Ctrl+,', run: openSettings },
@@ -1349,12 +1573,13 @@ const commands = [
 ];
 const languages = ['plaintext','javascript','typescript','json','html','css','scss','python','php','go','rust','c','cpp','java','sql','shell','markdown','yaml','xml','ruby','lua','kotlin','swift'];
 function showPalette(mode) {
+  editorActions?.close();
   if (mode === 'files' && !state.files.length && !state.tabs.length) { showStatus('Open a folder or file first'); return; }
   state.palette = mode; state.paletteIndex = 0;
   $('overlay').classList.remove('hidden'); $('overlay').setAttribute('aria-hidden', 'false');
   $('palette-input').value = '';
   $('palette-symbol').textContent = ({ files: '⌕', commands: '›', line: ':', language: '⌘', search: '⌕' })[mode];
-  $('palette-input').placeholder = tr(({ files: 'Go to file…', commands: 'Type a command…', line: 'Go to line number…', language: 'Select language…', search: 'Search text in project (at least 2 characters)…' })[mode]);
+  $('palette-input').placeholder = tr(({ files: 'Go to file, :line or @symbol…', commands: 'Type a command…', line: 'Go to line number…', language: 'Select language…', search: 'Search text in project (at least 2 characters)…' })[mode]);
   fillPalette();
   $('palette-input').focus();
 }
@@ -1368,12 +1593,16 @@ async function fillPalette() {
   const mode = state.palette;
   if (!mode) return;
   const query = $('palette-input').value.trim();
+  const request=++state.queryId, model=getEditorModel(), version=model?.getVersionId();
   let list = [];
   if (mode === 'files') {
-    const paths = [...new Set([...state.tabs.filter(t => t.path).map(t => t.path), ...state.files])];
-    list = paths.map(p => paletteEntry(basename(p), relative(p), () => openFile(p), p));
+    const parsed=parseAnythingQuery(query);
+    $('palette-symbol').textContent=parsed.mode==='line'?':':parsed.mode==='symbols'?'@':'⌕';
+    list=await anythingResults(query,{files:state.files,documents:state.tabs,model,monaco,relative,
+      open:openFile,select:selectDocument,reveal:revealPalettePosition,tr});
+    if(request!==state.queryId||state.palette!==mode||(parsed.mode==='symbols'&&(getEditorModel()!==model||model?.getVersionId()!==version)))return;
   } else if (mode === 'commands') {
-    list = commands.map(c => paletteEntry(tr(c.label), c.description, c.run));
+    list = commands.map(c => {const command=c.command||shortcutCommands.find(command=>command.label.toLocaleLowerCase().replace(/…/g,'')===c.label.toLocaleLowerCase().replace(/…/g,''))?.id||shortcutCommands.find(command=>command.binding&&command.binding===c.description.replace('Shift+Alt+','Alt+Shift+').replace('Ctrl+,','Ctrl+Comma').replace('Ctrl++','Ctrl+Plus').replace('Ctrl+-','Ctrl+Minus').replace('Ctrl+\\','Ctrl+Backslash'))?.id;return paletteEntry(tr(c.label),command?shortcuts.label(command):c.description,c.run);});
   } else if (mode === 'language') {
     list = languages.map(l => paletteEntry(titleCase(l), l, () => {
       const doc = activeDocument(); if (doc) { doc.languagePinned=true;monaco.editor.setModelLanguage(doc.model, l); updateStatus(); }
@@ -1386,20 +1615,26 @@ async function fillPalette() {
       editor.setPosition({ lineNumber: line, column: 1 }); editor.revealLineInCenter(line);
     })];
   } else if (mode === 'search') {
-    const request = ++state.queryId;
     if (query.length >= 2 && state.root) {
-      const nodes = await api.searchProject(state.root, query).catch(() => []);
+      const nodes=(await Promise.all(state.workspacePaths.map(root=>api.searchProject(root,query).catch(()=>[])))).flat().slice(0,100);
       if (request !== state.queryId || state.palette !== 'search') return;
       list = nodes.map(x => paletteEntry(`${relative(x.path)}:${x.line}`, x.preview, () => openFile(x.path, { line: x.line })));
     }
   }
-  if (mode !== 'search') {
+  if(request!==state.queryId||state.palette!==mode)return;
+  if (mode !== 'search' && mode !== 'files') {
     list = list.map(item => ({ ...item, score: fuzzyScore(`${item.title} ${item.extra} ${item.subtitle}`, query) }))
       .filter(item => item.score !== -Infinity).sort((a, b) => b.score - a.score).slice(0, 100);
   }
   state.paletteItems = list;
   state.paletteIndex = 0;
   renderPaletteList();
+}
+function revealPalettePosition(model,line,column=1) {
+  if(model!==getEditorModel())return;
+  const target=Math.max(1,Math.min(line,model.getLineCount()));
+  editor.setPosition({lineNumber:target,column:Math.max(1,Math.min(column,model.getLineMaxColumn(target)))});
+  editor.revealLineInCenter(target);editor.focus();
 }
 function renderPaletteList() {
   const list = $('palette-list'); list.replaceChildren();
@@ -1438,7 +1673,7 @@ function setupPathCompletion() {
         if (!ctx || token.isCancellationRequested) return { suggestions: [] };
         const doc = state.tabs.find(t => t.model === model);
         if (!doc?.path && !state.root) return { suggestions: [] };
-        const files = await api.completePath({file: doc?.path || null, root: state.root, typed: ctx.typed}).catch(() => []);
+        const files = await api.completePath({file: doc?.path || null, root: folderFor(doc?.path)||state.root, typed: ctx.typed}).catch(() => []);
         if (token.isCancellationRequested) return { suggestions: [] };
         const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber,
           startColumn: ctx.startColumn, endColumn: ctx.endColumn };
@@ -1495,7 +1730,7 @@ function setupCompletion() {
         const doc = state.tabs.find(d => d.model === model);
         if (doc?.path) {
           const lspItems = await api.complete({
-            root: state.root, file: doc.path, lang, content: model.getValue(),
+            root: folderFor(doc.path)||state.root, file: doc.path, lang, content: model.getValue(),
             line: position.lineNumber, column: position.column
           }).catch(() => []);
           for (const item of lspItems) {
@@ -1527,44 +1762,56 @@ function setupCompletion() {
     });
   }
 }
+function cycleTabs(delta){
+  if(state.tabs.length<2)return;const index=state.tabs.findIndex(doc=>doc.id===state.active);
+  selectDocument(state.tabs[(index+delta+state.tabs.length)%state.tabs.length].id);
+}
+function refreshShortcutHints(){
+  for(const [id,command]of Object.entries({'btn-split':'split-editor','btn-markdown-preview':'markdown-preview','btn-quick':'quick-open','btn-palette':'command-palette','btn-project-search':'search-project'})){
+    const node=document.getElementById(id);if(!node)continue;
+    const hint=node.querySelector('.menu-accel');if(hint)hint.textContent=shortcuts.label(command);
+    const base=node.dataset.shortcutTitle ||= node.title.replace(/ \(Ctrl[^)]*\)$/,'');
+    node.title=tr(base)+(shortcuts.label(command)?' ('+shortcuts.label(command)+')':'');
+  }
+  const welcomeCommands=['quick-open','command-palette','open-file','open-folder','new'];
+  document.querySelectorAll('.welcome-shortcuts > div').forEach((row,index)=>{
+    const label=row.querySelector('span'),kbd=document.createElement('kbd');kbd.textContent=shortcuts.label(welcomeCommands[index])||tr('Unassigned');row.replaceChildren(kbd,label);
+  });
+  updateSidebarToggle();
+  window.dispatchEvent(new CustomEvent('jotta:shortcuts-changed',{detail:{save:shortcuts.label('save'),'save-as':shortcuts.label('save-as')}}));
+  api.setMenuShortcuts?.(shortcuts.overrides).catch(error=>showStatus(error.message,6500));
+}
 function setupKeyboard() {
-  window.addEventListener('keydown', event => {
-    const mod = event.ctrlKey || event.metaKey;
-    const key = event.key.toLowerCase();
-    if (isModalOpen()) { if (event.key === 'Escape') { event.preventDefault(); closeModals(); } return; }
-    if (state.palette) {
-      if (event.key === 'Escape') { event.preventDefault(); hidePalette(); }
-      if (event.key === 'ArrowDown') { event.preventDefault(); state.paletteIndex = (state.paletteIndex + 1) % Math.max(1, state.paletteItems.length); updatePaletteSelection(); }
-      if (event.key === 'ArrowUp') { event.preventDefault(); state.paletteIndex = (state.paletteIndex + Math.max(1, state.paletteItems.length) - 1) % Math.max(1, state.paletteItems.length); updatePaletteSelection(); }
-      if (event.key === 'Enter') { event.preventDefault(); activatePalette(); }
+  window.addEventListener('keydown',event=>{
+    if(event.isComposing||event.getModifierState?.('AltGraph'))return;
+    if(isModalOpen()){
+      if(event.key==='Escape'&&!event.target?.dataset?.shortcutRecorder){event.preventDefault();closeModals();}
       return;
     }
-    if (mod && key === ',') { event.preventDefault(); openSettings(); }
-    else if (mod && key === '0') { event.preventDefault(); if (explorerZoomTarget(event)) { state.explorerFontSize = 14; applyExplorerTypography(); } else { state.fontSize = 14; applyTypography(); } }
-    else if (mod && key === 'p') { event.preventDefault(); showPalette(event.shiftKey ? 'commands' : 'files'); }
-    else if (mod && key === 'n') { event.preventDefault(); addDocument(null); }
-    else if (mod && key === 'o') { event.preventDefault(); event.shiftKey ? openFolder() : chooseFile(); }
-    else if (mod && key === 's') { event.preventDefault(); save(activeDocument(), event.shiftKey); }
-    else if (mod && event.shiftKey && key === 'v' && activeDocument()?.model.getLanguageId()==='markdown') { event.preventDefault();event.stopPropagation();markdownPanel.toggle(); }
-    else if (mod && key === 'w') { event.preventDefault(); if (state.active) closeDocument(state.active); }
-    else if (mod && key === '\\') { event.preventDefault(); editorLayout.toggleSplit(); }
-    else if (mod && key === 'b') { event.preventDefault(); toggleSidebar(); }
-    else if (mod && key === 'g') { event.preventDefault(); showPalette('line'); }
-    else if (mod && key === 'f' && event.shiftKey) { event.preventDefault(); projectSearch.show(); }
-    else if (mod && key === 'h' && event.shiftKey) { event.preventDefault(); projectSearch.show(true); }
-    else if (mod && key === 'tab') {
-      event.preventDefault();
-      if (state.tabs.length > 1) {
-        const i = state.tabs.findIndex(d => d.id === state.active);
-        selectDocument(state.tabs[(i + (event.shiftKey ? state.tabs.length - 1 : 1)) % state.tabs.length].id);
-      }
+    if(state.palette){
+      if(event.key==='Escape'){event.preventDefault();hidePalette();}
+      if(event.key==='ArrowDown'){event.preventDefault();state.paletteIndex=(state.paletteIndex+1)%Math.max(1,state.paletteItems.length);updatePaletteSelection();}
+      if(event.key==='ArrowUp'){event.preventDefault();state.paletteIndex=(state.paletteIndex+Math.max(1,state.paletteItems.length)-1)%Math.max(1,state.paletteItems.length);updatePaletteSelection();}
+      if(event.key==='Enter'){event.preventDefault();activatePalette();}return;
     }
-    else if (event.altKey && key === 'z') { event.preventDefault(); toggleWrap(); }
-    else if (mod && (key === '=' || key === '+' || event.code === 'NumpadAdd')) { event.preventDefault(); explorerZoomTarget(event) ? adjustExplorerFont(1) : adjustFont(1); }
-    else if (mod && (key === '-' || event.code === 'NumpadSubtract')) { event.preventDefault(); explorerZoomTarget(event) ? adjustExplorerFont(-1) : adjustFont(-1); }
-  }, true);
+    const command=matchShortcut(event,shortcuts.overrides),binding=shortcutFromEvent(event);
+    const inEditor=Boolean(event.target?.closest?.('.monaco-editor'));
+    const editing=Boolean(event.target?.closest?.('input,textarea,select,[contenteditable="true"]'));
+    if(command){
+      if(command.scope==='editor'&&editing&&!inEditor)return;
+      if(command.scope==='editor'&&!activeDocument())return;
+      // Preserve Monaco's clipboard and undo handling until the user reassigns it.
+      if(['cut','copy','paste','select-all','undo','redo'].includes(command.id)&&!Object.hasOwn(shortcuts.overrides,command.id))return;
+      event.preventDefault();event.stopImmediatePropagation();handleMenuCommand(command.id,event);return;
+    }
+    const former=shortcutCommands.find(command=>command.binding===binding);
+    if(former&&(inEditor||former.scope==='app')&&effectiveShortcut(former.id,shortcuts.overrides)!==binding){event.preventDefault();event.stopImmediatePropagation();}
+    if(inEditor&&binding==='Ctrl+Y'&&Object.hasOwn(shortcuts.overrides,'redo')){event.preventDefault();event.stopImmediatePropagation();}
+  },true);
 }
+
 function showModal(id) {
+  editorActions?.close();
   closeCustomMenu();
   closeModals();
   const modal = $(id);
@@ -1580,7 +1827,7 @@ function closeModals() {
   }
 }
 function isModalOpen() {
-  return ['settings-overlay','about-overlay','history-overlay','recent-workspaces-overlay','favourites-overlay','remote-overlay','folder-picker-overlay'].some(id=>!$(id).classList.contains('hidden'));
+  return ['settings-overlay','about-overlay','history-overlay','recent-workspaces-overlay','favourites-overlay','remote-overlay','folder-picker-overlay','confirm-overlay','explorer-action-overlay'].some(id=>!$(id).classList.contains('hidden'));
 }
 function updateRestartNotice() {
   const changed = ($('setting-frame').value === 'native') !== state.nativeFrame;
@@ -1596,6 +1843,7 @@ function openSettings() {
   $('setting-size').value = String(state.fontSize);
   $('setting-ui-size').value = String(state.uiFontSize);
   $('setting-leading').value = String(state.lineHeightRatio);
+  editorLayout?.applyDocumentOptions();
   $('setting-indent').value = state.indentMode;
   $('setting-tab-size').value = String(state.tabSize);
   $('setting-frame').value = state.savedFramePreference ? 'native' : 'custom';
@@ -1605,6 +1853,7 @@ function openSettings() {
   $('setting-plaintext-highlights').value = state.plainTextHighlights;
   $('setting-format-width').value = state.formatWidth;
   $('setting-hidden-files').checked = state.showHidden;
+  $('setting-auto-refresh').checked = state.autoRefresh;
   $('setting-syntax-theme').value = state.syntaxTheme;
   refreshCustomThemeEditor();
   $('setting-icon-palette').value = state.explorerIconPalette;
@@ -1628,7 +1877,8 @@ const menuSpecs = {
     { label: 'New Markdown file', command: 'new-markdown' },
     { label: 'Open File…', command: 'open-file', accelerator: 'Ctrl+O' },
     { label: 'Open Folder…', command: 'open-folder', accelerator: 'Ctrl+Shift+O' },
-    ...(api.connectRemoteFolder ? [{label:'Open Remote Folder…',command:'open-remote-folder'}] : []),
+    {label:'Add Folder to Workspace…',command:'add-folder'},
+    ...(api.connectRemoteFolder ? [{label:'Open Remote Folder…',command:'open-remote-folder'},{label:'Add Remote Folder to Workspace…',command:'add-remote-folder'}] : []),
     { label: 'Favourites…', command: 'favourites' },
     { label: 'Recent Workspaces…', command: 'recent-workspaces' },
     { separator: true },
@@ -1655,7 +1905,8 @@ const menuSpecs = {
     { label: 'Replace', command: 'replace', accelerator: 'Ctrl+H' },
     { label: 'Replace in Project…', command: 'replace-project', accelerator: 'Ctrl+Shift+H' },
     { separator: true },
-    { label: 'Preferences…', command: 'settings', accelerator: 'Ctrl+,' }
+    { label: 'Preferences…', command: 'settings', accelerator: 'Ctrl+,' },
+    {label:'Keyboard shortcuts',command:'keyboard-shortcuts'}
   ],
   Selection: [
     { label: 'Select All', command: 'select-all', accelerator: 'Ctrl+A' },
@@ -1687,6 +1938,12 @@ const menuSpecs = {
     { label: 'Search in Project…', command: 'search-project', accelerator: 'Ctrl+Shift+F' }
   ],
   Tools: [
+    {label:'Build & Run',command:'native-build-panel',disabled:()=>!api.startNativeBuild},
+    {label:'Build C/C++',command:'native-build',accelerator:'F7',disabled:()=>!api.startNativeBuild},
+    {label:'Build and run C/C++',command:'native-run',accelerator:'F6',disabled:()=>!api.startNativeBuild},
+    {label:'Test C/C++',command:'native-test',accelerator:'Ctrl+F6',disabled:()=>!api.startNativeBuild},
+    {label:'Stop build or program',command:'native-stop',accelerator:'Shift+F6',disabled:()=>!api.startNativeBuild},
+    {separator:true},
     { label: 'Open Live Preview', command: 'preview', disabled:() => !api.startPreview },
     { label: 'Stop Live Preview', command: 'preview-stop', disabled:() => !api.stopPreview },
     { label: 'Format Document', command: 'format', accelerator: 'Shift+Alt+F' },
@@ -1708,6 +1965,7 @@ function closeCustomMenu() {
   currentMenuLabel = null;
 }
 function openCustomMenu(label, anchor) {
+  editorActions?.close();
   const layer = $('menu-layer');
   if (currentMenuLabel === label && !layer.classList.contains('hidden')) { closeCustomMenu(); return; }
   currentMenuLabel = label;
@@ -1720,7 +1978,7 @@ function openCustomMenu(label, anchor) {
     button.disabled = Boolean(item.disabled?.());
     const check = document.createElement('span'); check.className = 'menu-check'; check.textContent = item.check?.() ? '✓' : '';
     const text = document.createElement('span'); text.className = 'menu-label'; text.textContent = tr(item.label);
-    const accel = document.createElement('span'); accel.className = 'menu-accel'; accel.textContent = item.accelerator || '';
+    const accel = document.createElement('span'); accel.className = 'menu-accel'; accel.textContent = shortcutCommands.some(command=>command.id===item.command)?shortcuts.label(item.command):item.accelerator||'';
     button.append(check, text, accel);
     button.addEventListener('click', () => { closeCustomMenu(); handleMenuCommand(item.command); });
     panel.append(button);
@@ -1774,7 +2032,7 @@ function refreshInterfaceColourEditor() {
         themeStatus('Enter a valid HEX colour'); return false;
       }
       remember('interfaceColours', JSON.stringify(state.interfaceColours));
-      applyInterfaceColours(document.documentElement, state.interfaceColours, state.theme);
+      applyInterfaceColours(document.documentElement, interfaceColoursForMode(state.theme), state.theme);
       refreshInterfaceColourEditor();
       themeStatus('Interface colours saved');
       return true;
@@ -1793,7 +2051,7 @@ function installInterfaceThemeEditor() {
   $('theme-ui-reset').onclick = () => {
     state.interfaceColours[state.theme] = {};
     remember('interfaceColours', JSON.stringify(state.interfaceColours));
-    applyInterfaceColours(document.documentElement, state.interfaceColours, state.theme);
+    applyInterfaceColours(document.documentElement, interfaceColoursForMode(state.theme), state.theme);
     refreshInterfaceColourEditor();
     themeStatus('Interface colours reset');
   };
@@ -1978,11 +2236,13 @@ function setupPreviewBrowserMenu() {
       const caption = document.createElement('span'); caption.textContent = tr(label);
       const check = document.createElement('span'); check.textContent = state.previewBrowser === id ? '✓' : '';
       button.append(icon, caption, check);
-      button.onclick = () => { selectPreviewBrowser(id); hide(); $('btn-preview').focus(); };
+      button.onclick = () => { selectPreviewBrowser(id); hide(); $('btn-editor-actions').focus(); };
       menu.append(button);
     }
     menu.classList.remove('hidden'); $('btn-preview').setAttribute('aria-expanded', 'true');
-    const anchor = $('btn-preview').getBoundingClientRect(), rect = menu.getBoundingClientRect();
+    const anchor = $('btn-preview').getBoundingClientRect();
+    editorActions.close();
+    const rect = menu.getBoundingClientRect();
     menu.style.left = `${Math.max(5, Math.min(innerWidth - rect.width - 5, anchor.right - rect.width))}px`;
     menu.style.top = `${Math.max(5, Math.min(innerHeight - rect.height - 5, anchor.bottom + 3))}px`;
     menu.querySelector('[aria-checked="true"]').focus();
@@ -1991,7 +2251,7 @@ function setupPreviewBrowserMenu() {
   $('btn-preview').setAttribute('aria-expanded', 'false');
   $('btn-preview').addEventListener('contextmenu', show);
   $('btn-preview').addEventListener('click', hide);
-  $('btn-preview').addEventListener('keydown', event => { if (event.key === 'ArrowDown') show(event); });
+  $('btn-preview').addEventListener('keydown', event => { if (event.key === 'ArrowRight') { event.stopPropagation(); show(event); } });
   menu.addEventListener('keydown', event => {
     const buttons = [...menu.querySelectorAll('button')];
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -2000,10 +2260,12 @@ function setupPreviewBrowserMenu() {
     }
   });
   document.addEventListener('pointerdown', event => { if (!menu.contains(event.target) && !event.target.closest('#btn-preview')) hide(); });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.classList.contains('hidden')) { hide(); $('btn-preview').focus(); } });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !menu.classList.contains('hidden')) { hide(); $('btn-editor-actions').focus(); } });
   window.addEventListener('blur', hide);
 }
 function setupDialogs() {
+  installSettingsTransfer({storage:localStorage, apply:applyImportedSettings,
+    exportOptions:() => api.platform === 'web' ? {} : {nativeFrame:state.savedFramePreference}});
   updatePreviewBrowserIcon();
   setupPreviewBrowserMenu();
   $('setting-preview-browser').disabled = !api.startPreview;
@@ -2012,10 +2274,13 @@ function setupDialogs() {
     selectPreviewBrowser(event.target.value);
   });
   setupCustomMenus();
-  installSettingsTabs(document.querySelector('#settings-overlay .settings-dialog'), $('settings-tabs'), {
+  settingsTabs=installSettingsTabs(document.querySelector('#settings-overlay .settings-dialog'), $('settings-tabs'), {
     initial: stored('settingsTab', 'editor'),
     onChange: tab => remember('settingsTab', tab)
   });
+  shortcutEditor=installKeyboardShortcutEditor({host:$('settings-pane-shortcuts'),shortcuts,tr});
+  document.addEventListener('jotta:locale-changed',refreshShortcutHints);
+  refreshShortcutHints();
   settingsDrag = installSettingsDragging(document.querySelector('#settings-overlay .settings-dialog'), $('settings-drag-handle'));
   for (const id of ['settings-close', 'settings-done', 'about-close', 'about-done']) $(id).onclick = closeModals;
   for (const id of ['settings-overlay', 'about-overlay', 'history-overlay', 'recent-workspaces-overlay', 'favourites-overlay']) $(id).addEventListener('mousedown', e => {
@@ -2105,12 +2370,17 @@ function setupDialogs() {
   });
   $('setting-format-save').addEventListener('change', e => { state.formatOnSave = e.target.checked; remember('formatOnSave', state.formatOnSave); updateStatus(); });
   $('setting-hidden-files').addEventListener('change', async e => { state.showHidden = e.target.checked; remember('showHidden', state.showHidden); if (state.root) await refreshFolder().catch(err => showStatus(err.message)); });
+  $('setting-auto-refresh').addEventListener('change',event=>{
+    state.autoRefresh=event.target.checked;remember('autoRefresh',state.autoRefresh);
+    if(state.autoRefresh)void automaticRefresh?.check({force:true});
+  });
   $('setting-language').addEventListener('change', async e => {
     state.languagePreference = e.target.value; remember('languagePreference', state.languagePreference);
     configureLanguage(state.languagePreference, await api.systemLocale().catch(() => navigator.language || 'en'));
     updateSidebarToggle();
     api.menuLocale(locale()).catch(() => {});
     updateStatus(); renderTabs();
+    renderBreadcrumbs();
     $('status-message').textContent = tr('Ready');
   });
   $('setting-frame').addEventListener('change', async e => {
@@ -2124,13 +2394,71 @@ function setupDialogs() {
   $('settings-done').addEventListener('click', fontMenu.hide);
   $('settings-done').addEventListener('click', uiFontMenu.hide);
 }
-function handleMenuCommand(name) {
+async function refreshImportedSettings() {
+  const preferences = parseSettingsImport(exportSettings(localStorage));
+  const oldHidden = state.showHidden;
+  shortcuts.reload();shortcutEditor?.refresh();
+  const names = {wrap:'wordWrap', sidebar:'sidebarOpen', 'sidebar-width':'sidebarWidth', fontsize:'fontSize'};
+  for (const [key, value] of Object.entries(preferences)) {
+    if (!['colourFavourites','recentColours','syntaxTheme'].includes(key)) state[names[key] || key] = value;
+  }
+  setCustomSyntaxPalettes(state.customThemes);
+  registerCustomSyntaxThemes(monaco);
+  state.syntaxTheme = normalizeSyntaxTheme(preferences.syntaxTheme);
+  remember('syntaxTheme', state.syntaxTheme);
+  refreshSyntaxThemeOptions();
+  setTheme(state.theme);
+  applyUiTypography(); applyExplorerTypography(); applyTypography();
+  applyWorkspaceSettings();
+  editorLayout.updateOptions({minimap:{enabled:state.minimap}});
+  for (const picker of colorEditors.values()) picker.setDisplayMode(state.colorDisplayMode);
+  document.dispatchEvent(new Event('jotta:colours-changed'));
+  $('sidebar').style.setProperty('--sidebar-width', `${Math.max(140, Math.min(state.sidebarWidth, innerWidth * .55))}px`);
+  $('sidebar').classList.toggle('hidden-sidebar', !state.sidebarOpen);
+  $('splitter').classList.toggle('hidden-sidebar', !state.sidebarOpen);
+  configureLanguage(state.languagePreference, await api.systemLocale().catch(() => navigator.language || 'en'));
+  api.menuLocale(locale()).catch(() => {});
+  updateSidebarToggle(); updatePreviewBrowserIcon();
+  renderTree(); renderTabs(); updateStatus(); editorLayout.layout();markdownPanel?.refresh();
+  openSettings();
+  if (oldHidden !== state.showHidden && state.root) await refreshFolder({restoreFolders:true}).catch(error => showStatus(error.message,6500));
+}
+async function applyImportedSettings(incoming) {
+  const oldFrame = state.savedFramePreference ?? state.nativeFrame;
+  let restore = null, frameChanged = false;
+  try {
+    if (Object.hasOwn(incoming, 'nativeFrame') && api.platform !== 'web') {
+      const prefs = await api.setWindowPrefs({nativeFrame:incoming.nativeFrame});
+      state.savedFramePreference = prefs.nativeFrame; frameChanged = true;
+    }
+    restore = storeSettingsImport(localStorage, incoming);
+    await refreshImportedSettings();
+  } catch (error) {
+    restore?.();
+    if (frameChanged) {
+      await api.setWindowPrefs({nativeFrame:oldFrame});
+      state.savedFramePreference = oldFrame;
+    }
+    if (restore) await refreshImportedSettings();
+    throw error;
+  }
+}
+function handleMenuCommand(name,event) {
   const run = {
+    'native-build-panel':()=>nativeBuildPanel?.show(),
+    'native-build':()=>nativeBuildPanel?.start('build'),
+    'native-run':()=>nativeBuildPanel?.start('run'),
+    'native-test':()=>nativeBuildPanel?.start('test'),
+    'native-stop':()=>api.stopNativeBuild?.().catch(error=>showStatus(error.message,6500)),
     'new': () => addDocument(null), 'open-file': chooseFile, 'open-folder': () => openFolder(),
+    'add-folder':addWorkspaceFolder,'command-palette':()=>showPalette('commands'),
+    'keyboard-shortcuts':()=>{openSettings();settingsTabs.select('shortcuts');shortcutEditor.refresh();},
+    'next-tab':()=>cycleTabs(1),'previous-tab':()=>cycleTabs(-1),
     'document-outline':()=>outlinePanel?.show(),'remote-connections':()=>remoteConnectionPanel?.show(),
     'new-markdown':newMarkdown,'markdown-preview':()=>markdownPanel.toggle(),
     'markdown-export-html':()=>markdownPanel.export('html'),'markdown-export-pdf':()=>markdownPanel.export('pdf'),
     'open-remote-folder':()=>remoteFoldersPanel?.open(),
+    'add-remote-folder':()=>remoteFoldersPanel?.open({addToWorkspace:true}),
     'favourites': () => favouritesPanel.open(),
     'recent-workspaces': () => recentWorkspaces.open(),
     'download-file': downloadActiveFile, 'local-history': () => localHistoryPanel.open(),
@@ -2148,8 +2476,8 @@ function handleMenuCommand(name) {
     'compare-latest': () => reviewLatestFile(),
     'close-comparison': () => editorLayout.closeComparison(),
     'settings': openSettings, 'about': openAbout, 'sidebar': toggleSidebar,
-    'minimap': toggleMinimap, 'wrap': toggleWrap, 'font-plus': () => adjustFont(1),
-    'font-minus': () => adjustFont(-1), 'font-reset': () => { state.fontSize = 14; applyTypography(); },
+    'minimap': toggleMinimap, 'wrap': toggleWrap, 'font-plus': () => adjustTextSize(1,event),
+    'font-minus': () => adjustTextSize(-1,event), 'font-reset': () => resetTextSize(event),
     'theme': () => setTheme(state.theme === 'dark' ? 'light' : 'dark'),
     'show-hidden': async () => { state.showHidden = !state.showHidden; remember('showHidden', state.showHidden); const box = document.getElementById('setting-hidden-files'); if (box) box.checked = state.showHidden; if (state.root) await refreshFolder().catch(err => showStatus(err.message)); },
     'quick-open': () => showPalette('files'), 'goto-line': () => showPalette('line'),
@@ -2162,7 +2490,7 @@ function handleMenuCommand(name) {
 }
 async function applyProjectChanges(plans, root) {
   const changed = () => new Error(tr('Files changed. Search again before replacing.'));
-  if (state.root !== root || plans.some(plan => !projectPathContains(root, plan.path))) throw changed();
+  if (workspaceSearchRoot() !== root || plans.some(plan => !projectPathContains(root, plan.path))) throw changed();
   const existing = new Map(state.tabs.filter(doc => doc.path).map(doc => [doc.path, doc]));
   if (state.tabs.length + plans.filter(plan => !existing.has(plan.path)).length > 50) {
     throw new Error(tr('Too many open tabs. Close some tabs or select fewer files (maximum 50).'));
@@ -2174,7 +2502,7 @@ async function applyProjectChanges(plans, root) {
     if ((doc ? doc.model.getValue() : data.content) !== plan.before) throw changed();
     prepared.push({plan, doc, data});
   }
-  if (state.root !== root) throw changed();
+  if (workspaceSearchRoot() !== root) throw changed();
   for (const {plan, doc} of prepared) {
     const current = state.tabs.find(tab => tab.path === plan.path);
     if ((doc && current !== doc) || (current && current.model.getValue() !== plan.before)) throw changed();
@@ -2216,13 +2544,14 @@ async function saveProjectChanges(batch) {
   if (failed) throw new Error(tr('Some changed files could not be saved. Review the remaining unsaved tabs.'));
 }
 function setupProjectSearch() {
-  projectSearch = installProjectSearch({api, getRoot:() => state.root,
-    getDocuments:() => state.tabs.map(doc => ({path:doc.path, text:doc.model.getValue()})),
+  projectSearch = installProjectSearch({api, getRoot:workspaceSearchRoot,
+    getDocuments:() => state.tabs.filter(doc => !readOnlyDocument(doc)).map(doc => ({path:doc.path, text:doc.model.getValue()})),
     openMatch:(path, match) => openFile(path, {line:match.line, column:match.column, length:match.end - match.start}),
     applyChanges:applyProjectChanges, undoChanges:undoProjectChanges, saveChanges:saveProjectChanges,
     revealSidebar:() => { if (!state.sidebarOpen) toggleSidebar(); }, focusEditor:() => editor.focus(),showView:view=>sidebarViews.show(view)});
 }
 function wireButtons() {
+  editorActions = installEditorActions({beforeOpen:closeCustomMenu, focusEditor:() => editor.focus()});
   const rootContext = event => { if (state.root) showExplorerContext(event, {path:state.root, dir:true}); };
   $('project-name').addEventListener('contextmenu', rootContext);
   $('file-tree').addEventListener('contextmenu', event => { if (!event.target.closest('.file-row')) rootContext(event); });
@@ -2231,9 +2560,11 @@ function wireButtons() {
   $('btn-minimize').onclick = () => api.windowAction('minimize');
   $('btn-maximize').onclick = () => api.windowAction('maximize');
   $('btn-close').onclick = closeApp;
-  $('btn-add-folder').onclick = () => openFolder();
   $('btn-folder').onclick = () => openFolder();
   $('btn-open-file').onclick = chooseFile;
+  $('btn-explorer-open-file').onclick = chooseFile;
+  $('btn-explorer-open-folder').onclick = () => openFolder();
+  $('btn-add-folder').onclick=addWorkspaceFolder;
   $('btn-reload').onclick = () => refreshFolder({restoreFolders:true}).catch(e => showStatus(e.message));
   $('btn-close-project').onclick = () => state.root && removeFolderFromView(state.root);
   $('tabs').addEventListener('dblclick', event => {
@@ -2243,7 +2574,8 @@ function wireButtons() {
   $('btn-palette').onclick = () => showPalette('commands');
   $('btn-split').onclick = () => editorLayout.toggleSplit();
   $('btn-compare').onclick = () => editorLayout.compareSaved(activeDocument());
-  document.getElementById('web-save-file')?.addEventListener('click', () => save());
+  document.getElementById('web-save-file')?.addEventListener('click', () => readOnlyDocument(activeDocument()) ? downloadActiveFile() : save(activeDocument(),Boolean(activeDocument()?.missing)));
+  for(const button of document.querySelectorAll('[data-web-command]'))button.addEventListener('click',()=>handleMenuCommand(button.dataset.webCommand));
   document.getElementById('web-save-as')?.addEventListener('click', () => save(activeDocument(), true));
   $('btn-format').onclick = () => formatDocument();
   $('btn-sidebar').onclick = toggleSidebar;
@@ -2255,14 +2587,16 @@ function wireButtons() {
   $('palette-input').addEventListener('input', () => fillPalette());
   $('overlay').addEventListener('mousedown', e => { if (e.target === $('overlay')) hidePalette(); });
   const splitter = $('splitter'); let resizing = false;
-  splitter.addEventListener('pointerdown', e => { resizing = true; splitter.setPointerCapture(e.pointerId); });
+  // The show/hide toggle transitions width; dragging the splitter must not,
+  // or every pointermove would lag 100ms behind the cursor.
+  splitter.addEventListener('pointerdown', e => { resizing = true; $('sidebar').classList.add('resizing'); splitter.setPointerCapture(e.pointerId); });
   splitter.addEventListener('pointermove', e => {
     if (!resizing) return;
     state.sidebarWidth = Math.max(140, Math.min(Math.floor(innerWidth * .55), e.clientX));
-    $('sidebar').style.width = `${state.sidebarWidth}px`;
+    $('sidebar').style.setProperty('--sidebar-width', `${state.sidebarWidth}px`);
     editorLayout?.layout();
   });
-  splitter.addEventListener('pointerup', () => { resizing = false; remember('sidebar-width', String(state.sidebarWidth)); });
+  splitter.addEventListener('pointerup', () => { resizing = false; $('sidebar').classList.remove('resizing'); remember('sidebar-width', String(state.sidebarWidth)); });
   window.addEventListener('resize', () => editorLayout.layout());
 }
 function editorOptions() { return {
@@ -2322,7 +2656,7 @@ async function initialize() {
   applyUiTypography();
   applyExplorerTypography();
   setupExplorerZoom();
-  $('sidebar').style.width = `${Math.max(140, Math.min(state.sidebarWidth, innerWidth * .55))}px`;
+  $('sidebar').style.setProperty('--sidebar-width', `${Math.max(140, Math.min(state.sidebarWidth, innerWidth * .55))}px`);
   $('sidebar').classList.toggle('hidden-sidebar', !state.sidebarOpen);
   $('splitter').classList.toggle('hidden-sidebar', !state.sidebarOpen);
   updateSidebarToggle();
@@ -2330,9 +2664,10 @@ async function initialize() {
   registerFormatting();
   editor = monaco.editor.create($('editor'), editorOptions());
   configureEditor(editor, $('editor'));
+  try {await document.fonts.load('14px "Jotta Emoji"', '☕😀'); monaco.editor.remeasureFonts();} catch { /* System fallback remains available. */ }
   colorEditor = colorEditors.get(editor);
   editorLayout = installEditorLayout({monaco, primary:editor, host:$('editor'),
-    getDocuments:() => state.tabs, options:editorOptions, configure:configureEditor, activate:activateEditor, tr, displayPath});
+    getDocuments:() => state.tabs, options:editorOptions, configure:configureEditor, activate:activateEditor, documentOptions:documentEditorOptions, tr, displayPath});
   fileConflicts = createFileConflicts({api, isOpen:doc => state.tabs.includes(doc),
     present:(doc, review) => {
       if (activeDocument() !== doc) { showStatus(`${doc.name} · ${tr('File changed externally. Compare with the latest file before saving.')}`, 7500); return; }
@@ -2349,9 +2684,21 @@ async function initialize() {
   window.addEventListener('focus', checkExternalFile);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void checkExternalFile(); });
   sidebarViews=installSidebarViews({reveal:()=>{if(!state.sidebarOpen)toggleSidebar();}});
+  breadcrumbs=installBreadcrumbs({host:$('breadcrumbs'),tr,
+    list:folder=>api.scanFolder(folder,{showHidden:state.showHidden,shallow:true}),
+    open:openFile,reveal:revealExplorerFolder,notify:message=>showStatus(message,6500)});
+  renderBreadcrumbs();
   outlinePanel=installDocumentOutline({monaco,sidebar:sidebarViews});outlinePanel.activate(activeDocument(),editor);
-  markdownPanel=installMarkdownPanel({monaco,api,getRoot:()=>state.root,getEditor:()=>editor,getDocument:activeDocument,getDocuments:()=>state.tabs,
+  markdownPanel=installMarkdownPanel({monaco,api,getRoot:()=>folderFor(activeDocument()?.path)||state.root,getEditor:()=>editor,getDocument:activeDocument,getDocuments:()=>state.tabs,
     openFile,layout:()=>editorLayout.layout(),format:formatDocument,notify:message=>showStatus(message,6500)});
+  nativeBuildPanel=installNativeBuildPanel({api,
+    getContext:()=>{const file=activeDocument()?.path||null;return {file,root:file?folderFor(file)||null:state.root};},
+    prepare:async context=>{
+      if(!context.root&&!context.file){showStatus(tr('Open a saved C/C++ file or project folder.'),6500);return false;}
+      const documents=state.tabs.filter(doc=>doc.path&&(context.root?projectPathContains(context.root,doc.path):doc.path===context.file));
+      for(const doc of documents){if(doc.dirty&&!await save(doc))return false;}
+      return documents.every(doc=>!doc.dirty);
+    },openFile,layout:()=>editorLayout.layout(),focusEditor:()=>editor.focus()});
   // Dynamic root: set its destination at drop time, because projects can change.
   const projectName = $('project-name');
   projectName.addEventListener('dragover', event => {
@@ -2376,7 +2723,7 @@ async function initialize() {
     }, notify:message => showStatus(message, 6500)});
   recentWorkspaces = installRecentWorkspaces({preferences:workspacePrefs, open:openFolder, show:showModal, close:closeModals});
   if(api.browseFolders){folderPicker=installFolderPicker({api,show:showModal,close:closeModals});api.chooseFolder=()=>folderPicker.choose();}
-  remoteFoldersPanel=installRemoteFolders({api,show:showModal,close:closeModals,open:(root,isCurrent)=>openFolder(root,{isCurrent}),changed:()=>favouritesPanel?.refresh(),report:message=>showStatus(message,8000)});
+  remoteFoldersPanel=installRemoteFolders({api,show:showModal,close:closeModals,open:(root,isCurrent,options)=>openFolder(root,{isCurrent,add:options?.addToWorkspace===true||state.folders.some(folder=>folder.path===root)}),changed:()=>favouritesPanel?.refresh(),report:message=>showStatus(message,8000)});
   remoteConnectionPanel=installRemoteConnectionPanel({api,sidebar:sidebarViews,retry:retryRemoteOperation,notify:message=>showStatus(message,8000),reconnect:entry=>!entry?remoteFoldersPanel.open():entry.canReconnect?remoteFoldersPanel.reconnect(entry):remoteFoldersPanel.open({location:entry.uri})});
   favouritesPanel=installFavourites({api:api.listFavourites?api:{...api,...browserFavourites(localStorage)},show:showModal,close:closeModals,open:openFolder,choose:()=>api.chooseFolder(),current:()=>state.root,remote:entry=>remoteFoldersPanel.open(entry),report:message=>showStatus(message,6500)});
   $('btn-favourites').onclick=()=>favouritesPanel.open();
@@ -2397,6 +2744,41 @@ async function initialize() {
     await restoreSavedSession(saved);
   } catch (err) { showStatus(`Session restore: ${err.message}`, 5500); }
   finally { sessionRestoreInProgress = false; }
+  automaticRefresh=createAutomaticRefresh({api,
+    getState:()=>({root:state.root,roots:state.workspacePaths,nodes:state.nodes,expanded:[...state.expanded],showHidden:state.showHidden,remote:state.remoteRoot,
+      enabled:state.autoRefresh,visible:document.visibilityState!=='hidden',blocked:isModalOpen()||Boolean(state.palette)||Boolean(draggingExplorerEntry)}),
+    getDocuments:()=>state.tabs.slice(),isOpen:doc=>state.tabs.includes(doc),isBusy:doc=>savingDocuments.has(doc),
+    commitExplorer:nodes=>{state.nodes=nodes;captureWorkspaceTree(state.folders,nodes);state.files=collectFiles(filterRemovedFolders(nodes));renderTree();},
+    missing:doc=>{
+      if(doc.missing)return;doc.missing=true;doc.dirty=!readOnlyDocument(doc);keepTab(doc);renderTabs();persist();
+      if(activeDocument()===doc)showStatus(tr('File no longer exists. Your buffer was preserved. Use Save As to keep a copy.'),7500);
+    },
+    present:(doc,latest)=>{
+      doc.mtimeMs=latest.mtimeMs;
+      if(doc.missing){doc.missing=false;doc.dirty=doc.model.getValue()!==doc.savedText;renderTabs();persist();}
+    },
+    reload:(doc,latest)=>{
+      if(readOnlyDocument(doc)) {doc.font=latest.font;doc.image=latest.image;doc.mtimeMs=latest.mtimeMs;doc.missing=false;renderTabs();persist();return;}
+      if(latest.image)doc.image=latest.image;
+      doc.refreshing=true;doc.savedText=latest.content;doc.mtimeMs=latest.mtimeMs;doc.missing=false;
+      try{
+        editorLayout.preserveDocumentViews(doc,()=>{
+          doc.model.pushStackElement();
+          doc.model.pushEditOperations([], [{range:doc.model.getFullModelRange(),text:latest.content}],()=>null);
+          doc.model.pushStackElement();
+        });
+      }finally{doc.refreshing=false;doc.dirty=doc.model.getValue()!==doc.savedText;}
+      fileConflicts.clear(doc);
+      if(editorLayout.resolving&&editorLayout.comparisonId===doc.id)editorLayout.closeComparison();
+      renderTabs();updateStatus();persist();markdownPanel?.refresh();
+    },
+    conflict:async doc=>{
+      const previous=fileConflicts.current(doc),review=await fileConflicts.check(doc);
+      if(review&&review!==previous&&activeDocument()===doc&&!savingDocuments.has(doc)&&!isModalOpen()&&!state.palette)fileConflicts.show(doc,review);
+    }});
+  automaticRefresh.start();
+  window.addEventListener('pagehide',()=>automaticRefresh.stop());
+  window.addEventListener('pageshow',()=>automaticRefresh.start());
   // Preserve any recovered buffers before processing new IPC file-open requests.
   await flushSession().catch(error => showStatus(`Session backup failed: ${error.message}`, 7500));
   updateStatus();

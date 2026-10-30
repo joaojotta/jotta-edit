@@ -2,6 +2,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 contextBridge.exposeInMainWorld('slate', Object.freeze({
+  formatNativeCode:params=>invoke('native-format:format',params),
+  startNativeBuild:params=>invoke('native-build:start',params),
+  stopNativeBuild:()=>invoke('native-build:stop'),
+  writeNativeBuildInput:(value,eof)=>invoke('native-build:input',value,eof),
+  resolveBuildDiagnostic:(root,file)=>invoke('native-build:diagnostic',root,file),
+  onNativeBuildEvent:fn=>{const cb=(_event,value)=>fn(value);ipcRenderer.on('native-build:event',cb);return ()=>ipcRenderer.removeListener('native-build:event',cb);},
   startPreview: async params => {
     const result = await invoke('preview:start', params);
     if (result?.error) throw new Error(result.error);
@@ -20,6 +26,7 @@ contextBridge.exposeInMainWorld('slate', Object.freeze({
   onMenuCommand: fn => { const cb = (_event, name) => fn(name); ipcRenderer.on('menu:command', cb); return () => ipcRenderer.removeListener('menu:command', cb); },
   browseFolders: (folder,options) => invoke('folder:browse',folder,options),
   selectFolder: folder => invoke('folder:select',folder),
+  selectFile: file => invoke('folder:select-file',file),
   remoteInfo: file => invoke('remote:info',file),
   getRemoteActivity:()=>invoke('remote:activity-state'),
   onRemoteActivity:fn=>{const cb=(_event,snapshot)=>fn(snapshot);ipcRenderer.on('remote:activity',cb);return ()=>ipcRenderer.removeListener('remote:activity',cb);},
@@ -43,7 +50,9 @@ contextBridge.exposeInMainWorld('slate', Object.freeze({
   listHistory: file => invoke('history:list', file),
   getHistory: (file, id) => invoke('history:get', file, id),
   captureHistory: (file, text) => invoke('history:capture', file, text),
+  setMenuShortcuts:value=>invoke('menu:shortcuts',value),
   readFile: (file) => invoke('file:read', file),
+  statFile: file => invoke('file:stat',file),
   readMarkdownAsset:params=>invoke('markdown:asset',params),
   exportMarkdown:params=>invoke('markdown:export',params),
   chooseMarkdownExport:params=>invoke('markdown:export-destination',params),

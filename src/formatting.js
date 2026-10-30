@@ -1,9 +1,9 @@
 import { prettierPrintWidth } from './editor-behaviour.js';
 
-// Browser-compatible, lazily loaded Prettier standalone plugins. No network
-// requests or external executables are needed for these five formatters.
+// Browser-compatible, lazily loaded Prettier standalone plugins. C/C++ uses
+// the desktop bridge to the host's clang-format installation.
 export const formatLanguages = new Set([
-  'javascript', 'typescript', 'json', 'html', 'css', 'scss', 'less', 'php', 'markdown'
+  'javascript', 'typescript', 'json', 'html', 'css', 'scss', 'less', 'php', 'markdown', 'c', 'cpp'
 ]);
 
 const lazy = (load) => {
@@ -51,7 +51,12 @@ function parserFor(lang, filename) {
   }
 }
 
-export async function formatCode(source, { language, filename = '', tabWidth = 2, useTabs = false, printWidth = 'none' } = {}) {
+export async function formatCode(source, { language, filename = '', tabWidth = 2, useTabs = false, printWidth = 'none', nativeFormatter } = {}) {
+  if (language === 'c' || language === 'cpp') {
+    if (!nativeFormatter) throw new Error('C/C++ formatting requires the desktop app and clang-format.');
+    if (!source.trim()) return source;
+    return nativeFormatter({source,language,filename,tabWidth,useTabs,printWidth});
+  }
   const parser = parserFor(language, filename);
   if (!parser) return null;
   if (!source.trim()) return source;

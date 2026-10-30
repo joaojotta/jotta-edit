@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.1.6</strong> &nbsp;·&nbsp; HTML and embedded CSS outline
+  <strong>Version 1.2.1</strong> &nbsp;·&nbsp; C/C++ tools and console controls
 </p>
 
 <p align="center">
@@ -30,14 +30,17 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 
 | Feature | What you can do |
 | :--- | :--- |
-| **Tabs & split editing** | Work with multiple files in two resizable panes and compare a document with its saved version. |
+| **Tabs & split editing** | Preview files with one click, keep them by editing or double-clicking, pin frequently used tabs, and work in two resizable panes with saved-version comparisons. |
 | **Visual conflict resolution** | Compare external file changes with your edits, copy individual changes, and save your chosen result with another check for newer changes. |
-| **Quick navigation** | Jump to files or lines, switch languages and find commands through the command palette. |
+| **Editor actions** | Use the **…** menu at the right of the tabs for Split editor, Compare, previews, Format document, Quick open and Command palette. Keyboard shortcuts remain available. |
+| **Multiple project folders** | Add up to 20 local, browser or remote roots to one workspace. Search and replace across them, retain per-folder preferences and restore the folder list on restart. |
+| **Quick navigation** | Use Ctrl+P for files, `:line`, `@symbol` or `file:line`; browse clickable breadcrumbs, reveal folders in Explorer and find commands through the command palette. |
 | **Document outline** | Filter and jump between Markdown headings, JavaScript/TypeScript symbols, PHP/Python declarations, HTML elements and CSS selectors, including CSS inside HTML `<style>` blocks, from the sidebar. |
 | **Project search & replace** | Search across files and unsaved drafts, preview replacements and choose which files to change. |
 | **Code assistance** | Use syntax highlighting, automatic language detection, multiple cursors, Emmet expansion and optional language-server completion on desktop. |
+| **C/C++ builds & tests** | Build and run single files with GCC/G++ or Clang, build CMake/Make projects, run CTest or Make test targets, and inspect compiler output in the desktop Build & Run panel. See [C/C++ setup and usage](docs/c-cpp.md). |
 | **Formatting** | Format code with Prettier, enable format on save and choose your indentation and line-width preferences. |
-| **File Explorer** | Create, rename and organise files and folders with context actions, drag-and-drop moves and recoverable deletion. |
+| **File Explorer** | Create, rename and organise files and folders with context actions, drag-and-drop moves and recoverable deletion. External changes refresh automatically; clean files reload while unsaved edits remain protected. |
 
 ## Write, preview & export
 
@@ -49,7 +52,11 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 
 - **Custom themes** — Choose syntax palettes inspired by familiar editors, create your own, and import or export theme files.
 - **Independent interface colours** — Personalise light and dark modes, panel colours, accents and Explorer icon palettes.
-- **Colour tools** — Edit colours with the built-in mixer and display colour values as inline swatches or coloured backgrounds.
+- **Colour tools** — Edit colours with the built-in mixer, save named favourites with opacity, reuse recent colours, and display colour values as inline swatches or coloured backgrounds.
+- **Portable settings** — Export or import themes, colours, fonts and global editor preferences from Preferences → General. Review imports before applying; open documents and project settings are preserved. See [settings and colour favourites](docs/settings-transfer.md).
+- **Image viewer** — Open PNG, JPEG, GIF, WebP, AVIF, BMP, ICO and SVG in tabs, with transparency, animation and image zoom. Switch SVG between preview and editable code. Raster images are read-only; images support up to 20 MB and editable SVG up to 5 MB.
+- **Font previews** — Open TTF, OTF, WOFF and WOFF2 files up to 20 MB in read-only tabs. Try custom sample text, inspect letters and numbers, and adjust the preview size without changing the font file.
+- **Keyboard shortcuts** — Record custom command shortcuts in Preferences → Shortcuts, detect conflicts, reset bindings and transfer them with your settings.
 - **Personal preferences** — Adjust editor and interface fonts, word wrap, minimap and project-specific editing settings. Use the interface in **English** or **Portuguese (Portugal)**.
 
 ## Keep your work close
@@ -71,7 +78,7 @@ The **web edition** is an installable, offline-capable app with browser workspac
 The [desktop workflow](.github/workflows/build-desktop.yml) builds x64 Windows portable EXE, Linux Flatpak and Linux AppImage packages, plus a source archive.
 
 - **Try a build:** push the workflow to your default branch, open **Actions → Build desktop packages → Run workflow**, and select a branch. Download the packages from **Artifacts** on the completed run (kept for 14 days).
-- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.1.6` followed by `git push origin v1.1.6`. The workflow checks that the tag matches `package.json`, builds the packages, and attaches them to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact.
+- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.2.1` followed by `git push origin v1.2.1`. The workflow checks that the tag matches `package.json`, builds the packages, and attaches them to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact.
 
 GitHub Actions must be enabled for the repository. The workflow uses GitHub's built-in token; no personal access token is required. Windows packages are unsigned unless you configure code signing.
 

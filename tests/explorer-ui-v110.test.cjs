@@ -8,8 +8,8 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const pkg = require('../package.json');
 
 test('release references and About version match package metadata', () => {
-  assert.equal(pkg.version, '1.1.6');
-  assert.match(read('index.html'), /Version 1\.1\.6/);
+  assert.equal(pkg.version, '1.2.1');
+  assert.match(read('index.html'), /Version 1\.2\.1/);
   assert.equal(pkg.build.flatpak.artifactName, 'Jotta-Edit-${version}-linux-${arch}.flatpak');
   assert.equal(pkg.build.win.artifactName, 'Jotta-Edit-${version}-Windows-${arch}-Portable.${ext}');
   assert.match(read('scripts/install-flatpak.sh'), /Jotta-Edit-\$\{version\}-linux-x86_64\.flatpak/);
@@ -36,7 +36,7 @@ test('show hidden files is persisted and passed to the native folder scanner', (
   assert.match(html, /id="setting-hidden-files"/);
   assert.match(renderer, /showHidden: stored\('showHidden'/);
   assert.match(renderer, /remember\('showHidden', state\.showHidden\)/);
-  assert.match(renderer, /scanFolder\(state\.root, \{ showHidden: state\.showHidden \}\)/);
+  assert.match(renderer, /folders\.map\(folder=>api\.scanFolder\(folder\.path,\{showHidden:state\.showHidden\}\)\)/);
   assert.match(preload, /scanFolder: \(folder, options\)/);
   assert.match(native, /options\.showHidden === true/);
   assert.match(renderer, /Show Hidden Files/);

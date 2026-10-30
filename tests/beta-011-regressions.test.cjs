@@ -13,7 +13,7 @@ test('colour indicator is clickable inline Monaco text; no viewport overlay', ()
   assert.match(code, /inlineClassName: `jotta-inline-swatch jotta-color-token-/);
   assert.match(code, /editorHost\.addEventListener\('pointerdown'/);
   assert.match(code, /openAt\(items\[index\]/);
-  assert.match(css, /font-size:\.85em/);
+  assert.match(css, /font-size:\s*calc\(\.85em\s*\+\s*3px\)\s*!important/);
   assert.doesNotMatch(css, /position:absolute|left:-17px/);
 });
 

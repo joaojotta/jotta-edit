@@ -34,7 +34,7 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
     };
     // Enter the directory first: some FTP servers ignore MLSD/LIST path
     // arguments or return the link itself instead of the directory contents.
-    const list=async dir=>inDirectory(dir,async()=>{
+    const fetchList=dir=>inDirectory(dir,async()=>{
       let entries=await client.list();
       if(client.availableListCommands.includes('MLSD')&&entries.some(x=>(x.isSymbolicLink&&!x.link)||(!x.isSymbolicLink&&!x.isDirectory&&!x.isFile))){
         const commands=client.availableListCommands;let usedLegacy=false;
@@ -47,6 +47,21 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
       }
       return entries.map(x=>attributes({name:x.name,dir:x.isDirectory,link:x.isSymbolicLink,file:x.isFile,size:x.size,mtimeMs:x.modifiedAt?.getTime()||0,linkTarget:x.link}));
     });
+    // Path resolution re-stats every ancestor of every path on every single
+    // operation (see remote-paths.cjs), and each FTP stat() is itself a full
+    // directory LIST. Caching recent listings turns the redundant LIST calls
+    // for already-seen directories into cache hits; a short TTL still catches
+    // changes made outside this connection, and local mutations below evict
+    // the affected directory immediately rather than waiting for it to expire.
+    const LIST_CACHE_MS=5000,listCache=new Map();
+    const invalidateList=dir=>listCache.delete(dir);
+    const list=async dir=>{
+      const cached=listCache.get(dir);
+      if(cached&&Date.now()-cached.time<LIST_CACHE_MS)return cached.entries;
+      const entries=await fetchList(dir);
+      listCache.set(dir,{time:Date.now(),entries});
+      return entries;
+    };
     const directoryPath=async file=>inDirectory(file,()=>client.pwd());
     const stat=async(file,{follow=false}={})=>{
       if(file==='/')return attributes({dir:true});
@@ -72,10 +87,10 @@ async function createRemoteClient(location,credentials,{verifyHostKey,registerCl
       async readlink(file){const entry=(await list(path.dirname(file))).find(x=>x.name===path.basename(file));if(!entry)throw missing();return entry.linkTarget;},
       stat,
       async read(file,progress){const sink=boundedSink(progress);await client.downloadTo(sink.stream,file);return sink.bytes();},
-      write:(file,bytes,_mode,progress)=>client.uploadFrom(uploadStream(bytes,progress),file),
-      mkdir:async file=>{await client.send('MKD '+file);},
-      rename:(from,to)=>client.rename(from,to),
-      remove:file=>client.remove(file),
+      write:async(file,bytes,_mode,progress)=>{await client.uploadFrom(uploadStream(bytes,progress),file);invalidateList(path.dirname(file));},
+      mkdir:async file=>{await client.send('MKD '+file);invalidateList(path.dirname(file));},
+      rename:async(from,to)=>{await client.rename(from,to);invalidateList(path.dirname(from));invalidateList(path.dirname(to));},
+      remove:async file=>{await client.remove(file);invalidateList(path.dirname(file));},
       close:()=>client.close()
     };
   }

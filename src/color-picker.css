@@ -2,12 +2,12 @@
    use a floating coordinate overlay or zero font-size (it disappears). */
 .monaco-editor .jotta-inline-swatch {
   display:inline !important;
-  font-size:.85em !important;
+  font-size:calc(.85em + 3px) !important;
   font-weight:700;
   line-height:inherit;
   letter-spacing:0;
   padding:0;
-  margin:0;
+  margin:0 -3px;
   background:none !important;
   -webkit-text-stroke:.35px var(--ink);
   cursor:pointer !important;
@@ -62,13 +62,30 @@
 .jc-preset {aspect-ratio:1;border-radius:6px;border:1px solid #80808070;min-width:0;transition:transform 100ms ease;}
 .jc-preset:hover {outline:2px solid var(--accent);outline-offset:1px;transform:scale(1.05);}
 .jc-preset[aria-pressed="true"] {outline:2px solid var(--ink);outline-offset:2px;}
-.jc-actions {display:flex;justify-content:flex-end;gap:12px;padding:15px 20px 19px;}
+.jc-favourites-title {display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.jc-fav-add,.jc-recent-clear {flex:0 0 auto;padding:4px 10px;border:1px solid var(--line);border-radius:5px;font-size:calc(var(--ui-font-size) - 2px);color:var(--muted);background:var(--raised);}
+.jc-fav-add:hover {color:var(--ink);}
+.jc-favourite-save {display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.jc-favourite-save input {min-width:0;width:100%;}
+.jc-favourites {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px;min-height:30px;}
+.jc-empty {grid-column:1 / -1;margin:0;color:var(--muted);font-size:calc(var(--ui-font-size) - 1px);}
+.jc-recents {display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:12px;}
+.jc-recent-clear:disabled {opacity:.5;cursor:default;}
+/* Keep the square swatch separate from its inline remove button. */
+.jc-favourite {display:flex;align-items:center;gap:4px;min-width:0;}
+.jc-favourite-swatch,.jc-recent-swatch {flex:0 0 28px;width:28px;height:28px;padding:0;border:1px solid #80808070;border-radius:6px;background-image:linear-gradient(var(--swatch-colour),var(--swatch-colour)),repeating-conic-gradient(#ccc 0% 25%,#888 0% 50%);background-size:auto,10px 10px;}
+.jc-saved-swatch:hover,.jc-saved-swatch[aria-pressed="true"] {outline:2px solid var(--accent);outline-offset:1px;}
+.jotta-color-editor input.jc-favourite-name {min-width:0;width:100%;min-height:28px;padding:4px 6px;font-size:var(--ui-font-size);}
+.jc-favourite-remove {display:flex;align-items:center;justify-content:center;flex:0 0 18px;width:18px;height:28px;padding:0;border:0;border-radius:4px;background:none;color:var(--muted);font-size:12px;line-height:1;}
+.jc-favourite-remove:hover {color:var(--ink);background:var(--hover);}
+.jc-actions {position:sticky;bottom:0;z-index:1;display:flex;justify-content:flex-end;gap:12px;padding:15px 20px 19px;background:var(--surface);border-top:1px solid var(--line);}
 .jc-actions button {padding:10px 24px;min-width:103px;border:1px solid var(--line);border-radius:6px;}
 .jc-actions .jc-apply {color:var(--accent-text);background:var(--accent);border-color:var(--accent);font-weight:650;}
 .jc-actions .jc-apply:hover {filter:brightness(.95);}
 .jc-actions .jc-cancel {background:var(--raised);}
 :root[data-theme="light"] .jotta-color-editor {box-shadow:0 12px 34px #0003;}
 @media (max-width:520px) {
+  .jc-favourites {grid-template-columns:minmax(0,1fr);}
   .jc-presets {gap:5px;}
   .jc-main {padding-left:14px;padding-right:14px;}
   .jc-preview,.jc-header {padding-left:14px;padding-right:14px;}

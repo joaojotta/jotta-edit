@@ -8,8 +8,8 @@ const read = name => fs.readFileSync(path.join(root,name),'utf8');
 const pkg = require('../package.json');
 
 test('final version, About and build artifact names are consistent', () => {
-  assert.equal(pkg.version, '1.1.6');
-  assert.match(read('index.html'), /Version 1\.1\.6/);
+  assert.equal(pkg.version, '1.2.1');
+  assert.match(read('index.html'), /Version 1\.2\.1/);
   assert.match(read('VERSION_HISTORY.md'), /1\.1\.0 — Remote folders/);
   assert.match(read('package.json'), /Jotta-Edit-\$\{version\}-linux-\$\{arch\}\.flatpak/);
   assert.match(read('scripts/build-flatpak.sh'), /node -p.*package\.json/);
@@ -22,8 +22,9 @@ test('Explorer icon filtering and zoom are scoped to sidebar', () => {
   assert.match(js, /explorerFontSize: boundedExplorerSize\(stored\('explorerFontSize'/);
   assert.match(js, /function setupExplorerZoom\(\)/);
   assert.match(js, /sidebar\.addEventListener\('wheel'/);
-  assert.match(js, /explorerZoomTarget\(event\) \? adjustExplorerFont\(1\) : adjustFont\(1\)/);
-  assert.match(js, /explorerZoomTarget\(event\) \? adjustExplorerFont\(-1\) : adjustFont\(-1\)/);
+  assert.match(js, /adjustTextSize\(1,event\)/);
+  assert.match(js, /adjustTextSize\(-1,event\)/);
+  assert.match(js, /else if\(explorerZoomTarget\(event\)\)adjustExplorerFont\(delta\)/);
   assert.match(js, /remember\('explorerFontSize', state\.explorerFontSize\)/);
   assert.match(css, /:root\[data-theme="dark"\] \.sidebar img\[src\^="\/file-icons\/"\]/);
   assert.match(css, /:root\[data-theme="light"\] \.sidebar img\[src\^="\/file-icons\/"\]/);

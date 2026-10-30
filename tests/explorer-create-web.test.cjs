@@ -12,7 +12,7 @@ test('browser workspace preserves empty folders and supports creating, moving an
     let history = [], rejectHistory = false;
     export function failHistory(value) { rejectHistory = value; }
     export async function updateHistory(operation) { if (rejectHistory) throw new Error('Quota exceeded'); history = operation(history); }
-    export async function getMeta(key) { return key === 'local-history' ? history : key === 'workspace-root' ? '/workspace/project' : key === 'workspace-mode' ? 'virtual' : null; }
+    export async function getMeta(key) { return key === 'local-history' ? history : key === 'workspace-registry' ? [{root:'/workspace/secondary',mode:'virtual'}] : key === 'workspace-root' ? '/workspace/project' : key === 'workspace-mode' ? 'virtual' : null; }
     export async function putMeta() {}
     export async function putWorkspaceContext() {}
     export async function getFile(path) { return records.get(path); }
@@ -26,11 +26,24 @@ test('browser workspace preserves empty folders and supports creating, moving an
   const source = (await fs.readFile(path.join(__dirname, '../web/browser-api.js'), 'utf8'))
     .replace("'../shared/local-history.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/local-history.mjs')).href))
     .replace("'./storage.js'", JSON.stringify(storageUrl))
+    .replace("'../shared/font-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/font-files.mjs')).href))
+    .replace("'../shared/image-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/image-files.mjs')).href))
     .replace("'../shared/markdown-paths.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/markdown-paths.mjs')).href))
     .replace("'./markdown-export.js'", JSON.stringify(pathToFileURL(path.join(__dirname, '../web/markdown-export.js')).href))
     .replace("'./zip.js'", JSON.stringify(zipUrl));
   const {browserApi:api} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
   const root = '/workspace/project';
+  const secondary='/workspace/secondary';
+  await api.createEntry(secondary,secondary,'other.txt','file');await api.saveFile(secondary+'/other.txt','secondary');
+  await api.renameEntry(secondary,secondary+'/other.txt','renamed.txt');
+  assert.equal((await api.readFile(secondary+'/renamed.txt')).content,'secondary');
+  await api.createEntry(secondary,secondary,'sub','folder');
+  await api.moveEntry(secondary,secondary+'/renamed.txt',secondary+'/sub');
+  assert.equal((await api.readFile(secondary+'/sub/renamed.txt')).content,'secondary');
+  await assert.rejects(api.moveEntry(secondary,secondary+'/sub/renamed.txt',root),/Invalid destination/);
+  const removedSecondary=await api.deleteEntry(secondary,secondary+'/sub/renamed.txt');
+  assert.equal((await api.readFile(removedSecondary.trashPath)).content,'secondary');
+
   await api.createEntry(root, root, 'assets', 'folder');
   let tree = await api.scanFolder(root);
   assert.equal(tree.nodes[0].dir, true);

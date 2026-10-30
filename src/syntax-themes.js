@@ -204,7 +204,7 @@ function themeRules(palette) {
   return names.map(([token, colour]) => ({ token, foreground: palette[colour].slice(1) }));
 }
 
-function blendHex(a, b, portion) {
+export function blendHex(a, b, portion) {
   const components = [1, 3, 5].map(i => {
     const x = parseInt(a.slice(i, i + 2), 16);
     const y = parseInt(b.slice(i, i + 2), 16);

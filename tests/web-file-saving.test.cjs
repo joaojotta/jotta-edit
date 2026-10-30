@@ -22,6 +22,8 @@ async function adapter(t) {
   let source=await fs.readFile(path.join(__dirname,'../web/browser-api.js'),'utf8');
   source=source.replace("'./storage.js'",JSON.stringify(url))
     
+    .replace("'../shared/font-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/font-files.mjs')).href))
+    .replace("'../shared/image-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/image-files.mjs')).href))
     .replace("'../shared/markdown-paths.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/markdown-paths.mjs')).href))
     .replace("'./markdown-export.js'", JSON.stringify(pathToFileURL(path.join(__dirname, '../web/markdown-export.js')).href))
     .replace("'./zip.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'../web/zip.js')).href))
@@ -47,6 +49,54 @@ function handle(name,text) {
     createWritable:async()=>{let pending;return {write:async text=>{pending=text;if(h.fail)throw new Error('Write failed');},close:async()=>{h.text=pending;},abort:async()=>{h.aborts++;}};}};
   return h;
 }
+test('native and imported image tabs preserve binary bytes and reject text saves', async t => {
+  const {api,store,selected,downloads}=await adapter(t);
+  const bytes=Uint8Array.from([137,80,78,71,0,255,128,10]);
+  const file={name:'photo.png',size:bytes.length,lastModified:42,arrayBuffer:async()=>bytes.buffer};
+  const native={name:file.name,queryPermission:async()=> 'granted',getFile:async()=>file};
+  window.showOpenFilePicker=async()=>[native];
+  const [path]=await api.chooseFiles();
+  const opened=await api.readFile(path);
+  assert.equal(opened.image.type,'image/png'); assert.equal(opened.content,'');
+  assert.deepEqual(Buffer.from(opened.image.url.split(',')[1],'base64'),Buffer.from(bytes));
+  await assert.rejects(api.saveFile(path,'destroyed'),/read-only/);
+  api.downloadImage('photo.png',opened.image);assert.deepEqual(downloads,['photo.png']);
+  delete window.showOpenFilePicker;selected.push(file);
+  const [imported]=await api.chooseFiles();
+  assert.deepEqual((await api.readFile(imported)).image,opened.image);
+  await store.putFile({path:'/workspace/photo.webp',binary:bytes,mtimeMs:1});
+  assert.equal((await api.readFile('/workspace/photo.webp')).image.type,'image/webp');
+  await store.putFile({path:'/workspace/unknown.bin',binary:bytes});
+  await assert.rejects(api.readFile('/workspace/unknown.bin'),/Binary file/);
+});
+test('SVG source remains editable and saved code replaces the original cached bytes', async t => {
+  const {api,selected,store}=await adapter(t);
+  const original='<svg xmlns="http://www.w3.org/2000/svg"><text>☕</text></svg>';
+  const file=handle('drawing.svg',original);window.showOpenFilePicker=async()=>[file];
+  const [path]=await api.chooseFiles();
+  const before=await api.readFile(path);assert.equal(before.content,original);assert.equal(before.image.type,'image/svg+xml');
+  const changed=original.replace('☕','😀');await api.saveFile(path,changed,{expectedText:original});
+  assert.equal((await api.readFile(path)).content,changed);
+  file.permission='denied';assert.equal((await api.readFile(path)).content,changed);
+  delete window.showOpenFilePicker;selected.push(await handle('copy.svg',original).getFile());
+  const [copy]=await api.chooseFiles();await api.saveFile(copy,changed,{expectedText:original});
+  assert.equal((await api.readFile(copy)).content,changed);
+  assert.equal((await store.getFile(copy)).binary,undefined);
+});
+test('native, imported and cached font previews retain bytes and cannot be saved as text',async t=>{
+  const {api,store,selected,downloads}=await adapter(t);
+  const bytes=Uint8Array.from([119,79,70,50,0,255,10]);
+  const file={name:'sample.woff2',size:bytes.length,lastModified:42,arrayBuffer:async()=>bytes.buffer};
+  const native={name:file.name,queryPermission:async()=> 'granted',getFile:async()=>file};
+  window.showOpenFilePicker=async()=>[native];const [path]=await api.chooseFiles();
+  const opened=await api.readFile(path);assert.equal(opened.font.type,'font/woff2');assert.equal(opened.content,'');
+  assert.deepEqual(Buffer.from(opened.font.url.split(',')[1],'base64'),Buffer.from(bytes));
+  await assert.rejects(api.saveFile(path,'broken'),/Fonts are read-only/);
+  api.downloadImage('sample.woff2',opened.font);assert.deepEqual(downloads,['sample.woff2']);
+  native.queryPermission=async()=> 'denied';assert.deepEqual((await api.readFile(path)).font,opened.font);
+  delete window.showOpenFilePicker;selected.push(file);const [copy]=await api.chooseFiles();assert.deepEqual((await api.readFile(copy)).font,opened.font);
+  await store.putFile({path:'/workspace/sample.ttf',binary:bytes});assert.equal((await api.readFile('/workspace/sample.ttf')).font.type,'font/ttf');
+});
 test('native individual files retain identities, save directly and guard against external changes', async t => {
   const {api,store}=await adapter(t), first=handle('same.txt','original'), second=handle('same.txt','other');
   window.showOpenFilePicker=async()=>[first,second];
@@ -129,4 +179,16 @@ test('browser storage saves also reject stale expected content', async t => {
   assert.equal((await store.getFile(file)).content, 'external');
   await api.saveFile(file, 'resolved', {expectedText:'external'});
   assert.equal((await store.getFile(file)).content, 'resolved');
+});
+
+test('background metadata checks use current native files without prompting for permissions or reading cached content',async t=>{
+  const {api,store}=await adapter(t),file=handle('a.txt','original');
+  window.showOpenFilePicker=async()=>[file];const [a]=await api.chooseFiles();
+  file.text='external update';assert.deepEqual(await api.statFile(a),{exists:true,mtimeMs:123,size:15});
+  assert.equal((await store.getFile(a)).content,'original');
+  file.permission='denied';await assert.rejects(api.statFile(a),/access expired/);assert.equal(file.requests,0);
+  file.permission='granted';file.getFile=async()=>{throw Object.assign(new Error('Missing'),{name:'NotFoundError'});};
+  assert.deepEqual(await api.statFile(a),{exists:false});
+  await store.addFile({path:'/workspace/Project/unicode.txt',content:'ação',mtimeMs:42});
+  assert.deepEqual(await api.statFile('/workspace/Project/unicode.txt'),{exists:true,mtimeMs:42,size:6});
 });

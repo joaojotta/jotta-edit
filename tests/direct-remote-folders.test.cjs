@@ -31,6 +31,15 @@ test('direct sessions list, read, create, move, save and trash files without a m
  await remote.trash(path.join(root,'sub'));assert.equal((await fs.readdir(local('/project/.jotta-trash'))).length,1);
  assert.equal(remote.isRemote(root),true);assert.equal(remote.isRemote(remote.base+'-outside'),false);
 });
+test('remote image reads allow larger previews while retaining text and image bounds',async t=>{
+ const {remote,local}=await fake(t);const {root}=await remote.connect('sftp://user@host/project');
+ const bytes=Buffer.alloc(6*1024*1024,42);await fs.writeFile(local('/project/photo.png'),bytes);
+ assert.deepEqual(await remote.readFile(path.join(root,'photo.png')),bytes);
+ await fs.writeFile(local('/project/font.woff2'),bytes);assert.deepEqual(await remote.readFile(path.join(root,'font.woff2')),bytes);
+ await fs.writeFile(local('/project/text.txt'),bytes);await assert.rejects(remote.readFile(path.join(root,'text.txt')),/5 MB/);
+ const handle=await fs.open(local('/project/huge.png'),'w');await handle.truncate(20*1024*1024+1);await handle.close();
+ await assert.rejects(remote.readFile(path.join(root,'huge.png')),/20 MB/);
+});
 test('direct saves reject stale content, failed uploads and failed replacement without damaging the original',async t=>{
  const {remote,client,local}=await fake(t);await fs.writeFile(local('/project/file.txt'),'server');const {root}=await remote.connect('ftp://host/project');const file=path.join(root,'file.txt');
  await assert.rejects(remote.save(file,'ours',{expectedText:'old'}),/changed on the server/);

@@ -25,6 +25,8 @@ test('browser reopens empty workspaces and native folders by identity; old tabs 
   let source=await fs.readFile(path.join(__dirname,'../web/browser-api.js'),'utf8');
   source=source.replace("'./storage.js'",JSON.stringify(url))
     
+    .replace("'../shared/font-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/font-files.mjs')).href))
+    .replace("'../shared/image-files.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/image-files.mjs')).href))
     .replace("'../shared/markdown-paths.mjs'", JSON.stringify(pathToFileURL(path.join(__dirname, '../shared/markdown-paths.mjs')).href))
     .replace("'./markdown-export.js'", JSON.stringify(pathToFileURL(path.join(__dirname, '../web/markdown-export.js')).href))
     .replace("'./zip.js'",JSON.stringify(pathToFileURL(path.join(__dirname,'../web/zip.js')).href))
@@ -50,6 +52,14 @@ test('browser reopens empty workspaces and native folders by identity; old tabs 
   first.permission='denied';await assert.rejects(api.reopenWorkspace(a),/access expired/);
   assert.equal(await store.getMeta('workspace-root'),b);
   first.permission='granted';chosen=first;assert.equal(await api.chooseFolder(),a);
+  let descended=0;
+  const deep={kind:'directory',entries:async function*(){descended++;yield ['inside.css',{kind:'file'}];}};
+  const nested={kind:'directory',entries:async function*(){yield ['deep',deep];yield ['nested.css',{kind:'file'}];},getDirectoryHandle:async name=>{assert.equal(name,'deep');return deep;}};
+  first.getDirectoryHandle=async name=>{assert.equal(name,'src');return nested;};
+  const shallow=await api.scanFolder(a+'/src',{shallow:true});
+  assert.deepEqual(shallow.nodes.map(node=>node.name),['deep','nested.css']);
+  assert.equal(shallow.nodes[0].incomplete,true);assert.equal(descended,0,'shallow breadcrumb listing must not scan child directories');
+  assert.equal((await api.scanFolder(a+'/src/deep',{shallow:true})).nodes[0].name,'inside.css');
   const empty=await api.newWorkspace('Empty'), other=await api.newWorkspace('Empty');
   assert.notEqual(empty,other);await api.reopenWorkspace(empty);
   assert.equal(await store.getMeta('workspace-root'),empty);

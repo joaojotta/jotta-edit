@@ -1,5 +1,52 @@
 # Version history — Jotta Edit
 
+## 1.2.1 — C/C++ tools and console controls (29 Oct 2026)
+
+- Drag the build panel's top edge to resize it, with keyboard controls and a saved height.
+- Build, run and test local C/C++ files and CMake/Make projects with installed native tools, per-project settings, console input and clickable compiler diagnostics.
+- Format C/C++ on save or with Format Document using clang-format and the project's style.
+- Show only program output with a saved console filter, and expand the console to fullscreen while keeping input available.
+- Resize output text independently with Ctrl+wheel, Ctrl++/Ctrl+-, Ctrl+0 and toolbar controls; remember the selected size.
+- Update desktop, web and package metadata to version 1.2.1.
+
+## 1.2.0 — Image and font previews, extended zoom and colour emoji (28 Oct 2026)
+
+- Open PNG, JPEG/JFIF, GIF/APNG, WebP, AVIF, BMP, ICO and SVG images in desktop and web tabs, including connected remote folders. Preserve GIF animation and transparency; add fit-to-pane, actual-size and image zoom controls, Ctrl++/Ctrl+-, Ctrl+0 and Ctrl+wheel. Raster images are read-only and web downloads preserve their original bytes.
+- Switch SVG tabs between the rendered image and editable source code. Keep unsaved edits when switching views, preview the current code safely as an image, and use the existing guarded save and session recovery flows.
+- Preview TTF, OTF, WOFF and WOFF2 font files in read-only desktop and web tabs, including remote folders. Type custom sample text, inspect letters and numbers, change preview size with controls or Ctrl++/Ctrl+-, Ctrl+0 and Ctrl+wheel, and download the original font in the web app. Release loaded fonts when leaving the preview and report corrupt or unsupported files.
+- Raise the editor and Markdown preview font-size limit to 72px, Explorer to 48px and interface to 32px. Keep the current default sizes and include the expanded range in settings transfers.
+- Bundle Noto Color Emoji for offline emoji rendering, including ☕, with emoji glyphs taking priority over monochrome symbols in editor and interface fonts.
+- Add Preferences → Shortcuts on desktop and web: record and assign command shortcuts, detect conflicts, unassign bindings and reset individual commands or all shortcuts. Apply changes immediately, update menu and toolbar hints, and include overrides in validated settings transfers.
+- Add multiple project folders with File → Add Folder to Workspace and a matching Explorer button, plus Add Remote Folder to Workspace on desktop. Keep up to 20 separate roots, search and replace across all folders, preserve per-folder editor preferences, refresh each root and restore the folder list with the session. Removing a root preserves open documents; overlapping roots and cross-root moves are rejected.
+- Update desktop, web and package metadata to version 1.2.0.
+
+## 1.1.9 — Compact editor actions menu (27 Oct 2026)
+
+- Give file tabs more room by collecting editor tools in one ellipsis menu on desktop and web.
+- Keep familiar icons and shortcut hints, keyboard menu navigation and the desktop Live Preview browser chooser.
+
+## 1.1.8 — Navigation, settings and Markdown improvements (25 Oct 2026)
+
+- Simplify the web toolbar with grouped actions, workspace and Import menus, clear unsaved status, and a Save/Download file button that follows the current file's destination.
+- Resize Markdown preview text with the usual zoom shortcuts, Ctrl+wheel or header buttons; remember its size separately from the editor.
+- Use Ctrl+P for files, `:line`, `@symbol` and `file:line` navigation.
+- Remember picker folders, filter entries as you type and open multiple selected files.
+- Refresh Explorer automatically and reload clean files without losing cursor positions or Undo. Preserve unsaved edits and buffers whose files disappeared.
+- Browse folders from clickable breadcrumbs or reveal them in Explorer.
+- Preview files with one click, keep them with a double-click or an edit, and pin frequently used tabs. Pinned tabs remain pinned after reopening the app.
+- Name and rename favourite colours, preserve their opacity, and reuse recently applied colours from the colour editor popup.
+- Export and import themes, colours, fonts and global editor preferences from Preferences → General without replacing open documents or project settings.
+
+## 1.1.7 — Global theming, colour favourites and in-app file picker (25 Oct 2026)
+
+- Pick a syntax theme and the whole interface follows its colours, not just the editor; explicit Interface colour overrides still win.
+- Move the custom Theme editor and Interface colours into their own Preferences tab, separate from quick theme selection.
+- Remove unrelated documentation text that appeared when hovering the colour tool.
+- Get CSS suggestions while typing inside `<style>` blocks in HTML.
+- Open File now uses the same in-app folder browser as Open Folder on desktop.
+- Add a Database file icon for SQL and database files.
+- Smooth, animated sidebar show/hide and fixed tab dot alignment. Add Open File and Open Folder buttons at the top of Explorer, below its label, Search and right-aligned Refresh control.
+
 ## 1.1.6 — HTML and embedded CSS outline (24 Oct 2026)
 
 - Navigate nested HTML elements, IDs and classes in the document outline on desktop and web.

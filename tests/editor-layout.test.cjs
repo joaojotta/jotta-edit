@@ -12,6 +12,8 @@ class Element {
     this.children.push(child); child.parentElement = this; return child;
   }
   setAttribute() {}
+  removeAttribute() {}
+  focus() {}
   addEventListener() {}
   replaceChildren() { this.children = []; }
 }
@@ -46,6 +48,35 @@ async function fixture() {
   layout.selectDocument(docs[0]);
   return {layout, docs, editors, root, get active() {return active;}, get diff() {return diff;}, get baseline() {return baseline;}, remove(id) {docs = docs.filter(d => d.id !== id);}};
 }
+test('image tabs keep binary data out of Monaco and SVG toggles preserve the editable model',async()=>{
+  const f=await fixture(),doc=f.docs[0];
+  doc.image={type:'image/png',url:'data:image/png;base64,AA=='};
+  f.layout.selectDocument(doc);
+  assert.equal(f.editors[0].getModel(),null);
+  assert.equal(f.layout.imageZoom(1),true);assert.equal(f.layout.imageReset(),true);
+  f.layout.compareSaved(doc);assert.equal(f.layout.comparing,false);
+  doc.image={type:'image/svg+xml'};doc.model.getValue=()=>'<svg/>';
+  f.layout.selectDocument(doc);assert.equal(f.editors[0].getModel(),doc.model);
+  const workspace=f.root.children.find(node=>node.className==='editor-workspace');
+  const pane=workspace.children.find(node=>node.className==='editor-pane');
+  const viewer=pane.children.find(node=>node.className==='');
+  const toolbar=viewer.children[0],toggle=toolbar.children[0];
+  toggle.onclick();assert.equal(doc.imageCode,true);assert.equal(f.layout.imageZoom(1),false);
+  assert.equal(f.editors[0].getModel(),doc.model);
+  toggle.onclick();assert.equal(doc.imageCode,false);assert.equal(f.layout.imageZoom(1),true);
+  f.layout.selectDocument(f.docs[1]);assert.equal(f.layout.imageZoom(1),false);
+});
+test('font files use read-only preview panes with independent size controls',async()=>{
+  const f=await fixture(),doc=f.docs[0];doc.font={type:'font/woff2',url:'data:font/woff2;base64,AA==',bytes:1};
+  f.layout.selectDocument(doc);assert.equal(f.editors[0].getModel(),null);
+  assert.equal(f.layout.fontZoom(1),true);assert.equal(doc.fontPreview.size,50);
+  f.layout.fontReset();assert.equal(doc.fontPreview.size,48);
+  f.layout.compareSaved(doc);assert.equal(f.layout.comparing,false);
+  f.layout.toggleSplit();assert.equal(f.layout.fontZoom(1),false);
+  f.layout.selectDocument(doc);assert.equal(f.editors[1].getModel(),null);
+  f.layout.toggleSplit();assert.equal(f.active.doc,doc);assert.equal(f.editors[0].getModel(),null);
+  f.remove('a');f.layout.removeDocument('a',f.docs[1]);assert.equal(f.layout.fontZoom(1),false);
+});
 test('split opens another file and maintains independent per-pane positions for shared models', async () => {
   const f = await fixture();
   f.editors[0].restoreViewState({cursor:12});
@@ -88,6 +119,16 @@ test('Save As and rename rebind every view before the old model is disposed', as
   f.layout.rebind(f.docs[0], old);
   assert.ok(f.editors.every(e => e.getModel() === f.docs[0].model));
   assert.equal(f.diff.pair.modified, f.docs[0].model);
+});
+test('external reloads preserve independent views in shared panes and comparisons even when the change throws',async()=>{
+  const f=await fixture();f.layout.toggleSplit();f.layout.selectDocument(f.docs[0]);
+  f.layout.compareSaved(f.docs[0]);
+  const editors=[...f.editors,f.diff.getModifiedEditor()];
+  editors.forEach((editor,index)=>editor.restoreViewState({cursor:index+3,scrollTop:index*100}));
+  assert.throws(()=>f.layout.preserveDocumentViews(f.docs[0],()=>{
+    editors.forEach(editor=>editor.restoreViewState({cursor:1,scrollTop:0}));throw new Error('Interrupted change');
+  }),/Interrupted/);
+  editors.forEach((editor,index)=>assert.deepEqual(editor.saveViewState(),{cursor:index+3,scrollTop:index*100}));
 });
 test('closing a shared file removes references from both panes and the diff, including the final tab', async () => {
   const f = await fixture(); f.layout.toggleSplit(); f.layout.selectDocument(f.docs[0]);

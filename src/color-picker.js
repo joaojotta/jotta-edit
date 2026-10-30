@@ -1,6 +1,7 @@
 import { findCssColors, colorTextContrast, parseCssColor, formatCssColor, rgbToHsl, hslToRgb, rgbToCmyk, cmykToRgb } from './color-utils.js';
 import './color-picker.css';
 import { translateDom, tr } from './i18n.js';
+import { createColourLibrary, favouriteColour, colourRecord, colourKey, COLOUR_FAVOURITES_KEY, RECENT_COLOURS_KEY } from './colour-library.js';
 
 const presets = ['#ffc107','#ff9800','#f44336','#ec4899','#9333ea','#6366f1','#2196f3','#06b6d4','#10b981','#84cc16','#ffffff','#d1d5db','#9ca3af','#6b7280','#4b5563','#374151','#1f2937','#111827','#60a5fa','#fca5a5'];
 const cap = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
@@ -59,10 +60,16 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
         <label><span>Opacity</span><input type="range" data-slider="a" min="0" max="100" aria-label="Opacity"><output class="jc-opacity-value">100%</output></label>
       </div>
       <div class="jc-section-title">Preset Colors</div><div class="jc-presets"></div>
+      <div class="jc-section-title">Favourites</div>
+      <div class="jc-favourite-save"><input class="jc-favourite-new-name" type="text" maxlength="64" placeholder="Name (optional)" aria-label="New favourite colour name"><button type="button" class="jc-fav-add" title="Save current colour to favourites">★ Save current</button></div>
+      <div class="jc-favourites"></div>
+      <div class="jc-section-title jc-favourites-title"><span>Recent colours</span><button type="button" class="jc-recent-clear">Clear recent colours</button></div>
+      <div class="jc-recents" aria-label="Recent colours"></div>
     </div><footer class="jc-actions"><button class="jc-apply" type="button">Apply</button><button class="jc-cancel" type="button">Cancel</button></footer>`;
   document.body.appendChild(root);
   translateDom(root);
-  document.addEventListener('jotta:locale-changed', () => translateDom(root));
+  const localeChanged = () => { translateDom(root); renderFavourites(); };
+  document.addEventListener('jotta:locale-changed', localeChanged);
   const q = sel => root.querySelector(sel);
   // Monaco draws injected text in its own text layer. Unlike floating DOM overlays
   // it stays aligned with glyphs when scrolling, zooming, or using proportional fonts.
@@ -75,6 +82,15 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
   document.head.appendChild(sheet);
   displayMode = displayMode === 'background' ? 'background' : 'swatch';
   let items = [], editing = null, current = null, activeFormat = 'hex';
+  const library = createColourLibrary(localStorage, () => document.dispatchEvent(new Event('jotta:colours-changed')));
+  const changeLibrary = operation => {
+    try { operation(); return true; }
+    catch (error) { notify(error.name === 'QuotaExceededError' ? 'Could not save colours.' : error.message); return false; }
+  };
+  const coloursChanged = () => renderFavourites();
+  const storageChanged = event => { if (event.key === null || [COLOUR_FAVOURITES_KEY, RECENT_COLOURS_KEY].includes(event.key)) renderFavourites(); };
+  document.addEventListener('jotta:colours-changed', coloursChanged);
+  window.addEventListener('storage', storageChanged);
   function close() { root.classList.add('hidden'); editing = null; }
   function refresh() {
     close(); decorations.clear(); triggerDecorations.clear();
@@ -98,6 +114,7 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
           ? {inlineClassName:`jotta-color-value jotta-color-token-${index}`}
           : { before: { content: '■ ',
           inlineClassName: `jotta-inline-swatch jotta-color-token-${index}`,
+          inlineClassNameAffectsLetterSpacing: true,
           cursorStops: monaco.editor.InjectedTextCursorStops.None } } };
     }));
     if (displayMode === 'background') {
@@ -157,6 +174,8 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
       const selected = formatCssColor(rgba, 'hex').toLowerCase().slice(0, 7) === swatch.dataset.hex;
       swatch.setAttribute('aria-pressed', String(selected));
     }
+    const selectedRecord = colourRecord(rgba);
+    for (const swatch of root.querySelectorAll('.jc-saved-swatch')) swatch.setAttribute('aria-pressed', String(selectedRecord && swatch.dataset.colourKey === colourKey(selectedRecord)));
     q('[data-slider="s"]').style.background = `linear-gradient(to right,${formatCssColor({...hslToRgb(hsl.h,0,hsl.l),a:1},'hex')},${formatCssColor({...hslToRgb(hsl.h,100,hsl.l),a:1},'hex')})`;
     q('[data-slider="l"]').style.background = `linear-gradient(to right,#000,${formatCssColor({...hslToRgb(hsl.h,hsl.s,50),a:1},'hex')},#fff)`;
     q('[data-slider="a"]').style.background = `linear-gradient(to right,transparent,${formatCssColor({...rgba,a:1},'hex')})`;
@@ -166,8 +185,9 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
     if (!color || typeof onApply !== 'function') return;
     editing = { color, external: true, onApply };
     current = {...color};
+    q('.jc-favourite-new-name').value = '';
     setFormat('hex');
-    root.classList.remove('hidden'); sync();
+    root.classList.remove('hidden'); sync(); renderFavourites();
     placePopup(point);
   }
   function placePopup(point) {
@@ -181,8 +201,9 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
     if (!hit || !editor.getModel()) return;
     editing = { ...hit, model: editor.getModel() };
     current = { ...hit.color };
+    q('.jc-favourite-new-name').value = '';
     setFormat(hit.color.kind === 'rgb' ? 'rgba' : hit.color.kind === 'hsl' ? 'hsl' : 'hex');
-    root.classList.remove('hidden'); sync();
+    root.classList.remove('hidden'); sync(); renderFavourites();
     placePopup(point);
   }
   function apply() {
@@ -191,7 +212,10 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
       const callback = editing.onApply;
       // Persist CSS-compatible colour, including transparency if selected.
       const colour = formatCssColor(current, 'hex');
-      close(); callback(colour); return;
+      const selected = {...current};
+      close();
+      if (callback(colour) !== false) changeLibrary(() => library.remember(selected));
+      return;
     }
     const { model, start, end, text } = editing;
     const a = model.getPositionAt(start), b = model.getPositionAt(end);
@@ -200,9 +224,11 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
       close(); notify('Colour could not be applied: source changed'); return;
     }
     const updated = outputCss(current, activeFormat);
+    const selected = {...current};
     close(); editor.pushUndoStop();
     editor.executeEdits('jotta.colour', [{ range: targetRange, text: updated }]);
     editor.pushUndoStop(); editor.focus();
+    changeLibrary(() => library.remember(selected));
   }
   for (const tab of root.querySelectorAll('[data-format]')) {
     tab.addEventListener('click', () => setFormat(tab.dataset.format, true));
@@ -220,6 +246,44 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
     btn.onclick = () => { if (!current) return; current = { ...parseCssColor(hex), a: current.a }; sync(); };
     q('.jc-presets').appendChild(btn);
   }
+  function renderFavourites() {
+    const grid = q('.jc-favourites'); grid.replaceChildren();
+    for (const entry of library.favourites()) {
+      // Keep removal beside the swatch so the colour remains a full square.
+      const item = document.createElement('div'); item.className = 'jc-favourite';
+      const swatch = savedSwatch(entry, 'jc-favourite-swatch');
+      const name = document.createElement('input'); name.type='text'; name.className='jc-favourite-name'; name.maxLength=64;
+      name.value=entry.name; name.placeholder=tr('Name (optional)'); name.setAttribute('aria-label', tr('Favourite colour name'));
+      name.onchange=() => { if (!changeLibrary(() => library.rename(colourKey(entry), name.value))) name.value=entry.name; };
+      const remove = document.createElement('button'); remove.type='button'; remove.className='jc-favourite-remove';
+      remove.textContent = '×'; remove.title = tr('Remove from favourites'); remove.setAttribute('aria-label', remove.title);
+      remove.onclick = () => changeLibrary(() => library.remove(colourKey(entry)));
+      item.append(swatch, name, remove);
+      grid.appendChild(item);
+    }
+    if (!grid.children.length) { const empty=document.createElement('p'); empty.className='jc-empty'; empty.textContent=tr('No favourite colours yet.'); grid.append(empty); }
+    const recents = q('.jc-recents'); recents.replaceChildren();
+    for (const entry of library.recents()) recents.append(savedSwatch(entry, 'jc-recent-swatch'));
+    q('.jc-recent-clear').disabled = !recents.children.length;
+    if (!recents.children.length) { const empty=document.createElement('p'); empty.className='jc-empty'; empty.textContent=tr('Applied colours appear here.'); recents.append(empty); }
+    sync();
+  }
+  function savedSwatch(entry, className) {
+    const swatch = document.createElement('button'); swatch.type='button'; swatch.className=`${className} jc-saved-swatch`;
+    const colour = favouriteColour(entry);
+    const css = `rgba(${colour.r}, ${colour.g}, ${colour.b}, ${colour.a})`;
+    swatch.style.setProperty('--swatch-colour', css); swatch.dataset.colourKey=colourKey(entry);
+    swatch.title = `${entry.name ? entry.name + ' · ' : ''}${entry.colour} · ${Math.round(entry.alpha*100)}%`;
+    swatch.setAttribute('aria-label', `${tr('Select')} ${swatch.title}`);
+    swatch.onclick = () => { if (!current) return; current={...colour}; sync(); };
+    return swatch;
+  }
+  renderFavourites();
+  q('.jc-fav-add').onclick = () => {
+    if (!current) return;
+    if (changeLibrary(() => library.save(current, q('.jc-favourite-new-name').value))) q('.jc-favourite-new-name').value='';
+  };
+  q('.jc-recent-clear').onclick = () => changeLibrary(() => library.clearRecents());
   const header = q('.jc-header');
   let dragging = null;
   header.addEventListener('pointerdown', event => {
@@ -266,7 +330,10 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
   root.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close(); editor.focus(); }
     if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type === 'text') {
-      e.preventDefault(); e.target.dispatchEvent(new Event('change')); apply();
+      e.preventDefault();
+      if (e.target.classList.contains('jc-favourite-new-name')) q('.jc-fav-add').click();
+      else if (e.target.classList.contains('jc-favourite-name')) e.target.dispatchEvent(new Event('change'));
+      else { e.target.dispatchEvent(new Event('change')); apply(); }
     }
   });
   document.addEventListener('pointerdown', e => {
@@ -288,5 +355,10 @@ export function installColorEditor(editor, monaco, notify = () => {}, {displayMo
   editor.onDidChangeModelContent(refresh);
     refresh();
   const setDisplayMode = mode => { displayMode = mode === 'background' ? 'background' : 'swatch'; refresh(); };
-  return { refresh, close, openForChoice, setDisplayMode, dispose: () => { close(); decorations.clear(); triggerDecorations.clear(); sheet.remove(); root.remove(); } };
+  return { refresh, close, openForChoice, setDisplayMode, dispose: () => {
+    close(); decorations.clear(); triggerDecorations.clear(); sheet.remove(); root.remove();
+    document.removeEventListener('jotta:locale-changed', localeChanged);
+    document.removeEventListener('jotta:colours-changed', coloursChanged);
+    window.removeEventListener('storage', storageChanged);
+  } };
 }

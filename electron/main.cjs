@@ -3,9 +3,16 @@ const { app, BrowserWindow, dialog, ipcMain, protocol, net, Menu, shell, safeSto
 const fs = require('node:fs');
 const fsp = require('./project-fs.cjs');
 const {writeLocalText} = require('./local-save.cjs');
+const {fileMetadata}=require('./file-metadata.cjs');
 const path = require('node:path');
 const { LivePreview, openBrowser } = require('./live-preview.cjs');
 const livePreview = new LivePreview();
+const {NativeBuildRunner,resolveBuildDiagnostic} = require('./native-build.cjs');
+const {formatNativeCode} = require('./native-format.cjs');
+const nativeBuild = new NativeBuildRunner({
+  isRemote:file=>remoteFolders.isRemote(file),
+  onEvent:event=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('native-build:event',event);}
+});
 const { LspBridge } = require('./lsp.cjs');
 const { pathToFileURL } = require('node:url');
 const { execFile } = require('node:child_process');
@@ -78,7 +85,12 @@ let session = { root: null, files: [] };
 let sessionWriteChain = Promise.resolve();
 let preferences = { nativeFrame: true };
 let nativeLanguage = 'en';
-const PT_MENU = { File:'Ficheiro', Edit:'Editar', Selection:'Seleção', View:'Ver', Go:'Ir', Tools:'Ferramentas', Help:'Ajuda',
+const PT_MENU = {
+  'Build & Run':'Compilar e executar','Build C/C++':'Compilar C/C++','Build and run C/C++':'Compilar e executar C/C++',
+  'Test C/C++':'Testar C/C++','Stop build or program':'Parar compilação ou programa',
+  'Add Folder to Workspace…':'Adicionar pasta ao espaço de trabalho…','Add Remote Folder to Workspace…':'Adicionar pasta remota ao espaço de trabalho…',
+  'Keyboard shortcuts':'Atalhos de teclado','Command palette':'Paleta de comandos',Cut:'Cortar',Copy:'Copiar',Paste:'Colar',
+  File:'Ficheiro', Edit:'Editar', Selection:'Seleção', View:'Ver', Go:'Ir', Tools:'Ferramentas', Help:'Ajuda',
   'Document outline':'Estrutura do documento','Remote connections':'Ligações remotas',
   'Open Remote Folder…':'Abrir pasta remota…',
   'Open mounted folder…':'Abrir pasta montada…',
@@ -120,27 +132,28 @@ function reportRemoteFailure(kind,handler,target=file=>file){
     catch(error){const affected=target(file,args);if(remoteFolders.owns(affected))remoteFolders.recordFailure(affected,kind,error);throw error;}
   };
 }
+let nativeShortcutOverrides={};
 function buildMenu() {
-  const item = (label, command, accelerator) => ({ label: nativeTr(label), accelerator, click: () => sendMenuCommand(command) });
+  const item=(label,command,accelerator)=>({label:nativeTr(label),accelerator:Object.hasOwn(nativeShortcutOverrides,command)?nativeShortcutOverrides[command]?.replace('Ctrl','CommandOrControl').replace('Minus','-')||undefined:accelerator,registerAccelerator:false,click:()=>sendMenuCommand(command)});
   const template = [
     { label: 'File', submenu: [
       item('New File', 'new', 'CommandOrControl+N'), item('Open File…', 'open-file', 'CommandOrControl+O'),
       item('New Markdown file', 'new-markdown'),
-      item('Open Folder…', 'open-folder', 'CommandOrControl+Shift+O'), item('Recent Workspaces…', 'recent-workspaces'), { type: 'separator' },
-      item('Open Remote Folder…', 'open-remote-folder'), item('Favourites…', 'favourites'),
+      item('Open Folder…', 'open-folder', 'CommandOrControl+Shift+O'), item('Add Folder to Workspace…','add-folder'), item('Recent Workspaces…', 'recent-workspaces'), { type: 'separator' },
+      item('Open Remote Folder…', 'open-remote-folder'),item('Add Remote Folder to Workspace…','add-remote-folder'), item('Favourites…', 'favourites'),
       item('Save', 'save', 'CommandOrControl+S'), item('Save As…', 'save-as', 'CommandOrControl+Shift+S'), item('Local History…', 'local-history'),
       item('Export Markdown as HTML','markdown-export-html'),item('Export Markdown as PDF','markdown-export-pdf'),
       { type: 'separator' }, item('Close File', 'close-file', 'CommandOrControl+W'), item('Quit Jotta Edit', 'quit', 'CommandOrControl+Q')
     ] },
     { label: 'Edit', submenu: [
       item('Undo', 'undo', 'CommandOrControl+Z'), item('Redo', 'redo', 'CommandOrControl+Shift+Z'),
-      { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' },
+      { type: 'separator' }, item('Cut','cut','CommandOrControl+X'),item('Copy','copy','CommandOrControl+C'),item('Paste','paste','CommandOrControl+V'),item('Select All','select-all','CommandOrControl+A'),
       { type: 'separator' }, item('Find', 'find', 'CommandOrControl+F'), item('Replace', 'replace', 'CommandOrControl+H'), item('Replace in Project…', 'replace-project', 'CommandOrControl+Shift+H'),
-      { type: 'separator' }, item('Preferences…', 'settings', 'CommandOrControl+Comma')
+      { type: 'separator' }, item('Preferences…', 'settings', 'CommandOrControl+Comma'),item('Keyboard shortcuts','keyboard-shortcuts')
     ] },
     { label: 'Selection', submenu: [item('Select All', 'select-all', 'CommandOrControl+A'), item('Add Cursor Above', 'cursor-up', 'CommandOrControl+Alt+Up'), item('Add Cursor Below', 'cursor-down', 'CommandOrControl+Alt+Down')] },
     { label: 'View', submenu: [
-      item('Document outline','document-outline'),item('Remote connections','remote-connections'),
+      item('Command palette','command-palette','CommandOrControl+Shift+P'),item('Document outline','document-outline'),item('Remote connections','remote-connections'),
       item('Markdown preview','markdown-preview','CommandOrControl+Shift+V'),
       item('Split Editor', 'split-editor', 'CommandOrControl+Backslash'),
       item('Compare with Saved Version', 'compare-saved'), item('Close Comparison', 'close-comparison'),
@@ -151,7 +164,7 @@ function buildMenu() {
       item('Toggle Dark/Light Theme', 'theme')
     ] },
     { label: 'Go', submenu: [item('Quick Open…', 'quick-open', 'CommandOrControl+P'), item('Go to Line…', 'goto-line', 'CommandOrControl+G'), item('Search in Project…', 'search-project', 'CommandOrControl+Shift+F')] },
-    { label: 'Tools', submenu: [item('Open Live Preview', 'preview'), item('Stop Live Preview', 'preview-stop'), item('Format Document', 'format', 'Shift+Alt+F'), item('Emmet: Expand Abbreviation', 'emmet', 'CommandOrControl+Alt+E'), item('Edit Colour at Cursor', 'edit-colour', 'CommandOrControl+Alt+C'), item('Toggle Format on Save', 'format-save')] },
+    { label: 'Tools', submenu: [item('Build & Run','native-build-panel'),item('Build C/C++','native-build','F7'),item('Build and run C/C++','native-run','F6'),item('Test C/C++','native-test','CommandOrControl+F6'),item('Stop build or program','native-stop','Shift+F6'),{type:'separator'},item('Open Live Preview', 'preview'), item('Stop Live Preview', 'preview-stop'), item('Format Document', 'format', 'Shift+Alt+F'), item('Emmet: Expand Abbreviation', 'emmet', 'CommandOrControl+Alt+E'), item('Edit Colour at Cursor', 'edit-colour', 'CommandOrControl+Alt+C'), item('Toggle Format on Save', 'format-save')] },
     { label: 'Help', submenu: [item('About Jotta Edit', 'about')] }
   ];
   for (const menu of template) menu.label = nativeTr(menu.label);
@@ -203,6 +216,10 @@ function filePath(value) {
 }
 async function readText(file) {
   const p = filePath(file);
+  const image = await require('./image-files.cjs').readImage(p);
+  if (image) return image;
+  const font = await require('./font-files.cjs').readFont(p);
+  if (font) return font;
   const stat = await fsp.stat(p);
   if (!stat.isFile()) throw new Error('Not a regular file');
   if (stat.size > MAX_TEXT_BYTES) throw new Error('File exceeds the 5 MB editor limit');
@@ -258,8 +275,10 @@ function createWindow() {
     if (level === 'error' || level === 3) console.error('[Jotta Edit renderer]', message);
   });
   mainWindow.webContents.on('render-process-gone', (_event, info) => {
+    nativeBuild.stop(true);
     console.error('[Jotta Edit] Renderer process exited:', info?.reason || 'unknown reason');
   });
+  mainWindow.webContents.on('did-start-loading',()=>nativeBuild.stop(true));
   mainWindow.setMenu(buildMenu());
   mainWindow.setMenuBarVisibility(false);
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -305,6 +324,17 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     const files = pendingFiles.splice(0);
     for (const file of files) mainWindow?.webContents.send('app:open-file', file);
   });
+  ipcMain.handle('native-build:start',(event,params)=>{
+    if(event.sender!==mainWindow?.webContents)throw new Error('Unknown build window.');
+    return nativeBuild.start(params);
+  });
+  ipcMain.handle('native-format:format',(event,params)=>{
+    if(event.sender!==mainWindow?.webContents)throw new Error('Unknown formatter window.');
+    return formatNativeCode(params);
+  });
+  ipcMain.handle('native-build:stop',()=>nativeBuild.stop());
+  ipcMain.handle('native-build:input',(_event,value,eof)=>nativeBuild.input(value,eof===true));
+  ipcMain.handle('native-build:diagnostic',(_event,root,file)=>resolveBuildDiagnostic(root,file,{isRemote:value=>remoteFolders.isRemote(value)}));
   ipcMain.handle('preview:start', async (_event, params) => {
     try {
       const url = await livePreview.start(params);
@@ -352,6 +382,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   ipcMain.handle('remote:info',(_event,file)=>remoteFolders.info(file));
   ipcMain.handle('folder:browse',(_event,folder,options)=>folderBrowser.list(folder,options));
   ipcMain.handle('folder:select',(_event,folder)=>folderBrowser.select(folder));
+  ipcMain.handle('folder:select-file',(_event,file)=>folderBrowser.selectFile(file));
   ipcMain.handle('session:get', () => session);
   ipcMain.handle('window:prefs:get', () => ({ ...preferences }));
   ipcMain.handle('window:prefs:set', async (_event, value) => {
@@ -374,6 +405,12 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.setMenu(menu); mainWindow.setMenuBarVisibility(false); }
   });
   ipcMain.handle('paths:complete', (_event, params) => listPathCandidates(params));
+  ipcMain.handle('menu:shortcuts',async(_event,value)=>{
+    const {validateShortcutOverrides}=await import('../shared/keyboard-shortcuts.mjs');
+    nativeShortcutOverrides=validateShortcutOverrides(value);
+    const menu=buildMenu();Menu.setApplicationMenu(menu);
+    if(mainWindow&&!mainWindow.isDestroyed()){mainWindow.setMenu(menu);mainWindow.setMenuBarVisibility(false);}
+  });
   ipcMain.handle('menu:popup', (_event, label, point) => {
     const submenu = buildMenu().items.find(item => item.label === label)?.submenu;
     if (!submenu) return;
@@ -407,6 +444,7 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
     return result.canceled ? [] : result.filePaths;
   });
   ipcMain.handle('file:read',reportRemoteFailure('read',(_e,file)=>readText(file)));
+  ipcMain.handle('file:stat',async(_event,file)=>({...await fileMetadata(filePath(file)),remote:remoteFolders.owns(file)}));
   ipcMain.handle('markdown:asset',(_e,params)=>readMarkdownAsset(params));
   ipcMain.handle('markdown:export-destination',(_e,params)=>chooseMarkdownExport(params,{
     dialog,parent:mainWindow,defaultDirectory:app.getPath('documents'),isRemote:file=>remoteFolders.isRemote(file)
@@ -424,6 +462,10 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   });
   ipcMain.handle('file:write',reportRemoteFailure('save',async (_e, file, content, options={}) => {
     const p = filePath(file);
+    const {imageType}=await import('../shared/image-files.mjs');
+    const {fontType}=await import('../shared/font-files.mjs');
+    if (fontType(p)) throw new Error('Fonts are read-only.');
+    if (imageType(p) && imageType(p)!=='image/svg+xml') throw new Error('Images are read-only.');
     if (typeof content !== 'string' || Buffer.byteLength(content, 'utf8') > MAX_TEXT_BYTES) throw new Error('File exceeds the editor limit');
     let historyWarning = '';
     const capture = async snapshots => {
@@ -461,5 +503,5 @@ if (hasSingleInstanceLock) app.whenReady().then(async () => {
   if (hasSingleInstanceLock) createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) { canClose = false; createWindow(); } });
 });
-app.on('before-quit', () => { lsp?.stop(); void livePreview.stop(); });
+app.on('before-quit', () => { nativeBuild.stop(true); lsp?.stop(); void livePreview.stop(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

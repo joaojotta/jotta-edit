@@ -9,6 +9,10 @@ function normalizeSession(raw) {
   const root = typeof raw.root === 'string' ? raw.root : null;
   const files = Array.isArray(raw.files) ? raw.files.filter(f => typeof f === 'string').slice(0, MAX_TABS) : [];
   const result = { root, files };
+  if(Array.isArray(raw.folders)){
+    if(raw.folders.length>20||raw.folders.some(folder=>typeof folder!=='string'||!folder||folder.length>8192))throw new Error('Invalid workspace folders');
+    result.folders=[...new Set(raw.folders)];
+  }
   if (Array.isArray(raw.tabs)) {
     if (raw.tabs.length > MAX_TABS) throw new Error(`Maximum ${MAX_TABS} recoverable tabs`);
     result.tabs = raw.tabs.map(doc => {
@@ -22,6 +26,7 @@ function normalizeSession(raw) {
         path: file,
         name: typeof doc.name === 'string' ? doc.name.slice(0, 255) : (file ? path.basename(file) : 'untitled'),
         dirty,
+        ...(doc.pinned === true ? {pinned:true} : {}),
         ...(typeof doc.text === 'string' ? { text:doc.text } : {}),
         ...(file && dirty && typeof doc.savedText === 'string' ? {savedText:doc.savedText} : {}),
         ...(typeof doc.language === 'string' ? { language:doc.language.slice(0, 60) } : {})

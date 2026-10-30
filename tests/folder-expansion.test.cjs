@@ -6,7 +6,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 
 class Element {
-  constructor(){this.children=[];this.style={};this.events={};}
+  constructor(){this.children=[];this.style={};this.events={};this.dataset={};}
   append(...items){this.children.push(...items);}
   replaceChildren(...items){this.children=items;}
   setAttribute(){}
@@ -17,7 +17,7 @@ function explorer(scanFolder,{root='/workspace',nodes}={}){
   const tree=new Element(),status=[],opened=[];
   const node=nodes?.find(x=>x.name==='public_html')||{path:root+'/public_html',name:'public_html',dir:true,children:[]};
   const state={root,nodes:nodes||[node],expanded:new Set(),files:[],removedFolders:new Set(),showHidden:false};
-  const context=vm.createContext({state,api:{scanFolder},document:{createElement:()=>new Element()},
+  const context=vm.createContext({state,lastExplorerClick:null,api:{scanFolder},document:{createElement:()=>new Element()},
     $:()=>tree,tr:value=>value,activeDocument:()=>null,makeIcon:()=>new Element(),makeThemedIcon:()=>new Element(),
     fileIconPath:()=>'',attachDropTarget(){},showExplorerContext(){},removeFolderFromView(){},
     showStatus:message=>status.push(message),openFile:file=>opened.push(file)});

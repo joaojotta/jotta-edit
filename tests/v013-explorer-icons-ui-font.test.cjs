@@ -33,7 +33,7 @@ test('explorer close hides subfolders and closes root without closing open edito
   const main = read('src/main.js');
   assert.match(main, /function removeFolderFromView\(path\)/);
   assert.match(main, /state\.removedFolders\.add\(path\)/);
-  assert.match(main, /state\.root = null; state\.nodes = \[\]; state\.files = \[\]/);
+  assert.match(main, /state\.folders\.splice\(index,1\)/);
   assert.match(main, /function filterRemovedFolders\(nodes\)/);
   assert.match(main, /refreshFolder\(\{restoreFolders:true\}\)/);
   assert.doesNotMatch(main.match(/function removeFolderFromView\(path\) \{[\s\S]*?\n\}/)?.[0] || '', /closeDocument\(/);
@@ -42,7 +42,7 @@ test('explorer close hides subfolders and closes root without closing open edito
 
 test('Rubik is installed as a build dependency and separate UI font selection is live', () => {
   const pkg = require('../package.json');
-  assert.equal(pkg.version, '1.1.6');
+  assert.equal(pkg.version, '1.2.1');
   assert.ok(pkg.dependencies['@fontsource/rubik']);
   assert.match(read('src/main.js'), /import '@fontsource\/rubik\/400.css'/);
   assert.match(read('src/main.js'), /remember\('uiFontFamily', state\.uiFontFamily\)/);

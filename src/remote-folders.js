@@ -1,6 +1,6 @@
 import {tr} from './i18n.js';
 export function installRemoteFolders({api,show,close,open,changed=()=>{},report=()=>{},documentRef=document}) {
-  const $=id=>documentRef.getElementById(id);let busy=false,generation=0,hostKeyRequest=null,favourite=null;
+  const $=id=>documentRef.getElementById(id);let busy=false,generation=0,hostKeyRequest=null,favourite=null,addToWorkspace=false;
   function controls(){
     for(const id of ['remote-connect','remote-location','remote-username','remote-password','remote-save-favourite'])$(id).disabled=busy;
     $('remote-save-credentials').disabled=busy||!$('remote-save-favourite').checked||!secureStorage;
@@ -31,7 +31,7 @@ export function installRemoteFolders({api,show,close,open,changed=()=>{},report=
       if(result?.root){
         try{await changed();}catch(error){report(error.message);}if(run!==generation)return;
         $('remote-status').textContent=tr('Loading remote folder…');
-        if(await open(result.root,()=>run===generation)){close();if(result.warning)report(result.warning);return;}
+        if(await open(result.root,()=>run===generation,{addToWorkspace})){close();if(result.warning)report(result.warning);return;}
         if(run!==generation)return;
         $('remote-status').textContent=tr('Could not open the remote folder. Check the connection and try again.');
       }else $('remote-status').textContent=tr('Connection cancelled.');
@@ -46,6 +46,7 @@ export function installRemoteFolders({api,show,close,open,changed=()=>{},report=
   });
   $('remote-close').onclick=close;$('remote-cancel').onclick=close;
   controls();return {hide,reconnect(entry){
+    addToWorkspace=true;
     show('remote-overlay');favourite=null;$('remote-password').value='';$('remote-location').value=entry.uri;
     $('remote-username').value=decodeURIComponent(new URL(entry.uri).username);$('remote-saved-credentials').hidden=true;
     $('remote-save-favourite').checked=false;$('remote-save-credentials').checked=false;secureStorage=false;$('remote-storage-help').textContent='';
@@ -53,6 +54,7 @@ export function installRemoteFolders({api,show,close,open,changed=()=>{},report=
   },async open(entry){
     if(!api.connectRemoteFolder)return;
     show('remote-overlay');const run=++generation;favourite=entry?.id?entry:null;
+    addToWorkspace=entry?.addToWorkspace===true;
     $('remote-status').textContent='';$('remote-password').value='';
     $('remote-save-favourite').checked=!!entry?.id;
     $('remote-save-credentials').checked=false;

@@ -1,0 +1,125 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+:root {
+  /* Overridden at runtime from Settings when the user picks a system font. */
+  --ui-font: 'Rubik', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+body {
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  font-family: var(--ui-font);
+  background: #1e1e1e; color: #ccc;
+}
+
+#shell { flex: 1; display: flex; min-height: 0; }
+
+#sidebar {
+  width: 220px; flex-shrink: 0; background: #202020; border-right: 1px solid #000;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#sidebar.hidden { display: none; }
+#sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: .04em;
+}
+.sidebar-actions { display: flex; gap: 6px; }
+#btn-open-folder, #btn-settings { background: none; border: none; color: #ccc; cursor: pointer; font-size: 14px; }
+#btn-open-folder:hover, #btn-settings:hover { color: #fff; }
+#file-tree { overflow: auto; flex: 1; font-size: 13px; }
+.tree-dir, .tree-file { padding: 3px 10px; cursor: pointer; white-space: nowrap; }
+.tree-dir { color: #9cdcfe; }
+.tree-file:hover, .tree-dir:hover { background: #2a2d2e; }
+.tree-children.hidden { display: none; }
+
+#workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+#tab-strip { display: flex; background: #252526; border-bottom: 1px solid #000; overflow-x: auto; flex-shrink: 0; }
+.tab {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px;
+  background: transparent; color: #999; border: none; border-right: 1px solid #1e1e1e;
+  cursor: pointer; white-space: nowrap;
+}
+.tab.active { background: #1e1e1e; color: #fff; }
+.tab-close { opacity: .6; }
+.tab-close:hover { opacity: 1; }
+
+#editor { flex: 1; min-height: 0; }
+
+#status-bar {
+  display: flex; gap: 4px; align-items: center; height: 22px; padding: 0 6px;
+  background: #252526; color: #999; font-size: 12px; flex-shrink: 0; border-top: 1px solid #000;
+}
+#status-spacer { flex: 1; }
+.status-item {
+  background: none; border: none; color: #999; font-size: 12px; font-family: inherit;
+  padding: 2px 8px; border-radius: 3px; cursor: default;
+}
+.status-item.clickable { cursor: pointer; }
+.status-item.clickable:hover { background: #3a3d41; color: #fff; }
+
+/* Distraction-free mode: hide chrome, center a column of text. Sublime's
+   Shift+F11. Monaco itself keeps rendering normally underneath. */
+body.distraction-free #sidebar,
+body.distraction-free #tab-strip,
+body.distraction-free #status-bar { display: none; }
+body.distraction-free #workspace { align-items: center; }
+body.distraction-free #editor { max-width: 900px; width: 100%; margin: 0 auto; }
+
+/* Goto Anything */
+#goto-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .5);
+  display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 50;
+}
+#goto-overlay.hidden { display: none; }
+#goto-box {
+  width: min(600px, 90vw); background: #252526; border-radius: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  overflow: hidden; border: 1px solid #454545;
+}
+#goto-input {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px;
+  background: #3c3c3c; color: #fff; border: none; outline: none;
+}
+#goto-list { max-height: 50vh; overflow-y: auto; }
+.goto-item {
+  display: flex; flex-direction: column; width: 100%; text-align: left; gap: 2px;
+  padding: 7px 14px; background: none; border: none; color: #ccc; cursor: pointer; font-size: 13px;
+}
+.goto-item.active, .goto-item:hover { background: #04395e; color: #fff; }
+.goto-item-detail { font-size: 11px; color: #999; }
+.goto-item.active .goto-item-detail { color: #cfe8ff; }
+.goto-empty { padding: 14px; color: #888; font-size: 13px; }
+
+/* Language picker: same look as Goto Anything, anchored over the status bar
+   item that opened it instead of centered. */
+#language-overlay {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 0 8px 30px; background: transparent;
+}
+#language-overlay.hidden { display: none; }
+#language-box {
+  width: 280px; background: #252526; border-radius: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, .5);
+  overflow: hidden; border: 1px solid #454545;
+}
+#language-input {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 13px;
+  background: #3c3c3c; color: #fff; border: none; outline: none;
+}
+#language-list { max-height: 40vh; overflow-y: auto; }
+
+/* Settings panel */
+#settings-overlay {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .5);
+}
+#settings-overlay.hidden { display: none; }
+#settings-box {
+  width: min(440px, 90vw); background: #252526; border: 1px solid #454545; border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .5); padding: 18px 20px;
+}
+#settings-box h2 { margin: 0 0 16px; font-size: 15px; font-weight: 600; color: #fff; }
+.settings-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.settings-row label { font-size: 12px; color: #999; }
+.settings-row select {
+  background: #3c3c3c; color: #fff; border: 1px solid #555; border-radius: 3px; padding: 6px 8px; font-size: 13px;
+}
+#settings-close { margin-top: 6px; background: #0e639c; color: #fff; border: none; border-radius: 3px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
+#settings-close:hover { background: #1177bb; }

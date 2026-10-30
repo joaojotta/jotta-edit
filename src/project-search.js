@@ -3,8 +3,16 @@ export const SEARCH_LIMITS = {files:8000, fileBytes:1024 * 1024, totalBytes:20 *
 const binaryExtension = /\.(?:png|jpe?g|gif|webp|avif|ico|pdf|zip|gz|bz2|xz|7z|rar|woff2?|ttf|otf|eot|mp[34]|wav|ogg|flac|mov|webm|wasm|sqlite|db|exe|dll|so|class)$/i;
 const normalized = path => String(path).replace(/\\/g, '/').replace(/\/+$/, '');
 export function projectPathContains(root, file) {
+  if(Array.isArray(root))return root.some(folder=>projectPathContains(folder,file));
   const parent = normalized(root), child = normalized(file);
   return Boolean(parent) && child.startsWith(parent + '/') && !child.slice(parent.length + 1).split('/').some(part => part === '..');
+}
+export function projectSearchLabel(root,file){
+  const roots=Array.isArray(root)?root:[root];
+  const owner=roots.filter(root=>projectPathContains(root,file)).sort((a,b)=>b.length-a.length)[0];
+  if(!owner)return file;
+  const relative=normalized(file).slice(normalized(owner).length+1);
+  return roots.length>1?normalized(owner).split('/').pop()+'/'+relative:relative;
 }
 export function findProjectMatches(text, query, {matchCase = false, wholeWord = false} = {}, max = SEARCH_LIMITS.matchesPerFile + 1) {
   if (!query) return [];

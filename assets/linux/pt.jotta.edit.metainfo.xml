@@ -27,6 +27,33 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.2.1" date="2026-10-29">
+      <description>
+        <p>Build, run, test and format C/C++ using installed native tools. Filter the console to program output only, view output in fullscreen with program input, and resize console text independently with saved zoom controls.</p>
+      </description>
+    </release>
+    <release version="1.2.0" date="2026-10-28">
+      <description>
+        <p>Open images in tabs with zoom controls and editable SVG source, and preview font files with custom text and size controls. Increase text zoom limits and bundle colour emoji support, including the coffee symbol. Customize keyboard shortcuts and work across multiple project folders.</p>
+      </description>
+    </release>
+    <release version="1.1.9" date="2026-10-27">
+      <description>
+        <p>Give file tabs more room with one compact editor actions menu, including shortcut hints and keyboard navigation.</p>
+      </description>
+    </release>
+    <release version="1.1.8" date="2026-10-25">
+      <description>
+        <p>Navigate with Go to Anything, clickable breadcrumbs, pinned tabs and preview tabs. Remember file picker folders, filter entries and open multiple files.</p>
+        <p>Refresh Explorer automatically and reload clean files while preserving unsaved edits and missing-file buffers.</p>
+        <p>Name colour favourites, preserve opacity and reuse recent colours. Export and import global settings, and resize Markdown preview text independently.</p>
+      </description>
+    </release>
+    <release version="1.1.7" date="2026-10-25">
+      <description>
+        <p>Pick a syntax theme and the whole interface follows its colours. Save favourite colours in the colour editor, get CSS suggestions inside HTML style blocks, and open files through the same in-app browser as folders.</p>
+      </description>
+    </release>
     <release version="1.1.6" date="2026-10-24">
       <description>
         <p>Navigate HTML elements, IDs and classes in the document outline, including CSS selectors and grouping rules in embedded style blocks with their original source positions.</p>

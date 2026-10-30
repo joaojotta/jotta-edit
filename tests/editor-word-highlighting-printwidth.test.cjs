@@ -33,7 +33,7 @@ test('format settings are persisted and passed to both formatting entry points',
   assert.match(main, /remember\('plainTextHighlights', state\.plainTextHighlights\)/);
   assert.match(main, /remember\('formatWidth', state\.formatWidth\)/);
   assert.match(main, /applyPlainTextHighlights\(\)/);
-  assert.match(main, /formatCode\(original,[\s\S]*?printWidth: state\.formatWidth/);
+  assert.match(main, /formatCode\(original,[\s\S]*?printWidth: normalizeFormatterWidth\(workspacePrefs\.settings\(folderFor\(doc\.path\)/);
   assert.match(main, /formatCode\(source,[\s\S]*?printWidth: state\.formatWidth/);
-  assert.equal(require('../package.json').version, '1.1.6');
+  assert.equal(require('../package.json').version, '1.2.1');
 });

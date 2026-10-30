@@ -14,7 +14,28 @@ const tools=[
 export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,getDocuments=()=>[],openFile,layout,format,notify,storage=localStorage}){
   const $=id=>document.getElementById(id),toolbar=$('markdown-tools'),preview=$('markdown-preview'),content=$('markdown-content'),divider=$('markdown-divider'),wrap=$('editor-wrap');
   let doc=null,target=null,subscriptions=[],timer,revision=0,current=null,identity='',cache=new Map(),cacheBytes=0;
-  let shown=true,ratio=.5;try{shown=storage.getItem('jotta.markdownPreview')!=='false';ratio=Number(storage.getItem('jotta.markdownRatio'))||.5;}catch{}
+  let shown=true,ratio=.5,fontSize=14;try{shown=storage.getItem('jotta.markdownPreview')!=='false';ratio=Number(storage.getItem('jotta.markdownRatio'))||.5;}catch{}
+  const boundedFont=value=>Math.max(10,Math.min(72,Number.isFinite(Number(value))?Math.round(Number(value)):14));
+  function applyFont(){
+    content.style.setProperty('--markdown-font-size',fontSize+'px');
+    $('markdown-font-reset').textContent=fontSize+'px';
+    $('markdown-font-decrease').disabled=fontSize===10;$('markdown-font-increase').disabled=fontSize===72;
+  }
+  function readFont(){try{fontSize=boundedFont(storage.getItem('jotta.markdownFontSize')??14);}catch{fontSize=14;}applyFont();}
+  function setFont(value){fontSize=boundedFont(value);try{storage.setItem('jotta.markdownFontSize',String(fontSize));}catch{}applyFont();}
+  function adjustFont(delta){setFont(fontSize+delta);}
+  function resetFont(){setFont(14);}
+  function zoomTarget(event){return !preview.hidden&&Boolean(preview.contains(event?.target)||preview.contains(document.activeElement)||preview.matches(':hover'));}
+  $('markdown-font-decrease').onclick=()=>adjustFont(-1);$('markdown-font-increase').onclick=()=>adjustFont(1);$('markdown-font-reset').onclick=resetFont;
+  let wheelAccum=0,lastZoomWheel=0;
+  preview.addEventListener('wheel',event=>{
+    if(!event.ctrlKey||event.altKey||event.shiftKey)return;
+    event.preventDefault();event.stopPropagation();
+    if(Date.now()-lastZoomWheel>240)wheelAccum=0;lastZoomWheel=Date.now();
+    wheelAccum+=event.deltaY*(event.deltaMode===1?36:event.deltaMode===2?600:1);
+    if(Math.abs(wheelAccum)>=45){const steps=Math.min(3,Math.floor(Math.abs(wheelAccum)/45));adjustFont((wheelAccum<0?1:-1)*steps);wheelAccum-=Math.sign(wheelAccum)*steps*45;}
+  },{passive:false,capture:true});
+  readFont();
   const valid=()=>doc&&doc===getDocument()&&doc.model.getLanguageId()==='markdown';
   function button(parent,action,label,icon){
     const node=document.createElement('button');node.type='button';node.className='markdown-tool';node.dataset.markdownAction=action;
@@ -83,7 +104,7 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
   }
   function visible(){
     const markdown=Boolean(valid());toolbar.hidden=!markdown;preview.hidden=!markdown||!shown;divider.hidden=preview.hidden;
-    $('btn-markdown-preview').hidden=!markdown;toggle.setAttribute('aria-pressed',String(!preview.hidden));$('btn-markdown-preview').setAttribute('aria-pressed',String(!preview.hidden));
+    $('btn-markdown-preview').hidden=!markdown;toggle.setAttribute('aria-pressed',String(!preview.hidden));$('btn-markdown-preview').setAttribute('aria-checked',String(!preview.hidden));
     wrap.classList.toggle('markdown-open',!preview.hidden);if(!markdown)closeHeading();layout();
   }
   function schedule(){clearTimeout(timer);++revision;if(valid()&&shown)timer=setTimeout(render,160);}
@@ -144,5 +165,5 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
   $('markdown-close').onclick=()=>{shown=false;try{storage.setItem('jotta.markdownPreview','false');}catch{}visible();++revision;};
   $('markdown-refresh').onclick=()=>{cache.clear();cacheBytes=0;schedule();};$('btn-markdown-preview').onclick=togglePreview;
   document.addEventListener('jotta:locale-changed',()=>{for(const node of toolbar.querySelectorAll('[data-markdown-action]')){const action=node.dataset.markdownAction,label=tools.find(tool=>tool[0]===action)?.[1]||({'heading-menu':'Heading',format:'Format Markdown',preview:'Markdown preview'})[action]||(action.startsWith('heading-')?'Heading '+action.slice(-1):action.startsWith('export-')?'Export Markdown as '+action.slice(7).toUpperCase():'');node.title=tr(label);node.setAttribute('aria-label',tr(label));}schedule();});
-  resize(ratio);visible();return {activate,export:exportDocument,toggle:togglePreview,refresh:()=>{cache.clear();cacheBytes=0;visible();schedule();}};
+  resize(ratio);visible();return {activate,export:exportDocument,toggle:togglePreview,adjustFont,resetFont,zoomTarget,refresh:()=>{readFont();cache.clear();cacheBytes=0;visible();schedule();}};
 }
