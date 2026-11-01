@@ -1,38 +1,25 @@
-name: Build desktop packages
+name: Build all packages
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: desktop-${{ github.ref }}
-  cancel-in-progress: false
+  group: all-packages-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
-  build:
-    name: ${{ matrix.platform }} (x64)
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: Linux
-            os: ubuntu-22.04
-            script: dist:linux
-          - platform: Windows
-            os: windows-2022
-            script: dist:windows
-    defaults:
-      run:
-        shell: bash
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+  checks:
+    name: Validate and test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -45,56 +32,65 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           node -e 'const expected = "v" + require("./package.json").version; if (process.env.GITHUB_REF_NAME !== expected) { console.error("Release tag must be " + expected); process.exit(1); }'
-      - name: Install dependencies and Electron runtime
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check desktop and web source
         run: |
-          npm ci --no-audit --no-fund
-          npx --no-install install-electron --no
-          npm run install:check
-      - name: Check syntax and packaging configuration
-        run: npm run check
+          npm run check
+          npm run check:web
       - name: Run tests
-        if: runner.os == 'Linux'
         run: npm test
-      - name: Install Flatpak build tools and runtimes
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder appstream libfuse2
-          appstreamcli validate --no-net assets/linux/pt.jotta.edit.metainfo.xml
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user --noninteractive -y flathub \
-            org.freedesktop.Platform//25.08 \
-            org.freedesktop.Sdk//25.08 \
-            org.electronjs.Electron2.BaseApp//25.08
-      - name: Build desktop packages
-        run: npm run "${{ matrix.script }}" -- --publish never
       - name: Package corresponding source
-        if: runner.os == 'Linux'
-        run: npm run build:source
-      - name: Upload packages
+        if: github.event_name != 'pull_request'
+        run: |
+          npm run licenses:generate
+          npm run build:source
+      - name: Upload source archive
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-${{ matrix.platform }}-x64
-          path: |
-            release/*.exe
-            release/*.flatpak
-            release/*.AppImage
-            release/*-Source.tar.gz
+          name: package-source
+          path: release/*-Source.tar.gz
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
 
+  windows:
+    name: Windows
+    needs: checks
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/windows.yml
+
+  flatpak:
+    name: Flatpak
+    needs: checks
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/flatpak.yml
+
+  appimage:
+    name: AppImage
+    needs: checks
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/appimage.yml
+
+  web:
+    name: Web / PWA
+    needs: checks
+    uses: ./.github/workflows/web.yml
+
   release:
     name: Prepare draft release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [checks, windows, flatpak, appimage, web]
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - name: Download all packages
+        uses: actions/download-artifact@v8
         with:
-          pattern: desktop-*
+          pattern: package-*
           path: packages
           merge-multiple: true
       - name: Create or update draft with all packages

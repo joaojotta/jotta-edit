@@ -153,3 +153,112 @@ test('workflow Cancel terminates an already running command instead of only mark
  assert.ok(Date.now()-start<2500,'Cancel must stop the child without waiting for timeout or natural exit');
  assert.equal(events.at(-1).stopped,true);assert.equal(events.at(-1).ok,false);assert.equal(workflow.current,null);
 });
+
+test('branch creation and switching preserve commits and refresh the branch list',async t=>{
+ const f=await fixture(t),head=(await f.git('rev-parse','HEAD')).trim();
+ const created=await f.operation({action:'createBranch',name:'feature/editor',head});assert.equal(created.ok,true,created.error);
+ assert.equal((await f.git('branch','--show-current')).trim(),'feature/editor');
+ assert.deepEqual((await f.workflow.details(f.root)).branches,['feature/editor','main']);
+ await fs.writeFile(path.join(f.root,'file.txt'),'feature\n');await f.git('add','.');await f.git('commit','-m','Feature');
+ const featureHead=(await f.git('rev-parse','HEAD')).trim();
+ const switched=await f.operation({action:'switchBranch',name:'main',branch:'feature/editor',head:featureHead});assert.equal(switched.ok,true,switched.error);
+ assert.equal(await fs.readFile(path.join(f.root,'file.txt'),'utf8'),'base\n');assert.equal((await f.git('rev-parse','feature/editor')).trim(),featureHead);
+});
+
+test('branch operations reject stale reviews, dirty files, invalid names and worktrees without discarding changes',async t=>{
+ const f=await fixture(t),head=(await f.git('rev-parse','HEAD')).trim(),file=path.join(f.root,'file.txt');
+ assert.match((await f.operation({action:'createBranch',name:'feature',head:'a'.repeat(40)})).error,/branch changed/);
+ for(const name of ['--force','HEAD','@{-1}','bad..name','bad name'])assert.equal((await f.operation({action:'createBranch',name,head})).ok,false);
+ await fs.writeFile(file,'keep this\n');assert.match((await f.operation({action:'createBranch',name:'feature',head})).error,/local changes/);assert.equal(await fs.readFile(file,'utf8'),'keep this\n');
+ await f.git('add','.');assert.match((await f.operation({action:'createBranch',name:'feature',head})).error,/local changes/);
+ await f.git('commit','-m','Keep');const latest=(await f.git('rev-parse','HEAD')).trim();
+ await f.git('worktree','add','-b','busy',path.join(f.disk,'worktree'));
+ const busy=await f.operation({action:'switchBranch',name:'busy',head:latest});assert.equal(busy.ok,false);assert.match(busy.error,/already (?:used|checked out)/i);
+ assert.equal((await f.git('branch','--show-current')).trim(),'main');
+ assert.equal((await f.operation({action:'switchBranch',name:'missing',head:latest})).ok,false);
+});
+
+test('a merge in progress blocks branch operations even with an unchanged working tree',async t=>{
+ const f=await fixture(t);await f.git('checkout','-b','feature');await f.git('commit','--allow-empty','-m','Empty feature');await f.git('checkout','main');
+ await f.git('merge','--no-commit','--no-ff','feature');const head=(await f.git('rev-parse','HEAD')).trim();
+ assert.equal((await f.service.inspect(f.root)).changes.length,0);
+ const result=await f.operation({action:'createBranch',name:'unsafe',head});assert.equal(result.ok,false);assert.match(result.error,/Finish or abort/);
+ assert.equal((await f.git('branch','--show-current')).trim(),'main');
+});
+
+test('adding a remote validates transports and never replaces an existing remote',async t=>{
+ const f=await fixture(t);
+ assert.equal((await f.operation({action:'remote',remote:'origin',url:'owner/repository'})).ok,true);
+ assert.equal((await f.git('config','--get','remote.origin.url')).trim(),'https://github.com/owner/repository.git');
+ assert.equal((await f.operation({action:'remote',remote:'origin',url:'other/repository'})).ok,false);
+ assert.equal((await f.git('config','--get','remote.origin.url')).trim(),'https://github.com/owner/repository.git');
+ for(const remote of ['--bad','bad/name','bad\nname'])assert.equal((await f.operation({action:'remote',remote,url:'owner/repository'})).ok,false);
+ for(const url of ['ext::evil','https://token:secret@github.com/o/r','file:///tmp/repo'])assert.equal((await f.operation({action:'remote',remote:'other',url})).ok,false);
+});
+
+test('initialization uses private identity before the first commit without staging project files',async t=>{
+ const f=await fixture(t),folder=path.join(f.disk,'new project');await fs.mkdir(folder);await fs.writeFile(path.join(folder,'draft.txt'),'not staged');
+ const command=f.workflow.runner.command.bind(f.workflow.runner),calls=[];
+ f.workflow.runner.command=async(job,cwd,tool,args,options)=>{calls.push({tool,args,options});return tool==='gh'?JSON.stringify({id:123,login:'test-user',name:'GitHub User',email:'private@example.invalid'}):command(job,cwd,tool,args,options);};
+ const result=await f.operation({action:'init',folder,githubIdentity:true});assert.equal(result.ok,true,result.error);
+ const config=async(...args)=>(await exec('git',['-C',folder,...args],{env:f.environment})).stdout.trim();
+ assert.equal(await config('branch','--show-current'),'main');assert.equal(await config('config','user.email'),'123+test-user@users.noreply.github.com');
+ assert.equal(await config('config','user.name'),'GitHub User');assert.equal(await config('ls-files'),'');
+ assert.ok(calls.find(call=>call.tool==='gh').options.quiet);assert.ok(!JSON.stringify(f.events).includes('private@example.invalid'));
+ assert.match((await f.operation({action:'init',folder,githubIdentity:true})).error,/already belongs/);
+ const nested=path.join(f.root,'nested');await fs.mkdir(nested);assert.match((await f.operation({action:'init',folder:nested})).error,/already belongs/);
+ await assert.rejects(fs.stat(path.join(nested,'.git')),{code:'ENOENT'});
+});
+
+test('private identity changes only future repository commits and preserves existing history and name',async t=>{
+ const f=await fixture(t),head=await f.git('rev-parse','HEAD'),command=f.workflow.runner.command.bind(f.workflow.runner);
+ f.workflow.runner.command=async(job,cwd,tool,args,options)=>tool==='gh'?JSON.stringify({id:123,login:'test-user',name:'Different Name'}):command(job,cwd,tool,args,options);
+ const result=await f.operation({action:'githubIdentity'});assert.equal(result.ok,true,result.error);
+ assert.equal((await f.git('config','--local','user.email')).trim(),'123+test-user@users.noreply.github.com');assert.equal((await f.git('config','user.name')).trim(),'Test User');
+ assert.equal(await f.git('rev-parse','HEAD'),head);assert.equal((await f.git('log','-1','--format=%ae')).trim(),'test@example.invalid');
+});
+
+async function publishing(t){
+ const f=await fixture(t),bare=path.join(f.disk,'published.git'),calls=[],command=f.workflow.runner.command.bind(f.workflow.runner);
+ await f.git('config','url.'+bare+'.insteadOf','https://github.com/test-user/project.git');
+ f.workflow.runner.command=async(job,cwd,tool,args,options)=>{
+   calls.push({tool,args,options});
+   if(tool==='gh'){
+     if(args[0]==='api')return JSON.stringify({id:123,login:'test-user'});
+     if(args[0]==='repo'){await exec('git',['init','--bare',bare],{env:f.environment});return 'created';}
+     throw Error('Unexpected GitHub command');
+   }
+   return command(job,cwd,tool,args,options);
+ };
+ return {...f,bare,calls,params:{action:'publish',name:'project',remote:'origin',visibility:'private',head:(await f.git('rev-parse','HEAD')).trim()}};
+}
+
+test('publishing creates an explicitly private repository and pushes only the reviewed branch without force or tags',async t=>{
+ const f=await publishing(t);await f.git('branch','unpublished');await f.git('tag','unpublished-tag');
+ const result=await f.operation(f.params);assert.equal(result.ok,true,result.error);
+ assert.deepEqual(f.calls.find(call=>call.tool==='gh'&&call.args[0]==='repo').args,['repo','create','test-user/project','--private']);
+ const refs=(await exec('git',['--git-dir='+f.bare,'for-each-ref','--format=%(refname)'],{env:f.environment})).stdout.trim();
+ assert.equal(refs,'refs/heads/main');assert.equal((await f.workflow.details(f.root)).upstream,'origin/main');
+ assert.equal((await f.git('config','--get','remote.origin.url')).trim(),'https://github.com/test-user/project.git');
+ const push=f.calls.find(call=>call.tool==='git'&&call.args.includes('push')).args;assert.ok(push.includes('--no-force'));assert.ok(push.includes('--no-follow-tags'));
+ assert.equal((await f.operation(f.params)).ok,false);assert.equal(f.calls.filter(call=>call.tool==='gh'&&call.args[0]==='repo').length,1);
+});
+
+test('publishing refuses dirty, unborn, stale and invalid requests before creating anything on GitHub',async t=>{
+ const f=await publishing(t),file=path.join(f.root,'draft.txt');
+ for(const values of [{name:'../bad'},{visibility:'internal'},{remote:'--evil'},{head:'b'.repeat(40)},{name:'.'}])assert.equal((await f.operation({...f.params,...values})).ok,false);
+ await fs.writeFile(file,'private draft');assert.match((await f.operation(f.params)).error,/local changes/);
+ assert.ok(!f.calls.some(call=>call.tool==='gh'));await assert.rejects(fs.stat(f.bare),{code:'ENOENT'});
+ const unborn=await fixture(t,{commit:false});assert.match((await unborn.operation({...f.params,head:null})).error,/Create a commit/);
+});
+
+test('failed publishing preserves the created repository and remote and explains privacy recovery',async t=>{
+ const f=await publishing(t),command=f.workflow.runner.command.bind(f.workflow.runner);
+ f.workflow.runner.command=async(job,cwd,tool,args,options)=>{
+   if(tool==='git'&&args.includes('push'))throw Error('remote: error: GH007: Your push would publish a private email address.');
+   return command(job,cwd,tool,args,options);
+ };
+ const result=await f.operation(f.params);assert.equal(result.ok,false);assert.match(result.error,/repository was created/);assert.match(result.help,/future commits/);
+ assert.ok((await fs.stat(f.bare)).isDirectory());assert.equal((await f.git('config','--get','remote.origin.url')).trim(),'https://github.com/test-user/project.git');
+ assert.equal((await f.git('rev-parse','HEAD')).trim(),f.params.head);
+});

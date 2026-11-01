@@ -2,6 +2,8 @@
 
 ## 1.2.2 — Git review, language tools and faster startup (1 Nov 2026)
 
+- Add separate GitHub Actions builds for Windows, Flatpak, AppImage and web/PWA, with checks on pushes and pull requests, verified downloadable artifacts and draft releases containing all packages and corresponding source.
+- Initialize projects, publish new GitHub repositories with private visibility by default, connect existing remotes, and create or switch local branches. Include private GitHub commit identity setup and guidance for rejected pushes while preserving local files and history.
 - Add GitHub connection and cloning, staged and unstaged diffs, staging, commits, fetch, fast-forward pull and push, alongside Git branch and changed-file badges. Include progress, cancellation and host tools in Flatpak.
 - Add live language-server diagnostics, a Problems sidebar, Go to Definition, Rename Symbol and desktop language-server settings.
 - Refresh local folders through filesystem notifications with polling fallbacks, and restore sessions faster without blocking on the emoji font.

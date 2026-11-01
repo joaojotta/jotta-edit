@@ -1,0 +1,61 @@
+name: Build Flatpak
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Linux Flatpak (x86_64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies and Electron runtime
+        run: |
+          npm ci --no-audit --no-fund
+          npx --no-install install-electron --no
+          npm run install:check
+      - name: Check source and packaging configuration
+        run: npm run check
+      - name: Install Flatpak build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y flatpak flatpak-builder appstream
+          appstreamcli validate --no-net assets/linux/pt.jotta.edit.metainfo.xml
+      - name: Install runtimes configured in package.json
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          node <<'NODE' > "$RUNNER_TEMP/flatpak-runtimes.txt"
+          const b = require('./package.json').build.flatpak;
+          console.log('runtime/' + b.runtime + '/x86_64/' + b.runtimeVersion);
+          console.log('runtime/' + b.sdk + '/x86_64/' + b.runtimeVersion);
+          console.log('app/' + b.base + '/x86_64/' + b.baseVersion);
+          NODE
+          mapfile -t runtimes < "$RUNNER_TEMP/flatpak-runtimes.txt"
+          flatpak install --user --noninteractive -y flathub "${runtimes[@]}"
+      - name: Build Flatpak bundle
+        run: npm run dist:flatpak -- --publish never
+      - name: Verify Flatpak bundle
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          test -s "release/Jotta-Edit-${version}-linux-x86_64.flatpak"
+      - name: Upload Flatpak bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-flatpak-x86_64
+          path: release/*-linux-x86_64.flatpak
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

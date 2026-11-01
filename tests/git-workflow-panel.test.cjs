@@ -7,7 +7,7 @@ async function fixture({prepare=async()=>true}={}){
  const context={roots:['/repo'],file:'/repo/a.txt'},calls=[],notices=[],opened=[],completed=[];
  let listener,id=0,refreshed=0;
  const repo={root:'/repo',head:'a'.repeat(40),branch:'main',changes:[{path:'/repo/a.txt',relativePath:'a.txt',index:'M',worktree:'M',kind:'modified'}]};
- const api={gitOperation:async params=>{calls.push(params);return {id:++id};},onGitEvent:fn=>{listener=fn;return ()=>{listener=null;};},gitDetails:async()=>({...repo,remotes:[{name:'origin',url:'https://github.com/o/r.git'}],identity:{name:'User',email:'user@example.invalid'},indexState:'b'.repeat(64)}),gitAccount:async()=>({available:true,connected:true,login:'user'}),cancelGit:async()=>true};
+ const api={gitOperation:async params=>{calls.push(params);return {id:++id};},onGitEvent:fn=>{listener=fn;return ()=>{listener=null;};},gitDetails:async()=>({...repo,branches:['main','feature'],remotes:[{name:'origin',url:'https://github.com/o/r.git'}],identity:{name:'User',email:'user@example.invalid'},indexState:'b'.repeat(64)}),gitAccount:async()=>({available:true,connected:true,login:'user'}),cancelGit:async()=>true};
  const compared=[];
  const ui=installGitWorkflow({api,host:elements.host,getContext:()=>context,getDocuments:()=>[],prepare,openFolder:root=>opened.push(root),refresh:async()=>{refreshed++;},compare:(...args)=>compared.push(args),operationDone:(...args)=>completed.push(args),notify:text=>notices.push(text),documentRef});
  ui.start();ui.render([repo]);await tick();
@@ -70,4 +70,57 @@ test('an explicit remote branch selection survives status and staging refreshes'
  const f=await fixture();t.after(()=>f.ui.stop());const target=f.field('Remote branch');target.value='review/my-changes';target.dispatch('input');
  await f.ui.loadDetails(true);assert.equal(target.value,'review/my-changes');
  f.repo.changes[0].worktree=' ';f.ui.render([f.repo]);await tick();assert.equal(target.value,'review/my-changes');
+});
+
+test('branch operations and publishing reject dirty editor buffers without saving them',async()=>{
+ const {prepareGitOperation}=await import('../src/git-workflow.js');
+ const dirty={path:'/repo/file.txt',dirty:true},outside={path:'/other/file.txt',dirty:true};
+ const options={getDocuments:()=>[dirty,outside],save:async()=>{throw Error('must not auto-save');}};
+ for(const action of ['createBranch','switchBranch','publish'])await assert.rejects(prepareGitOperation({action,folder:'/repo'},options),/Save unsaved/);
+ dirty.dirty=false;
+ for(const action of ['createBranch','switchBranch','publish'])assert.equal(await prepareGitOperation({action,folder:'/repo'},options),true);
+});
+
+test('unversioned local folders offer initialization with private GitHub identity and publishing defaults to private',async t=>{
+ const f=await fixture();t.after(()=>f.ui.stop());f.ui.render([]);await tick();
+ assert.equal(f.field('Project folder').value,'/repo');assert.equal(f.field('Visibility').value,'private');
+ assert.equal(f.button('Initialize Git').hidden,false);assert.equal(f.button('Create repository and publish').disabled,true);
+ f.button('Initialize Git').onclick();await tick();assert.deepEqual(f.calls[0],{action:'init',folder:'/repo',githubIdentity:true});
+});
+
+test('publishing sends the selected project branch, head and visibility while connecting an existing remote stays separate',async t=>{
+ const f=await fixture();t.after(()=>f.ui.stop());f.repo.changes=[];f.ui.render([f.repo]);await tick();
+ assert.equal(f.button('Create repository and publish').disabled,false);
+ f.field('GitHub repository name').value='my-editor';f.field('Visibility').value='public';
+ f.button('Create repository and publish').onclick();await tick();
+ assert.deepEqual(f.calls[0],{action:'publish',folder:'/repo',name:'my-editor',visibility:'public',remote:'origin',branch:'main',head:f.repo.head});
+ f.emit({id:1,type:'done',ok:true,action:'publish',result:{root:'/repo'}});await tick();
+ f.field('Remote name').value='upstream';f.field('Existing repository URL').value='owner/existing';f.button('Add remote').onclick();await tick();
+ assert.deepEqual(f.calls[1],{action:'remote',folder:'/repo',remote:'upstream',url:'owner/existing'});
+});
+
+test('branch controls refuse dirty repositories and submit the reviewed branch and head when clean',async t=>{
+ const f=await fixture();t.after(()=>f.ui.stop());const name=f.field('New branch name');name.value='feature/new';name.dispatch('input');
+ assert.equal(f.button('Create and switch branch').disabled,true);
+ f.repo.changes=[];f.ui.render([f.repo]);await tick();assert.equal(f.button('Create and switch branch').disabled,false);
+ f.button('Create and switch branch').onclick();await tick();assert.deepEqual(f.calls[0],{action:'createBranch',folder:'/repo',name:'feature/new',branch:'main',head:f.repo.head});
+ f.emit({id:1,type:'done',ok:true,action:'createBranch',result:{root:'/repo'}});await tick();assert.equal(name.value,'');
+ f.field('Local branch').value='feature';f.field('Local branch').dispatch('change');assert.equal(f.button('Switch branch').disabled,false);
+ f.button('Switch branch').onclick();await tick();assert.deepEqual(f.calls[1],{action:'switchBranch',folder:'/repo',name:'feature',branch:'main',head:f.repo.head});
+});
+
+test('private email setup is explicit and failure recovery appears beside the operation error',async t=>{
+ const f=await fixture();t.after(()=>f.ui.stop());f.button('Use GitHub private email').onclick();await tick();
+ assert.deepEqual(f.calls[0],{action:'githubIdentity',folder:'/repo'});
+ f.emit({id:1,type:'done',ok:false,action:'githubIdentity',error:'Authentication failed',help:'Check your GitHub connection or SSH credentials, then retry. GitHub connection uses the shared GitHub CLI account.'});await tick();
+ const help=f.all().find(el=>el.textContent.startsWith('Check your GitHub connection or SSH credentials'));
+ assert.ok(help);assert.equal(help.hidden,false);assert.match(f.notices.at(-1),/Authentication failed/);
+});
+
+test('publishing a subfolder identifies the full repository and changing projects restores private visibility',async t=>{
+ const f=await fixture();t.after(()=>f.ui.stop());f.context.roots=['/repo/nested','/other'];f.repo.changes=[];f.ui.render([f.repo]);await tick();
+ const projects=f.field('Project folder');assert.deepEqual(projects.children.map(option=>option.value),['/repo','/other']);assert.equal(projects.value,'/repo');
+ f.field('Visibility').value='public';projects.value='/other';projects.dispatch('change');assert.equal(f.field('Visibility').value,'private');assert.equal(f.button('Initialize Git').hidden,false);
+ f.field('Visibility').value='public';f.context.roots=['/new-project'];f.ui.render([]);await tick();
+ assert.equal(projects.value,'/new-project');assert.equal(f.field('Visibility').value,'private');
 });

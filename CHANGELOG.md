@@ -2,6 +2,9 @@
 
 ## 1.2.2 — Git review, language tools and faster startup (1 Nov 2026)
 
+- Add separate reusable and manual GitHub Actions builds for Windows portable EXE, Flatpak, AppImage and web/PWA deployment ZIP. Validate and test pushes and pull requests, build all targets on `main` and version tags, and collect all downloads plus corresponding source into draft releases. Fix the Windows build command and output path; install Flatpak runtimes from package metadata and verify expected artifacts before upload.
+- Initialize local projects, publish new private or public GitHub repositories, and connect existing repositories through new remotes. Upload only the current branch, preserve failed publication state for retry, and set a private GitHub commit identity during initialization when connected. Offer repository-local noreply identity setup and recovery guidance for email privacy, authentication and divergent-history push errors.
+- Create and switch local branches from the Git sidebar. Require saved buffers and a clean working tree, reject stale branch reviews and unfinished Git operations, respect linked worktrees, and refresh open files and Explorer after switching.
 - Add the desktop Git workflow: GitHub CLI browser sign-in and account status, repository browsing and cloning, per-file and bulk staging/unstaging, exact staged and unstaged diffs, repository commit identity, commits, fetch, fast-forward-only pull and normal push with upstream setup. Stream bounded progress, allow cancellation, preserve unsaved buffers and reject stale staging or concurrent operations. Run tools and credential helpers on the host in Flatpak.
 - Widen Preferences and wrap its section tabs on smaller screens so all options remain accessible without horizontal scrolling.
 - Use the supplied sidebar icons for Explorer, Git, Problems, Outline and Connections, with translated hover labels and accessible button names.

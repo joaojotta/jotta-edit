@@ -2737,7 +2737,7 @@ async function initialize() {
   sidebarViews=installSidebarViews({reveal:()=>{if(!state.sidebarOpen)toggleSidebar();}});
   gitPanel=installGitPanel({api,monaco,sidebar:sidebarViews,getDocuments:()=>state.tabs,languageOf,editorOptions,openFile,openFolder,
     prepare:params=>prepareGitOperation(params,{getDocuments:()=>state.tabs,save}),
-    operationDone:async action=>{if(action==='pull'){await automaticRefresh?.check({force:true,manual:true});await refreshFolder();}},
+    operationDone:async action=>{if(['pull','createBranch','switchBranch'].includes(action)){await automaticRefresh?.check({force:true,manual:true});await refreshFolder();}},
     getContext:()=>{
       const file=activeDocument()?.path||null,roots=state.folders.filter(folder=>!folder.remote).map(folder=>folder.path);
       if(file&&!folderFor(file)){const directory=parent(file);roots.push(/^[a-z]:$/i.test(directory)?directory+file[2]:directory||'/');}

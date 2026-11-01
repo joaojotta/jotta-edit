@@ -10,6 +10,7 @@ export async function prepareGitOperation({action,folder,files=[]},{getDocuments
   if(!folder)return true;
   const documents=getDocuments().filter(doc=>doc.path&&folderContains(folder,doc.path));
   if(action==='pull'&&documents.some(doc=>doc.dirty))throw new Error(tr('Save unsaved documents before pulling.'));
+  if(['createBranch','switchBranch','publish'].includes(action)&&documents.some(doc=>doc.dirty))throw new Error(tr('Save unsaved documents before switching branches or publishing.'));
   if(action==='stage'){
     const matches=file=>files.some(selected=>folderContains(selected,file)&&folderContains(file,selected));
     const selected=documents.filter(doc=>matches(doc.path));
@@ -52,18 +53,43 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
   button('Clone and open',clone,()=>{inferName();void perform('clone',{url:cloneURL.value.trim(),parent:parent.value,name:cloneName.value.trim()});});
   const opened=node('div','git-actions');host.append(opened);opened.hidden=true;let clonedRoot=null;
   button('Open cloned repository',opened,()=>void openFolder(clonedRoot));
+  const setup=section('Publish project to GitHub'),project=field('Project folder',setup,'select');
+  setup.append(node('p','git-note','Initialize Git, review and commit your files, then publish. Only the current branch is uploaded.'));
+  const initialize=button('Initialize Git',setup,()=>void perform('init',{folder:project.value,githubIdentity:Boolean(account?.connected)}));
+  setup.append(node('p','git-note','When GitHub is connected, initialization sets your private GitHub email for this repository.'));
+  const publishName=field('GitHub repository name',setup);publishName.maxLength=100;publishName.spellcheck=false;
+  const visibility=field('Visibility',setup,'select');
+  for(const [value,label] of [['private','Private'],['public','Public']]){const option=node('option','',label);option.value=value;visibility.append(option);}visibility.value='private';
+  const publishRemote=field('New remote name',setup);publishRemote.value='origin';
+  const publishNote=node('p','git-note');setup.append(publishNote);
+  const publish=button('Create repository and publish',setup,()=>{
+    const repo=projectRepository();
+    void perform('publish',{folder:project.value,name:publishName.value.trim(),visibility:visibility.value,remote:publishRemote.value.trim(),branch:repo?.branch,head:repo?.head});
+  });
+  setup.append(node('p','git-note','Review the committed files and history before publishing. Public repositories are visible to everyone.'));
   const repoControls=node('div','git-repository-controls');host.append(repoControls);
   const repoPicker=field('Repository',repoControls,'select');
   const tracking=node('p','git-note');repoControls.append(tracking);
+  const branches=section('Branches',repoControls),branchSelect=field('Local branch',branches,'select');
+  const switchBranch=button('Switch branch',branches,()=>void branchAction('switchBranch',branchSelect.value));
+  const newBranch=field('New branch name',branches);newBranch.spellcheck=false;newBranch.maxLength=200;
+  const createBranch=button('Create and switch branch',branches,()=>void branchAction('createBranch',newBranch.value.trim()));
+  branches.append(node('p','git-note','Save documents and commit or move local changes before switching branches.'));
   const remoteSettings=section('Remote and identity',repoControls);
   const remote=field('Remote',remoteSettings,'select'),target=field('Remote branch',remoteSettings);
   target.spellcheck=false;
+  const addRemote=section('Connect existing repository',remoteSettings),remoteName=field('Remote name',addRemote),remoteURL=field('Existing repository URL',addRemote);
+  remoteName.value='origin';remoteURL.placeholder='https://github.com/owner/repository.git';remoteURL.spellcheck=false;
+  const connectRemote=button('Add remote',addRemote,()=>void perform('remote',{folder:selectedRoot,remote:remoteName.value.trim(),url:remoteURL.value.trim()}));
+  addRemote.append(node('p','git-note','Adds a new remote without replacing existing ones. Then use Fetch to review its history or Push to upload your commits.'));
   const network=node('div','git-actions');repoControls.append(network);
   const fetch=button('Fetch',network,()=>void networkAction('fetch'));
   const pull=button('Pull',network,()=>void networkAction('pull'));
   const push=button('Push',network,()=>void networkAction('push'));
   const identity=section('Commit identity',remoteSettings),identityName=field('Name',identity),identityEmail=field('Email',identity);
   button('Save for this repository',identity,()=>void perform('identity',{folder:selectedRoot,name:identityName.value,email:identityEmail.value}));
+  const privateEmail=button('Use GitHub private email',identity,()=>void perform('githubIdentity',{folder:selectedRoot}));
+  identity.append(node('p','git-note','Uses your GitHub noreply email for future commits in this repository. Existing commits keep their original email.'));
   const stageControls=node('div','git-actions');repoControls.append(stageControls);
   const stageAll=button('Stage all',stageControls,()=>void changeStage('stage',selectedRepo()?.changes.filter(unstaged).map(change=>change.path)||[],selectedRoot));
   const unstageAll=button('Unstage all',stageControls,()=>void changeStage('unstage',selectedRepo()?.changes.filter(staged).map(change=>change.path)||[],selectedRoot));
@@ -72,12 +98,14 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
   const commit=button('Commit staged changes',repoControls,()=>void perform('commit',{folder:selectedRoot,message:commitMessage.value,indexState:details?.indexState,branch:details?.branch}));
   repoControls.append(node('p','git-note','Staging saves selected open files first. Commits include only staged changes. Pull requires a clean repository and saved documents.'));
   const progress=node('p','panel-status');progress.setAttribute('role','status');progress.setAttribute('aria-live','polite');host.append(progress);
+  const help=node('p','git-note');help.setAttribute('role','status');help.hidden=true;host.append(help);
   const progressActions=node('div','git-actions');host.append(progressActions);
   const cancel=node('button','git-action','Cancel Git operation');cancel.type='button';cancel.onclick=()=>{cancel.disabled=true;void api.cancelGit().catch(error=>message(error.message));};progressActions.append(cancel);cancel.hidden=true;
   const verify=node('button','git-action','Open verification page');verify.type='button';verify.onclick=()=>void api.openGitHubVerification().catch(error=>message(error.message));progressActions.append(verify);verify.hidden=true;
   const outputDetails=section('Git output'),output=node('pre','git-output');output.tabIndex=0;output.setAttribute('aria-label',tr('Git output'));outputDetails.append(output);
 
   const selectedRepo=()=>repositories.find(repo=>repo.root===selectedRoot);
+  const projectRepository=()=>repositories.filter(repo=>folderContains(repo.root,project.value)).sort((a,b)=>b.root.length-a.root.length)[0];
   const currentContext=()=>JSON.stringify(getContext().roots);
   function message(value){progress.textContent=value;notify(value);}
   function updateDisabled(){
@@ -85,11 +113,18 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
     repoControls.hidden=!selectedRepo();disconnect.hidden=!account?.connected;
     connect.hidden=Boolean(account?.connected);connect.disabled=busy||account?.available===false;loadRepos.disabled=busy||!account?.connected;
     previous.disabled=busy||page<=1;next.disabled=busy||!canNext;
+    setup.hidden=!project.children.length;
+    const publishRepo=projectRepository();initialize.hidden=Boolean(publishRepo);initialize.disabled=busy||!project.value;
+    publish.disabled=busy||!account?.connected||!publishRepo?.head||publishRepo.detached||Boolean(publishRepo.changes?.length)||!publishName.value.trim()||!publishRemote.value.trim();
+    publishNote.textContent=!publishRepo?tr('Initialize Git to start.'):!publishRepo.head?tr('Review, stage and commit your files before publishing.'):publishRepo.changes?.length?tr('Commit or move local changes before publishing.'):tr('Creates a new repository under your connected GitHub account. To connect an existing repository, use Remote and identity.');
     const loaded=details?.root===selectedRoot;
-    for(const control of [remote,target,fetch,pull,push,commit])control.disabled=busy||!loaded;
+    for(const control of [remote,target,fetch,pull,push,commit,branchSelect,newBranch,createBranch,switchBranch,privateEmail,connectRemote])control.disabled=busy||!loaded;
     const detached=details?.detached||!details?.branch;
     pull.disabled||=detached||!remote.value;push.disabled||=detached||!details?.head||!remote.value;fetch.disabled||=!remote.value;
     commit.disabled||=detached||!commitMessage.value.trim()||!details?.changes?.some(staged)||details?.changes?.some(change=>change.kind==='conflict');
+    switchBranch.disabled||=!details?.head||!branchSelect.value||branchSelect.value===details?.branch||Boolean(details?.changes?.length);
+    createBranch.disabled||=!details?.head||!newBranch.value.trim()||Boolean(details?.changes?.length);
+    privateEmail.disabled||=!account?.connected;
     stageAll.disabled=busy||!selectedRepo()?.changes.some(unstaged);unstageAll.disabled=busy||!selectedRepo()?.changes.some(staged);
     cancel.hidden=!busy;verify.hidden=!(busy&&operation?.action==='login');progressActions.hidden=!busy;
   }
@@ -113,6 +148,9 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
       target.value=targets.get(JSON.stringify([root,remote.value,result.branch]))??(result.upstreamRemote===remote.value&&result.upstreamBranch?result.upstreamBranch:result.branch||'');
       tracking.textContent=(result.branch||tr('Detached HEAD'))+(result.upstream?' → '+result.upstream:'')+` · ↑ ${result.ahead||0} ↓ ${result.behind||0}`;
       identityName.value=result.identity?.name||'';identityEmail.value=result.identity?.email||'';
+      const chosenBranch=branchSelect.value;branchSelect.replaceChildren();
+      for(const name of result.branches||[]){const option=node('option');option.value=name;option.textContent=name;branchSelect.append(option);}
+      branchSelect.value=(result.branches||[]).includes(chosenBranch)?chosenBranch:result.branch||'';
       identity.open=!identityName.value||!identityEmail.value;if(identity.open)remoteSettings.open=true;updateDisabled();
     }catch(error){if(revision===detailsRevision){detailsKey='';message(error.message);}}
   }
@@ -121,11 +159,17 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
     target.value=targets.get(JSON.stringify([selectedRoot,remote.value,details?.branch]))??(details?.upstreamRemote===remote.value?details.upstreamBranch:details?.branch||'');updateDisabled();
   });
   target.addEventListener('input',()=>{targets.set(JSON.stringify([selectedRoot,remote.value,details?.branch]),target.value);});
+  for(const input of [publishName,publishRemote,newBranch])input.addEventListener('input',updateDisabled);
+  branchSelect.addEventListener('change',updateDisabled);
+  project.addEventListener('change',()=>{publishName.value=nameOf(project.value);visibility.value='private';updateDisabled();});
   repoPicker.addEventListener('change',()=>{
     drafts.set(selectedRoot,commitMessage.value);selectedRoot=repoPicker.value;commitMessage.value=drafts.get(selectedRoot)||'';detailsKey='';void loadDetails();
   });
   async function networkAction(action){
     await perform(action,{folder:selectedRoot,remote:remote.value,target:target.value.trim(),branch:details?.branch});
+  }
+  async function branchAction(action,name){
+    await perform(action,{folder:selectedRoot,name,branch:details?.branch,head:details?.head});
   }
   async function changeStage(action,files,root){
     if(!files.length)return;
@@ -133,7 +177,7 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
   }
   async function perform(action,params={}){
     if(pending||operation)return false;
-    pending=true;early=[];operationContext=currentContext();log='';output.textContent='';progress.textContent=tr('Preparing Git operation…');updateDisabled();
+    pending=true;early=[];operationContext=currentContext();log='';output.textContent='';help.hidden=true;progress.textContent=tr('Preparing Git operation…');updateDisabled();
     try{
       if(!await prepare({action,...params}))throw new Error(tr('Git operation cancelled.'));
       if(currentContext()!==operationContext)throw new Error(tr('Workspace changed. Try the Git operation again.'));
@@ -148,7 +192,7 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
     if(!operation||event.id!==operation.id)return;
     if(event.type==='start'){
       progress.textContent=tr('Running Git operation…')+' '+event.action;
-      if(['login','clone','fetch','pull','push'].includes(event.action))outputDetails.open=true;
+      if(['login','clone','fetch','pull','push','publish'].includes(event.action))outputDetails.open=true;
       updateDisabled();
     }
     else if(event.type==='output'){
@@ -158,6 +202,8 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
       const completed=operation;operation=null;pending=false;cancel.disabled=false;
       progress.textContent=tr(event.ok?'Git operation completed.':event.error||'Git operation failed.');
       if(!event.ok){outputDetails.open=true;log=(log+'\n'+progress.textContent).slice(-128*1024);output.textContent=log;notify(progress.textContent);}
+      help.textContent=event.help?tr(event.help):'';help.hidden=!event.help;
+      if(event.ok&&completed.action==='createBranch'&&selectedRoot===completed.root)newBranch.value='';
       if(event.ok&&completed.action==='commit'){
         drafts.delete(completed.root);if(selectedRoot===completed.root)commitMessage.value='';
       }
@@ -179,6 +225,13 @@ export function installGitWorkflow({api,host,getContext,getDocuments,prepare=asy
   function render(repos){
     rowButtons.length=0;
     repositories=repos;
+    const roots=[...new Set([...repositories.map(repo=>repo.root),...getContext().roots.filter(root=>!repositories.some(repo=>folderContains(repo.root,root)))])],projectKey=JSON.stringify(roots);
+    if(project.dataset.roots!==projectKey){
+      const previous=project.value;project.dataset.roots=projectKey;project.replaceChildren();
+      for(const root of roots){const option=node('option');option.value=root;option.textContent=root;project.append(option);}
+      project.value=roots.includes(previous)?previous:roots[0]||'';
+      if(project.value!==previous){publishName.value=nameOf(project.value);visibility.value='private';}
+    }
     if(!repositories.some(repo=>repo.root===selectedRoot)){
       selectedRoot=repositories.find(repo=>getContext().file&&folderContains(repo.root,getContext().file))?.root||repositories[0]?.root||'';
       commitMessage.value=drafts.get(selectedRoot)||'';detailsKey='';++detailsRevision;

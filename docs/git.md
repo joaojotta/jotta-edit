@@ -8,6 +8,24 @@ Open the Git sidebar and expand **GitHub connection**. Install [GitHub CLI](http
 
 The connection uses the active GitHub.com account in GitHub CLI. **Check connection** refreshes its status. **Sign out** signs that account out of GitHub CLI too; it is a shared login. Existing SSH keys, agents and Git Credential Manager setups remain usable for Git operations without connecting through this panel. GitHub Enterprise account management is not included in this release.
 
+## Publish a project
+
+Open a local project folder, then expand **Publish project to GitHub** in the Git sidebar. Select the project folder. If it is inside an existing repository, the picker identifies that repository's full root: publishing includes its committed history, not just the selected subfolder.
+
+For a folder without Git, choose **Initialize Git**. This creates a `main` branch without staging or committing files. If GitHub is connected, initialization sets that account's GitHub `noreply` email and profile name as this repository's commit identity. Otherwise configure **Remote and identity → Commit identity** before committing. Review the changed files and `.gitignore`, stage the files you want to upload, and commit them through the existing controls.
+
+To create a **new** GitHub repository, connect GitHub, enter a repository name and a new remote name (normally `origin`), and choose **Create repository and publish**. Visibility defaults to **Private**; choosing **Public** makes the repository visible to everyone. Jotta creates an empty repository under the connected personal account, adds the remote, then pushes only the reviewed current branch and sets its upstream. Other branches and tags stay local. Publishing requires saved documents, a clean working tree and at least one commit on a branch. Review the committed files and history first: files already committed remain in history even if you later add them to `.gitignore`.
+
+To connect a repository that **already exists**, use **Remote and identity → Connect existing repository**. Enter an unused remote name and an HTTPS/SSH URL or `owner/repository`, then choose **Add remote**. Existing remotes are never replaced. Choose **Fetch** to inspect incoming commit counts, then **Pull** when a fast-forward is possible or **Push** to upload your branch. Unrelated or divergent histories need review with external Git tools.
+
+If creation succeeds but the first push fails, the new GitHub repository and any added remote are kept. The output identifies its URL. Correct the reported problem and use **Push** to retry. If creation itself is interrupted, check GitHub before retrying because the remote request may already have completed.
+
+## Branches
+
+Expand **Branches**, enter a **New branch name** and choose **Create and switch branch** to branch from the current commit. Or choose an existing **Local branch** and **Switch branch**. The editor refreshes clean open documents and Explorer after the switch. A detached checkout can create or switch to a branch too.
+
+Save documents and commit or move all local changes first, including untracked files. An in-progress merge, rebase or cherry-pick blocks branch operations. Jotta checks the reviewed branch and commit before acting, never forces a checkout, and respects branches already checked out in other worktrees. There is no branch deletion or implicit checkout of a remote branch.
+
 Expand **Clone repository** and choose **Load GitHub repositories** to browse repositories your account can access, in pages of 100. Choose a repository, or enter an HTTPS/SSH URL or `owner/repository`. Choose the local parent directory and a new folder name, then **Clone and open**. Existing destination folders are never overwritten. A failed or cancelled clone can leave partial files in its destination; Git output identifies that folder. The editor leaves those files available for inspection. If you changed workspaces during cloning, use **Open cloned repository** when ready.
 
 ## Stage and commit
@@ -18,6 +36,8 @@ Use **Stage** / **Unstage**, or **Stage all** / **Unstage all**. Staging saves t
 
 Enter a commit message and choose **Commit staged changes**. Only staged changes are committed; later edits and other unstaged files remain outside the commit. If staging changed externally since the displayed snapshot, refresh and review it before retrying. Existing hooks and signing settings still apply. If identity is missing, expand **Remote and identity → Commit identity**, enter your name and email, and choose **Save for this repository**; this changes only the repository's local Git configuration.
 
+Choose **Use GitHub private email** to obtain the connected account's `id+login@users.noreply.github.com` address and save it for future commits in this repository. An existing commit name is preserved; if missing, the GitHub profile name is used. Global Git settings and existing commit history are unchanged. If GitHub rejects a push with `GH007`, setting the identity fixes future commits, but you must review and correct the email in already-created unpublished commits with external Git tools before retrying. Jotta does not silently rewrite history or change GitHub privacy settings.
+
 ## Fetch, pull and push
 
 Expand **Remote and identity** to choose an existing **Remote** and check the **Remote branch**. The tracking line shows incoming and outgoing commit counts relative to the configured upstream, based on locally fetched information.
@@ -26,7 +46,7 @@ Expand **Remote and identity** to choose an existing **Remote** and check the **
 - **Pull** updates the current branch using fast-forward only. Save documents and commit or move local changes first, including untracked files. Diverged branches stop with an error instead of starting a merge or rebase. Resolve that situation with your existing Git tools.
 - **Push** sends the current local branch to the selected remote branch and sets its upstream. Rejected pushes are reported; this interface never requests force push.
 
-The editor checks that the current branch has not changed before committing, pulling or pushing. Detached HEAD cannot commit, pull or push through these controls. Creating and switching branches, managing remote URLs, interactive merge resolution, rebasing and pull requests remain tasks for external Git tools.
+The editor checks that the current branch has not changed before committing, pulling or pushing. Detached HEAD cannot commit, pull or push through these controls. Replacing or removing remotes, interactive merge resolution, rebasing and pull requests remain tasks for external Git tools. Rejected pushes show recovery guidance for private commit emails, authentication problems and divergent histories; existing local commits are kept.
 
 Git output streams progress and errors. **Cancel Git operation** stops the running command and its child processes. Only one write/network operation runs at a time. Cancellation is not an undo: staging, commits or transfers that already completed remain applied. Refresh and review the repository after interruption.
 
@@ -50,4 +70,4 @@ In Flatpak, Git runs on the host through the same host-tool mechanism used by C/
 
 Status and comparison reads keep optional Git index refresh writes and external filesystem-monitor commands disabled. Explicit workflow actions perform the requested changes. Git's normal repository ownership checks remain in effect. GitHub CLI is optional unless using account sign-in and repository browsing. Network commands allow up to ten minutes and can be cancelled; missing tools, authentication failures, signing or hook failures appear in Git output. This workflow is desktop-only; browser and remote-folder adapters do not expose Git writes.
 
-Workflow references: [VS Code source control](https://code.visualstudio.com/docs/sourcecontrol/overview), [Git status porcelain output](https://git-scm.com/docs/git-status#_porcelain_format_version_1) and [Git revision syntax](https://git-scm.com/docs/gitrevisions).
+Workflow references: [GitHub repository creation](https://cli.github.com/manual/gh_repo_create), [Git branch switching](https://git-scm.com/docs/git-switch), [GitHub commit email](https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address), [Git status porcelain output](https://git-scm.com/docs/git-status#_porcelain_format_version_1) and [Git revision syntax](https://git-scm.com/docs/gitrevisions).

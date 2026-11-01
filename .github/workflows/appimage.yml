@@ -1,0 +1,50 @@
+name: Build AppImage
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Linux AppImage (x86_64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies and Electron runtime
+        run: |
+          npm ci --no-audit --no-fund
+          npx --no-install install-electron --no
+          npm run install:check
+      - name: Check source and packaging configuration
+        run: npm run check
+      - name: Install AppImage build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libfuse2
+      - name: Build AppImage
+        run: npm run dist:appimage -- --publish never
+      - name: Verify AppImage
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          test -s "release/Jotta-Edit-${version}-linux-x86_64.AppImage"
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v7
+        with:
+          name: package-appimage-x86_64
+          path: release/*-linux-x86_64.AppImage
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

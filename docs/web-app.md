@@ -24,7 +24,9 @@ npm run build:pwa
 npm run preview:pwa
 ```
 
-Only the compiled **`web-dist/`** folder is deployable. The `web/index.html` source has no direct stylesheet links: Vite generates hashed CSS and JavaScript files and inserts the references during `npm run build:pwa`. The build now checks that these stylesheet and script files actually exist. The `./scripts/build-web.sh` script also generates `release/Jotta-Edit-1.1.4-Web-PWA-DEPLOY.zip` when the `zip` utility is installed; upload/extract that ZIP at the site root. **Do not upload the project source ZIP or `web/` directly.**
+Only the compiled **`web-dist/`** folder is deployable. The `web/index.html` source has no direct stylesheet links: Vite generates hashed CSS and JavaScript files and inserts the references during `npm run build:pwa`. The build now checks that these stylesheet and script files actually exist. The `./scripts/build-web.sh` script also generates `release/Jotta-Edit-<version>-Web-PWA-DEPLOY.zip` when the `zip` utility is installed; upload/extract that ZIP at the site root. **Do not upload the project source ZIP or `web/` directly.**
+
+For GitHub builds, run **Actions → Build Web → Run workflow**, or use **Build all packages**. Download the `package-web-pwa` artifact, extract the versioned `Jotta-Edit-<version>-Web-PWA-DEPLOY.zip` inside it, and upload that ZIP's contents to the site root. The build verifies generated assets and checks ZIP integrity. Pushes to `main` and pull requests also build the web target through the all-packages workflow; version tags include its ZIP in the draft release. These workflows prepare downloads without deploying to a host.
 
 The deployable **`web-dist/`** folder includes its entry `index.html`,
 prebundled JS/CSS, Monaco workers, fonts, icons, manifest and an offline service
