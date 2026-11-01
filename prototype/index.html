@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; img-src 'self' data:; font-src 'self' data:; connect-src 'self'">
+  <title>Sublime Prototype</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="shell">
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <span id="sidebar-title">No folder open</span>
+        <span class="sidebar-actions">
+          <button id="btn-settings" title="Preferences… (Ctrl+,)">⚙</button>
+          <button id="btn-open-folder" title="Open Folder…">📂</button>
+        </span>
+      </div>
+      <div id="file-tree"></div>
+    </aside>
+    <div id="workspace">
+      <div id="tab-strip"></div>
+      <div id="editor"></div>
+    </div>
+  </div>
+  <div id="status-bar">
+    <span id="status-message" class="status-item"></span>
+    <span id="status-spacer"></span>
+    <span id="status-position" class="status-item">Ln 1, Col 1</span>
+    <button id="status-language" class="status-item clickable" title="Change language mode">Plain Text</button>
+  </div>
+
+  <!-- Goto Anything: Sublime's unified Ctrl+P box. A leading ':' jumps to a
+       line in the active file, '@' searches symbols in the active file,
+       anything else fuzzy-matches project files (optionally suffixed with
+       ':line' to jump after opening). -->
+  <div id="goto-overlay" class="hidden" aria-hidden="true">
+    <div id="goto-box" role="dialog" aria-label="Goto Anything">
+      <input id="goto-input" type="text" placeholder="Go to anything… (@symbol, :line)" autocomplete="off" spellcheck="false" />
+      <div id="goto-list"></div>
+    </div>
+  </div>
+
+  <!-- Language mode switcher, opened from the status bar. -->
+  <div id="language-overlay" class="hidden" aria-hidden="true">
+    <div id="language-box" role="dialog" aria-label="Change language mode">
+      <input id="language-input" type="text" placeholder="Select language mode…" autocomplete="off" spellcheck="false" />
+      <div id="language-list"></div>
+    </div>
+  </div>
+
+  <!-- Preferences -->
+  <div id="settings-overlay" class="hidden" aria-hidden="true">
+    <div id="settings-box" role="dialog" aria-label="Preferences">
+      <h2>Preferences</h2>
+      <div class="settings-row">
+        <label for="setting-ui-font">UI font</label>
+        <select id="setting-ui-font">
+          <option value="">Rubik (default)</option>
+        </select>
+      </div>
+      <button id="settings-close" type="button">Close</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

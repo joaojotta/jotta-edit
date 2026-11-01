@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.prototype.SublimeEditor</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Sublime Prototype</name>
+  <summary>Sublime Text-feeling prototype editor built on Monaco</summary>
+  <developer id="pt.jotta">
+    <name>João Jotta</name>
+  </developer>
+  <description>
+    <p>A proof-of-concept editor built directly on Monaco, the open-source editing component behind VS Code, aimed at Sublime Text's lean, keyboard-first feel rather than a full IDE workbench.</p>
+    <p>Includes a unified Goto Anything box (files, symbols, line numbers in one input), native multi-cursor editing, distraction-free mode, large-file performance tuning, Emmet abbreviation expansion, and inline CSS colour highlighting.</p>
+  </description>
+  <url type="homepage">https://example.com/sublime-prototype</url>
+  <launchable type="desktop-id">dev.prototype.SublimeEditor.desktop</launchable>
+  <provides>
+    <binary>sublime-prototype</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+    <category>TextEditor</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.0.1" date="2026-10-24">
+      <description>
+        <p>First prototype: Monaco-based shell with Goto Anything, multi-cursor editing, distraction-free mode, large-file handling, Emmet, inline colour highlighting, a redesigned status bar with a language switcher, and a Preferences panel for choosing the UI font.</p>
+      </description>
+    </release>
+  </releases>
+</component>

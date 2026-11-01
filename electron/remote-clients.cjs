@@ -1,0 +1,139 @@
+'use strict';
+const {Readable, Writable}=require('node:stream');
+const path=require('node:path').posix;
+const MAX_BYTES=5*1024*1024;
+
+function missing(){return Object.assign(new Error('Remote entry does not exist.'),{code:'ENOENT'});}
+function attributes({name='',dir=false,link=false,file=!dir&&!link,size=0,mtimeMs=0,mode=dir?0o755:0o644,linkTarget}={}){
+  return {name,size,mtimeMs,mode,linkTarget,isDirectory:()=>dir,isFile:()=>file&&!link,isSymbolicLink:()=>link};
+}
+function boundedSink(onProgress=()=>{}){
+  const chunks=[];let size=0;
+  const stream=new Writable({write(chunk,_encoding,done){size+=chunk.length;if(size>MAX_BYTES)return done(new Error('File exceeds the 5 MB editor limit'));chunks.push(chunk);onProgress(size);done();}});
+  return {stream,bytes:()=>Buffer.concat(chunks)};
+}
+function uploadStream(bytes,onProgress=()=>{}){
+  return Readable.from((function*(){for(let offset=0;offset<bytes.length;offset+=65536){const end=Math.min(offset+65536,bytes.length);yield bytes.subarray(offset,end);onProgress(end);}})(),{objectMode:false});
+}
+
+// These clients speak to the server from Electron. No processes, mount drivers,
+// desktop services, native dialogs or shell credential handoffs are involved.
+async function createRemoteClient(location,credentials,{verifyHostKey,registerClose=()=>{},onDisconnect=()=>{}}={}){
+  const url=new URL(location.uri),username=decodeURIComponent(url.username);
+  const host=url.hostname.replace(/^\[|\]$/g,'');
+  if(location.protocol==='ftp'){
+    const {Client}=require('basic-ftp'),client=new Client(30000);
+    registerClose(()=>client.close());
+    await client.access({host,port:Number(url.port)||21,user:username||'anonymous',password:credentials.password||''});
+    client.ftp.socket.once('close',onDisconnect);
+    const inDirectory=async(dir,operation)=>{
+      const previous=await client.pwd();
+      if(dir===previous)return operation();
+      await client.cd(dir);
+      try{return await operation();}finally{await client.cd(previous);}
+    };
+    // Enter the directory first: some FTP servers ignore MLSD/LIST path
+    // arguments or return the link itself instead of the directory contents.
+    const fetchList=dir=>inDirectory(dir,async()=>{
+      let entries=await client.list();
+      if(client.availableListCommands.includes('MLSD')&&entries.some(x=>(x.isSymbolicLink&&!x.link)||(!x.isSymbolicLink&&!x.isDirectory&&!x.isFile))){
+        const commands=client.availableListCommands;let usedLegacy=false;
+        try{
+          client.availableListCommands=['LIST -a','LIST'];
+          const legacy=new Map((await client.list()).map(x=>[x.name,x]));usedLegacy=true;
+          entries=entries.map(x=>((x.isSymbolicLink&&!x.link)||(!x.isSymbolicLink&&!x.isDirectory&&!x.isFile))?(legacy.get(x.name)||x):x);
+        }catch{/* Keep the original entries when the server only supports MLSD. */}
+        finally{if(!usedLegacy)client.availableListCommands=commands;}
+      }
+      return entries.map(x=>attributes({name:x.name,dir:x.isDirectory,link:x.isSymbolicLink,file:x.isFile,size:x.size,mtimeMs:x.modifiedAt?.getTime()||0,linkTarget:x.link}));
+    });
+    // Path resolution re-stats every ancestor of every path on every single
+    // operation (see remote-paths.cjs), and each FTP stat() is itself a full
+    // directory LIST. Caching recent listings turns the redundant LIST calls
+    // for already-seen directories into cache hits; a short TTL still catches
+    // changes made outside this connection, and local mutations below evict
+    // the affected directory immediately rather than waiting for it to expire.
+    const LIST_CACHE_MS=5000,listCache=new Map();
+    const invalidateList=dir=>listCache.delete(dir);
+    const list=async dir=>{
+      const cached=listCache.get(dir);
+      if(cached&&Date.now()-cached.time<LIST_CACHE_MS)return cached.entries;
+      const entries=await fetchList(dir);
+      listCache.set(dir,{time:Date.now(),entries});
+      return entries;
+    };
+    const directoryPath=async file=>inDirectory(file,()=>client.pwd());
+    const stat=async(file,{follow=false}={})=>{
+      if(file==='/')return attributes({dir:true});
+      const item=(await list(path.dirname(file))).find(x=>x.name===path.basename(file));if(!item)throw missing();
+      if(follow&&item.isSymbolicLink()){
+        await directoryPath(file);
+        return attributes({...item,dir:true,link:false,file:false});
+      }
+      return item;
+    };
+    return {
+      list,
+      directoryPath,
+      async directoryLinkPath(file,target){
+        // LIST can expose an absolute host path outside the FTP namespace.
+        // Prefer usable link metadata; otherwise let CWD/PWD verify the alias.
+        if(target){
+          if(!path.isAbsolute(target))return null;
+          try{await stat(target);return null;}catch(error){if(error.code!=='ENOENT'&&error.code!==550)throw error;}
+        }
+        return directoryPath(file);
+      },
+      async readlink(file){const entry=(await list(path.dirname(file))).find(x=>x.name===path.basename(file));if(!entry)throw missing();return entry.linkTarget;},
+      stat,
+      async read(file,progress){const sink=boundedSink(progress);await client.downloadTo(sink.stream,file);return sink.bytes();},
+      write:async(file,bytes,_mode,progress)=>{await client.uploadFrom(uploadStream(bytes,progress),file);invalidateList(path.dirname(file));},
+      mkdir:async file=>{await client.send('MKD '+file);invalidateList(path.dirname(file));},
+      rename:async(from,to)=>{await client.rename(from,to);invalidateList(path.dirname(from));invalidateList(path.dirname(to));},
+      remove:async file=>{await client.remove(file);invalidateList(path.dirname(file));},
+      close:()=>client.close()
+    };
+  }
+  if(location.protocol==='sftp'){
+    if(!username)throw new Error('Enter a username for this server.');
+    const Client=require('ssh2-sftp-client'),client=new Client('Jotta Edit', {error:()=>{},end:()=>{},close:()=>{}});
+    registerClose(()=>client.client.destroy());
+    client.client.once('close',onDisconnect);
+    await client.connect({host,port:Number(url.port)||22,username,password:credentials.password||undefined,
+      readyTimeout:30000,keepaliveInterval:10000,keepaliveCountMax:2,
+      hostHash:'sha256',hostVerifier:(hash,callback)=>{Promise.resolve(verifyHostKey?.(hash)).then(value=>callback(value===true),()=>callback(false));}});
+    const stat=async file=>{const s=await client.lstat(file);return attributes({dir:s.isDirectory,link:s.isSymbolicLink,file:s.isFile,size:s.size,mtimeMs:s.modifyTime,mode:s.mode});};
+    return {
+      stat,
+      readlink:file=>new Promise((resolve,reject)=>client.sftp.readlink(file,(error,target)=>error?reject(error):resolve(target))),
+      list:async dir=>(await client.list(dir)).map(x=>attributes({name:x.name,dir:x.type==='d',link:x.type==='l',file:x.type==='-',size:x.size,mtimeMs:x.modifyTime})),
+      async read(file,progress){const sink=boundedSink(progress);await client.get(file,sink.stream);return sink.bytes();},
+      write:(file,bytes,mode,progress)=>client.put(uploadStream(bytes,progress),file,{writeStreamOptions:{flags:'wx',mode}}),
+      mkdir:file=>client.mkdir(file),
+      rename:(from,to,replace)=>replace?client.posixRename(from,to):client.rename(from,to),
+      remove:file=>client.delete(file),
+      close:()=>client.end()
+    };
+  }
+  const {SmbClient}=await import('./smb-client.mjs');
+  const split=username.indexOf('\\'),domain=split<0?'':username.slice(0,split),user=split<0?username:username.slice(split+1);
+  const client=new SmbClient({host,domain,username:user||'guest',password:credentials.password||'',port:Number(url.port)||445,connectTimeout:30000,requestTimeout:30000,signing:'required'});
+  let closed=false;
+  const close=()=>{closed=true;client.destroy();};
+  registerClose(close);
+  await client.connect();if(closed){client.destroy();throw new Error('Connection cancelled.');}
+  client.conn?.transport?.socket?.once('close',onDisconnect);
+  const file=value=>location.parts[0]+(value==='/'?'':value);
+  const stats=s=>attributes({dir:s.isDirectory,link:!!(s.attributes&0x400),size:s.size,mtimeMs:s.mtime.getTime()});
+  return {
+    stat:async value=>stats(await client.stat(file(value))),
+    list:async value=>(await client.readdir(file(value),{withFileTypes:true})).map(x=>attributes({name:x.name,dir:x.isDirectory()})),
+    async read(value,progress){const sink=boundedSink(progress);await require('node:stream/promises').pipeline(client.createReadStream(file(value)),sink.stream);return sink.bytes();},
+    write:(value,bytes,_mode,progress)=>client.writeExclusive(file(value),bytes,progress),
+    mkdir:value=>client.mkdir(file(value)),
+    rename:(from,to,replace)=>client.renameReplace(file(from),file(to),replace),
+    remove:value=>client.rm(file(value)),
+    close
+  };
+}
+module.exports={createRemoteClient,attributes};

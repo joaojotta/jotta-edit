@@ -1,0 +1,70 @@
+{
+  "name": "sublime-prototype",
+  "productName": "Sublime Prototype",
+  "version": "0.0.1",
+  "description": "Prototype: a Sublime Text-like editor built on Monaco (VS Code's open-source editing core)",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dist:flatpak": "npm run build && electron-builder --linux flatpak --x64"
+  },
+  "dependencies": {
+    "@fontsource/rubik": "^5.0.0",
+    "emmet": "2.4.11",
+    "marked": "18.1.1",
+    "monaco-editor": "0.55.1"
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.0.12",
+    "vite": "7.3.5"
+  },
+  "build": {
+    "appId": "dev.prototype.SublimeEditor",
+    "productName": "Sublime Prototype",
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "linux": {
+      "target": ["flatpak"],
+      "category": "Development",
+      "icon": "assets/icons",
+      "executableName": "sublime-prototype",
+      "synopsis": "Sublime Text-feeling prototype editor built on Monaco"
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "sdk": "org.freedesktop.Sdk",
+      "runtimeVersion": "25.08",
+      "base": "org.electronjs.Electron2.BaseApp",
+      "baseVersion": "25.08",
+      "branch": "stable",
+      "useWaylandFlags": false,
+      "artifactName": "Sublime-Prototype-${version}-linux-${arch}.flatpak",
+      "finishArgs": [
+        "--socket=x11",
+        "--share=ipc",
+        "--device=dri",
+        "--filesystem=home",
+        "--env=XDG_SESSION_TYPE=x11",
+        "--env=WAYLAND_DISPLAY=",
+        "--env=WAYLAND_SOCKET="
+      ],
+      "files": [
+        ["assets/linux/dev.prototype.SublimeEditor.metainfo.xml", "/share/metainfo/dev.prototype.SublimeEditor.metainfo.xml"]
+      ]
+    }
+  }
+}

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>pt.jotta.edit</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <name>Jotta Edit</name>
+  <summary>Code editor with Emmet, syntax themes and formatting</summary>
+  <summary xml:lang="pt">Editor de código com Emmet, temas de sintaxe e formatação</summary>
+  <developer id="pt.jotta">
+    <name>João Jotta</name>
+  </developer>
+  <description>
+    <p>Jotta Edit is a code editor for working with local files and web projects. It combines syntax highlighting, code completion, Emmet abbreviations and document formatting in a customisable desktop interface.</p>
+    <p xml:lang="pt">O Jotta Edit é um editor de código para trabalhar com ficheiros locais e projetos web. Combina realce de sintaxe, sugestões de código, abreviaturas Emmet e formatação de documentos numa interface personalizável.</p>
+    <p>Choose your editor and interface themes, organise files in the Explorer, and preview HTML and PHP projects in your browser. PHP previews require PHP installed on the host system.</p>
+    <p xml:lang="pt">Escolha os temas do editor e da interface, organize ficheiros no Explorador e pré-visualize projetos HTML e PHP no navegador. A pré-visualização PHP requer o PHP instalado no sistema anfitrião.</p>
+  </description>
+  <url type="homepage">https://edit.jotta.pt/</url>
+  <launchable type="desktop-id">pt.jotta.edit.desktop</launchable>
+  <provides>
+    <binary>jotta-edit</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+    <category>IDE</category>
+    <category>TextEditor</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.2.2" date="2026-11-01">
+      <description>
+        <p>Review Git branches and changed files, and compare editor buffers with committed versions. Use live diagnostics, a Problems sidebar, definition navigation, symbol renaming and language-server settings.</p>
+        <p>Start faster, refresh local files through filesystem notifications and recover sessions more reliably. Fix language-server cleanup during Flatpak builds and show packaging progress.</p>
+      </description>
+    </release>
+    <release version="1.2.1" date="2026-10-29">
+      <description>
+        <p>Build, run, test and format C/C++ using installed native tools. Filter the console to program output only, view output in fullscreen with program input, and resize console text independently with saved zoom controls.</p>
+      </description>
+    </release>
+    <release version="1.2.0" date="2026-10-28">
+      <description>
+        <p>Open images in tabs with zoom controls and editable SVG source, and preview font files with custom text and size controls. Increase text zoom limits and bundle colour emoji support, including the coffee symbol. Customize keyboard shortcuts and work across multiple project folders.</p>
+      </description>
+    </release>
+    <release version="1.1.9" date="2026-10-27">
+      <description>
+        <p>Give file tabs more room with one compact editor actions menu, including shortcut hints and keyboard navigation.</p>
+      </description>
+    </release>
+    <release version="1.1.8" date="2026-10-25">
+      <description>
+        <p>Navigate with Go to Anything, clickable breadcrumbs, pinned tabs and preview tabs. Remember file picker folders, filter entries and open multiple files.</p>
+        <p>Refresh Explorer automatically and reload clean files while preserving unsaved edits and missing-file buffers.</p>
+        <p>Name colour favourites, preserve opacity and reuse recent colours. Export and import global settings, and resize Markdown preview text independently.</p>
+      </description>
+    </release>
+    <release version="1.1.7" date="2026-10-25">
+      <description>
+        <p>Pick a syntax theme and the whole interface follows its colours. Save favourite colours in the colour editor, get CSS suggestions inside HTML style blocks, and open files through the same in-app browser as folders.</p>
+      </description>
+    </release>
+    <release version="1.1.6" date="2026-10-24">
+      <description>
+        <p>Navigate HTML elements, IDs and classes in the document outline, including CSS selectors and grouping rules in embedded style blocks with their original source positions.</p>
+      </description>
+    </release>
+    <release version="1.1.5" date="2026-10-24">
+      <description>
+        <p>Compare external file changes with your edits, select individual changes and save the resolved file with another check for newer changes.</p>
+        <p>Preserve the saved baseline in recovery sessions and build Windows portable, Flatpak and AppImage packages through automated release builds.</p>
+      </description>
+    </release>
+    <release version="1.1.4" date="2026-10-24">
+      <description>
+        <p>Navigate document headings, code symbols and CSS selectors in the outline sidebar.</p>
+        <p>Monitor remote connection status, transfer progress and failed operations, with reconnect controls and conflict-checked save retries.</p>
+      </description>
+    </release>
+    <release version="1.1.3" date="2026-10-23">
+      <description>
+        <p>Export Markdown to HTML and PDF with labelled placeholders for unavailable images, and show the saved location and export feedback persistently.</p>
+      </description>
+    </release>
+    <release version="1.1.2" date="2026-10-23">
+      <description>
+        <p>Markdown export to HTML and PDF, folder and server favourites with optional encrypted credentials, and direct FTP, SFTP and SMB access.</p>
+        <p>Improved remote folder listings, link handling and Explorer refresh.</p>
+      </description>
+    </release>
+    <release version="1.1.1" date="2026-10-20"><description><p>Live Markdown preview, formatting tools and dedicated Markdown icons on desktop and web.</p></description></release>
+    <release version="1.1.0" date="2026-10-20"><description><p>FTP, SFTP and SMB folders through desktop mounts, with safer remote saving.</p></description></release>
+    <release version="1.0.2" date="2026-10-19">
+      <description>
+        <p>Live web previews, Explorer file creation, colour display preferences and browser workspace downloads.</p>
+      </description>
+    </release>
+  </releases>
+</component>
