@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.3.1</strong> &nbsp;·&nbsp; WebDAV connections
+  <strong>Version 1.3.2</strong> &nbsp;·&nbsp; Simpler project Git workflow
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 | :--- | :--- |
 | **Tabs & split editing** | Preview files with one click, keep them by editing or double-clicking, pin frequently used tabs, and work in two resizable panes with saved-version comparisons. |
 | **Visual conflict resolution** | Compare external file changes with your edits, copy individual changes, and save your chosen result with another check for newer changes. |
-| **Git and GitHub** | Connect GitHub through GitHub CLI, initialize and publish projects, connect existing remotes, browse and clone repositories, create and switch branches, stage changes, review staged diffs, commit, fetch, pull and push. Includes private commit email setup, branch and file badges, progress and cancellation. Uses installed desktop/Flatpak host tools and existing credentials. See [Git workflow](docs/git.md). |
+| **Git and GitHub** | Update the current project through Save and commit all, Update project and Upload commits. Merge divergent changes and resolve text conflicts in the editor. Advanced contains GitHub sign-in, repository setup, cloning, branches and manual staging. Includes private commit email setup, branch and file badges, progress and cancellation. Uses installed desktop/Flatpak host tools and existing credentials. See [Git workflow](docs/git.md). |
 | **Editor actions** | Use the **…** menu at the right of the tabs for Split editor, Compare, previews, Format document, Quick open and Command palette. Keyboard shortcuts remain available. |
 | **Multiple project folders** | Add up to 20 local, browser or remote roots to one workspace. Search and replace across them, retain per-folder preferences and restore the folder list on restart. |
 | **Quick navigation** | Use Ctrl+P for files, `:line`, `@symbol` or `file:line`; browse clickable breadcrumbs, reveal folders in Explorer and find commands through the command palette. |
@@ -88,7 +88,7 @@ The [Build all packages workflow](.github/workflows/build-desktop.yml) validates
 
 - **Automatic builds:** pushes to `main` build all four targets. Pull requests targeting `main` run checks, tests and the web build; desktop packaging runs after merging.
 - **Try a build:** commit and push the workflows, open **Actions → Build all packages → Run workflow**, and select a branch. Each individual build workflow also has its own **Run workflow** button. Download the packages from **Artifacts** on the completed run (kept for 14 days). Individual workflows check and build their target; the all-packages workflow also runs the full test suite.
-- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.3.1` followed by `git push origin v1.3.1`. The all-packages workflow checks that the tag matches `package.json`, builds every target, and attaches the four downloads and source archive to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact. Manual builds produce artifacts without creating a release.
+- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.3.2` followed by `git push origin v1.3.2`. The all-packages workflow checks that the tag matches `package.json`, builds every target, and attaches the four downloads and source archive to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact. Manual builds produce artifacts without creating a release.
 
 Extract the `Jotta-Edit-<version>-Web-PWA-DEPLOY.zip` from the web artifact and upload its contents to your web host. It includes the compiled `index.html`, assets, fonts, manifest and offline worker. The workflow produces a deployable ZIP; it does not need hosting credentials. See [web deployment](docs/web-app.md).
 

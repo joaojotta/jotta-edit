@@ -11,10 +11,10 @@ const basename=file=>file.replace(/\\/g,'/').split('/').filter(Boolean).at(-1)||
 
 export function installGitPanel({api,monaco,sidebar,getContext,getDocuments,languageOf,editorOptions=()=>({}),openFile,openFolder,prepare,operationDone=()=>{},showDiff,hideDiff,notify=()=>{},changed=()=>{},documentRef=document}){
   const $=id=>documentRef.getElementById(id),supported=Boolean(api.gitStatus),list=$('git-changes'),status=$('git-status'),branch=$('status-git'),filter=$('git-filter');
-  let contextKey='',generation=0,comparisonRevision=0,refreshTimer=null,pollTimer=null,alive=false,running=null,queued=false;
+  let activeKey='',contextKey='',generation=0,comparisonRevision=0,refreshTimer=null,pollTimer=null,alive=false,running=null,queued=false;
   let repositories=[],errors=[],files=new Map(),folders=new Map(),watchFolders=[],lastSignature='',diff=null,original=null,modified=null,ownsModified=false,comparisonFile=null;
   const subscriptions=[];
-  const workflow=installGitWorkflow({api,host:$('git-workflow'),getContext,getDocuments,prepare,openFolder,refresh,compare,notify,operationDone,documentRef});
+  const workflow=installGitWorkflow({api,host:$('git-workflow'),getContext,getDocuments,prepare,openFolder,openFile,renderChanges:render,refresh,compare,notify,operationDone,documentRef});
   $('btn-git').hidden=!supported;branch.hidden=true;
   function roots(){return [...new Set(getContext().roots.filter(Boolean))];}
   function activeRepository(){
@@ -54,6 +54,7 @@ export function installGitPanel({api,monaco,sidebar,getContext,getDocuments,lang
     workflow?.render(repositories);
     list.replaceChildren();const query=filter.value.trim().toLocaleLowerCase();let count=0;
     for(const repo of repositories){
+      if(workflow&&!workflow.visibleRepository(repo))continue;
       const group=documentRef.createElement('section'),heading=documentRef.createElement('h3');
       group.className='git-repository';heading.textContent=basename(repo.root)+' · '+branchLabel(repo);heading.title=repo.root;group.append(heading);list.append(group);
       if(workflow){count+=workflow.renderRepository(group,repo,query);continue;}
@@ -71,12 +72,14 @@ export function installGitPanel({api,monaco,sidebar,getContext,getDocuments,lang
     status.textContent=errors.length?errors.join('\n'):!supported?tr('Git integration requires the desktop app.'):!repositories.length?tr('Open a local Git repository to see changes.'):repositories.some(repo=>repo.limited)?tr('Showing the first 8,000 Git changes.'):count?tr('Changed files')+': '+count:query?tr('No Git changes match.'):tr('Working tree clean. Unsaved buffers are compared when opened.');
   }
   function updateContext(){
+    const active=JSON.stringify([getContext().root,getContext().file]);
+    const selectionChanged=active!==activeKey;activeKey=active;
     const next=JSON.stringify(roots());
     if(next!==contextKey){
       contextKey=next;++generation;repositories=[];errors=[];watchFolders=[];lastSignature='';rebuildMarkers();
       if(alive)schedule(0);
     }
-    renderBranch();
+    renderBranch();if(selectionChanged&&alive)render();
   }
   function schedule(delay=350){
     if(!supported||!alive)return;

@@ -93,7 +93,8 @@ class GitService {
       ...(branch?[path.dirname(path.join(dir,'refs','heads',branch))]:[])])];
     const watchFolders=[];
     for(const directory of new Set(candidates))try{if((await fs.stat(directory)).isDirectory())watchFolders.push(directory);}catch{/* A new repository may not have loose refs yet. */}
-    return {root,branch,head,detached:!branch,...parseStatus(status,root),watchFolders};
+    const mergeHead=await fs.readFile(path.resolve(root,gitDir,'MERGE_HEAD'),'utf8').then(value=>value.trim()).catch(()=>null);
+    return {root,branch,head,mergeHead,detached:!branch,...parseStatus(status,root),watchFolders};
   }
   async compare({folder,file,includeWorking=true}={}){
     folder=absolute(folder);file=absolute(file);

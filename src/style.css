@@ -803,3 +803,18 @@ html,body,button,input,select,textarea,.jotta-color-editor,.jotta-font-menu { fo
   .status-left { flex: 1; overflow: hidden; }
   .status-right { flex-shrink: 0; }
 }
+
+/* Current-project Git workflow; repository setup stays in Advanced. */
+#git-workflow { gap: 6px; padding: 0 8px 8px; }
+.git-project-summary { margin: 2px 0; font-size: calc(var(--ui-font-size) - 1px); font-weight: 500; }
+.git-merge-controls { padding: 6px; border: 1px solid var(--line); border-radius: 4px; }
+.git-merge-controls .git-note { margin-top: 0; }
+#git-workflow > .git-settings { padding: 6px; }
+#git-workflow > .git-settings > .git-settings { margin-top: 6px; }
+#git-workflow .git-actions { margin-bottom: 5px; gap: 4px; }
+#git-workflow .git-field { margin-bottom: 6px; gap: 3px; }
+#git-workflow .git-note { margin-block: 5px; }
+
+#git-workflow .git-project-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#git-workflow .git-repository-controls > .git-note:first-child { white-space: pre-line; }
+#git-workflow .git-field textarea { min-height: 46px; }

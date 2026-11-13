@@ -262,3 +262,71 @@ test('failed publishing preserves the created repository and remote and explains
  assert.ok((await fs.stat(f.bare)).isDirectory());assert.equal((await f.git('config','--get','remote.origin.url')).trim(),'https://github.com/test-user/project.git');
  assert.equal((await f.git('rev-parse','HEAD')).trim(),f.params.head);
 });
+
+async function connected(t){
+ const f=await fixture(t),bare=path.join(f.disk,'remote.git'),other=path.join(f.disk,'other');
+ await exec('git',['init','--bare',bare],{env:f.environment});await f.git('remote','add','origin',bare);await f.git('push','-u','origin','main');
+ await exec('git',['clone','--branch','main',bare,other],{env:f.environment});
+ const otherGit=async(...args)=>(await exec('git',['-C',other,'-c','user.name=Other','-c','user.email=other@example.invalid','-c','commit.gpgsign=false',...args],{env:f.environment})).stdout;
+ async function remoteCommit(name,content){await fs.writeFile(path.join(other,name),content);await otherGit('add','.');await otherGit('commit','-m','Remote change');await otherGit('push');}
+ return {...f,bare,other,otherGit,remoteCommit};
+}
+test('Update project fast-forwards and merges divergence while preserving both local and remote commits',async t=>{
+ const f=await connected(t);await f.remoteCommit('remote.txt','first');
+ const update=async()=>f.operation({action:'update',remote:'origin',target:'main',head:(await f.git('rev-parse','HEAD')).trim()});
+ const fast=await update();assert.equal(fast.ok,true,fast.error);assert.equal(await fs.readFile(path.join(f.root,'remote.txt'),'utf8'),'first');
+ await fs.writeFile(path.join(f.root,'local.txt'),'local');await f.git('add','.');await f.git('commit','-m','Local change');const local=(await f.git('rev-parse','HEAD')).trim();
+ await f.remoteCommit('remote.txt','second');const incoming=(await f.otherGit('rev-parse','HEAD')).trim();
+ const merged=await update();assert.equal(merged.ok,true,merged.error);
+ assert.equal(await fs.readFile(path.join(f.root,'local.txt'),'utf8'),'local');assert.equal(await fs.readFile(path.join(f.root,'remote.txt'),'utf8'),'second');
+ await f.git('merge-base','--is-ancestor',local,'HEAD');await f.git('merge-base','--is-ancestor',incoming,'HEAD');
+ assert.equal((await f.git('rev-list','--parents','-n','1','HEAD')).trim().split(' ').length,3);
+ assert.equal((await f.operation({action:'push',remote:'origin',target:'main'})).ok,true);
+});
+test('Update project blocks dirty buffers on disk, stale heads and existing merges',async t=>{
+ const f=await connected(t),head=(await f.git('rev-parse','HEAD')).trim();await fs.writeFile(path.join(f.root,'untracked'),'keep');
+ const params={action:'update',remote:'origin',target:'main',head};
+ assert.match((await f.operation(params)).error,/local changes/);await fs.unlink(path.join(f.root,'untracked'));
+ assert.match((await f.operation({...params,head:'b'.repeat(40)})).error,/branch changed/);
+ assert.equal((await f.git('rev-parse','HEAD')).trim(),head);
+});
+test('conflicting updates can be resolved and finished inside the app, with stale reviews and markers rejected',async t=>{
+ const f=await connected(t),file=path.join(f.root,'file.txt');
+ await fs.writeFile(file,'ours\n');await f.git('add','.');await f.git('commit','-m','Local');
+ const head=(await f.git('rev-parse','HEAD')).trim();await f.remoteCommit('file.txt','theirs\n');
+ const update=await f.operation({action:'update',remote:'origin',target:'main',head});assert.equal(update.ok,false);assert.match(update.help,/conflicted files/);
+ let review=await f.workflow.details(f.root);assert.ok(review.mergeHead);assert.ok(review.changes.some(c=>c.kind==='conflict'));
+ const params=()=>({head:review.head,mergeHead:review.mergeHead,indexState:review.indexState});
+ assert.match((await f.operation({action:'finishMerge',...params()})).error,/Resolve all/);
+ assert.match((await f.operation({action:'resolveConflict',files:[file],...params()})).error,/conflict markers/);
+ await fs.writeFile(file,'combined\n');
+ assert.match((await f.operation({action:'resolveConflict',files:[file],...params(),mergeHead:'b'.repeat(40)})).error,/merge changed/);
+ const resolved=await f.operation({action:'resolveConflict',files:[file],...params()});assert.equal(resolved.ok,true,resolved.error);
+ assert.match((await f.operation({action:'finishMerge',...params()})).error,/Staged changes/);
+ review=await f.workflow.details(f.root);const finished=await f.operation({action:'finishMerge',...params()});assert.equal(finished.ok,true,finished.error);
+ assert.equal((await f.workflow.details(f.root)).mergeHead,null);assert.equal(await fs.readFile(file,'utf8'),'combined\n');
+});
+test('Abort merge returns to the pre-update commit and leaves unrelated untracked files intact',async t=>{
+ const f=await connected(t),file=path.join(f.root,'file.txt');await fs.writeFile(file,'ours\n');await f.git('add','.');await f.git('commit','-m','Local');
+ const head=(await f.git('rev-parse','HEAD')).trim();await f.remoteCommit('file.txt','theirs\n');
+ assert.equal((await f.operation({action:'update',remote:'origin',target:'main',head})).ok,false);
+ const review=await f.workflow.details(f.root);await fs.writeFile(path.join(f.root,'unrelated.txt'),'keep');
+ const aborted=await f.operation({action:'abortMerge',head:review.head,mergeHead:review.mergeHead});assert.equal(aborted.ok,true,aborted.error);
+ assert.equal((await f.git('rev-parse','HEAD')).trim(),head);assert.equal(await fs.readFile(file,'utf8'),'ours\n');assert.equal(await fs.readFile(path.join(f.root,'unrelated.txt'),'utf8'),'keep');
+});
+test('Save and commit all stages reviewed literal filenames and refuses a stale index before changing it',async t=>{
+ const f=await fixture(t),file=path.join(f.root,'[literal]*.txt');await fs.writeFile(file,'one');
+ let review=await f.workflow.details(f.root);const params=()=>({action:'commitAll',files:[file],message:'Project update',branch:review.branch,head:review.head,indexState:review.indexState});
+ await fs.writeFile(path.join(f.root,'file.txt'),'outside staged');await f.git('add','file.txt');
+ assert.match((await f.operation(params())).error,/Staged changes/);assert.equal((await f.git('ls-files','--cached','--','[literal]*.txt')).trim(),'');
+ review=await f.workflow.details(f.root);const result=await f.operation(params());assert.equal(result.ok,true,result.error);
+ assert.equal(await f.git('show','HEAD:[literal]*.txt'),'one');assert.equal((await f.git('status','--porcelain')).trim(),'');
+});
+
+test('an external edit during fetch prevents the update from merging over it',async t=>{
+ const f=await connected(t);await f.remoteCommit('file.txt','remote change');const head=(await f.git('rev-parse','HEAD')).trim();
+ const command=f.workflow.runner.command.bind(f.workflow.runner);
+ f.workflow.runner.command=async(job,folder,tool,args,options)=>{const result=await command(job,folder,tool,args,options);if(args.includes('fetch'))await fs.writeFile(path.join(f.root,'file.txt'),'external edit');return result;};
+ const result=await f.operation({action:'update',remote:'origin',target:'main',head});assert.equal(result.ok,false);assert.match(result.error,/local changes/);
+ assert.equal((await f.git('rev-parse','HEAD')).trim(),head);assert.equal(await fs.readFile(path.join(f.root,'file.txt'),'utf8'),'external edit');
+});

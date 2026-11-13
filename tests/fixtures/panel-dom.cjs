@@ -11,7 +11,7 @@ function panelDom(ids){
     const classes=new Set(),attributes={},listeners={},captured=new Set();
     return {tag,children:[],style:{},dataset:{},hidden:false,value:'',textContent:'',scrollTop:0,
       classList:{toggle(name,value){if(value===undefined)value=!classes.has(name);value?classes.add(name):classes.delete(name);},contains:name=>classes.has(name)},
-      append(...nodes){for(const node of nodes){node.parentElement=this;this.children.push(node);}},
+      append(...nodes){for(const node of nodes){if(node.parentElement)node.remove();node.parentElement=this;this.children.push(node);}},
       replaceChildren(...nodes){this.children=[];this.append(...nodes);},
       remove(){if(this.parentElement){const siblings=this.parentElement.children;const index=siblings.indexOf(this);if(index>=0)siblings.splice(index,1);this.parentElement=null;}},
       setAttribute:(name,value)=>{attributes[name]=value;},removeAttribute:name=>{delete attributes[name];},getAttribute:name=>attributes[name],

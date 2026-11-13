@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.2 — Simpler project Git workflow (13 Nov 2026)
+
+- Focus the Git sidebar on the current project with Check for updates, Save and commit all, Update project and Upload commits. Move repository setup, cloning, branch tools, manual staging and detailed output into Advanced.
+- Fetch and merge divergent remote changes from the app, preserving both histories. Open conflicted files, mark saved resolutions, finish or abort a merge with stale-state and unsaved-buffer checks.
+- Refresh editor files and Explorer after updates and merge operations. Keep existing remote authentication and never force-push or automatically discard local changes.
+- Fix fast remote transfers losing visible byte progress inside the throttle interval, which could fail the SFTP integration test in GitHub Actions. Keep first and final counts visible and throttle operations independently.
+- Update desktop, web and package metadata to version 1.3.2.
+
 ## 1.3.1 — WebDAV connections (12 Nov 2026)
 
 - Add desktop WebDAV connections over HTTP/HTTPS alongside FTP, SFTP and SMB, with Basic/Digest authentication, saved favourites, remote Explorer operations and guarded saves.

@@ -13,7 +13,7 @@ const clean=text=>String(text).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g,'').replace(/\
   .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi,'$1[redacted]@');
 const text=bytes=>bytes.toString('utf8').trim();
 const inside=(root,file)=>{const relative=path.relative(root,file);return relative===''||relative!=='..'&&!relative.startsWith('..'+path.sep)&&!path.isAbsolute(relative);};
-const actions=new Set(['stage','unstage','commit','fetch','pull','push','clone','login','logout','repositories','identity','githubIdentity','init','publish','remote','createBranch','switchBranch']);
+const actions=new Set(['update','commitAll','resolveConflict','finishMerge','abortMerge','stage','unstage','commit','fetch','pull','push','clone','login','logout','repositories','identity','githubIdentity','init','publish','remote','createBranch','switchBranch']);
 const validRemote=name=>typeof name==='string'&&/^[a-z\d][a-z\d._-]{0,99}$/i.test(name);
 function branchName(name){
   if(typeof name!=='string'||!name||name.length>200||name.startsWith('-')||name==='HEAD'||/[\s\0]/.test(name)||name.includes('@{'))throw new Error('Enter a valid branch name.');
@@ -21,9 +21,10 @@ function branchName(name){
 }
 function workflowError(error,action){
   const message=clean(error.message);
-  if(!['publish','push','pull','fetch'].includes(action))return {message};
+  if(!['publish','push','pull','fetch','update','finishMerge'].includes(action))return {message};
+  if(action==='update'&&/CONFLICT|Automatic merge failed/i.test(message))return {message,help:'Resolve the conflicted files below, mark them resolved, then finish the merge. You can also abort the merge.'};
   if(/GH007|would publish a private email/i.test(message))return {message,help:'GitHub blocked a private commit email. Use GitHub private email for future commits. Existing commits keep their original email; review and correct unpublished commits with your Git tools before retrying.'};
-  if(/non-fast-forward|fetch first|\[rejected\]|not possible to fast-forward|divergent branches/i.test(message))return {message,help:'Fetch first and review incoming commits. Pull can only fast-forward. If histories diverge, merge or rebase with your Git tools, then retry. Your local commits have been kept.'};
+  if(/non-fast-forward|fetch first|\[rejected\]|not possible to fast-forward|divergent branches/i.test(message))return {message,help:'Choose Update project to fetch and merge remote changes, then upload your commits. Your local commits have been kept.'};
   if(/Authentication failed|could not read Username|Permission denied \(publickey\)|not logged|Bad credentials|HTTP 401/i.test(message))return {message,help:'Check your GitHub connection or SSH credentials, then retry. GitHub connection uses the shared GitHub CLI account.'};
   return {message};
 }
@@ -108,7 +109,10 @@ class GitWorkflow {
     return {name,email:`${user.id}+${user.login}@users.noreply.github.com`,login:user.login};
   }
   async requireClean(repo){
-    if(repo.changes.length||repo.limited)throw new Error('Commit or move local changes before switching branches or publishing.');
+    if(repo.changes.length||repo.limited)throw new Error('Save and commit local changes before updating, switching branches or publishing.');
+    await this.requireIdle(repo);
+  }
+  async requireIdle(repo){
     for(const name of ['MERGE_HEAD','CHERRY_PICK_HEAD','REVERT_HEAD','rebase-merge','rebase-apply','sequencer']){
       const file=text(await this.service.run(repo.root,['rev-parse','--git-path',name]));
       try{await fs.stat(path.resolve(repo.root,file));}catch(error){if(error.code==='ENOENT')continue;throw error;}
@@ -126,7 +130,8 @@ class GitWorkflow {
     const remotes=[];for(const name of names.split('\n').filter(Boolean))remotes.push({name,url:clean(await read(['remote','get-url',name]))});
     const [upstream,upstreamRemote,upstreamRef]=upstreamInfo.split('\0');let ahead=0,behind=0;
     if(upstream&&repo.head){const counts=await read(['rev-list','--left-right','--count','HEAD...@{upstream}']).catch(()=>'');[ahead,behind]=counts.split(/\s+/).map(Number);}
-    return {...repo,remotes,branches:branchInfo.split('\n').filter(Boolean),upstream:upstream||null,upstreamRemote:upstreamRemote||null,upstreamBranch:upstreamRef?.replace(/^refs\/heads\//,'')||null,ahead:ahead||0,behind:behind||0,identity:{name,email},indexState:index};
+    const mergeHead=await read(['rev-parse','--verify','MERGE_HEAD']).catch(()=>'');
+    return {...repo,mergeHead:mergeHead||null,remotes,branches:branchInfo.split('\n').filter(Boolean),upstream:upstream||null,upstreamRemote:upstreamRemote||null,upstreamBranch:upstreamRef?.replace(/^refs\/heads\//,'')||null,ahead:ahead||0,behind:behind||0,identity:{name,email},indexState:index};
   }
   async indexState(repo){
     const raw=await this.service.run(repo.root,['diff','--cached','--raw','-z','--no-abbrev','--no-renames','--no-ext-diff']);
@@ -187,7 +192,33 @@ class GitWorkflow {
         const repo=await this.service.inspect(params.folder);if(!repo.root)throw new Error('Open a local Git repository.');
         const root=repo.root,git=args=>command(root,'git',args);
         if(job.stopped)throw new Error('Git operation cancelled.');
-        if(['stage','unstage'].includes(job.action)){
+        if(['resolveConflict','finishMerge','abortMerge'].includes(job.action)){
+          const mergeHead=text(await this.service.run(root,['rev-parse','--verify','MERGE_HEAD']).catch(()=>Buffer.alloc(0)));
+          if(!mergeHead||mergeHead!==params.mergeHead||repo.branch!==params.branch||repo.head!==params.head)throw new Error('The merge changed. Refresh and review it again.');
+          if(job.action==='abortMerge')await git(['merge','--abort']);
+          else if(job.action==='finishMerge'){
+            if(repo.changes.some(change=>change.kind==='conflict'))throw new Error('Resolve all conflicted files before finishing the merge.');
+            if(params.indexState!==await this.indexState(repo))throw new Error('Staged changes have changed. Review them again before finishing the merge.');
+            await git(['commit','--no-edit']);
+          }else{
+            if(!Array.isArray(params.files)||params.files.length!==1)throw new Error('Choose one conflicted file.');
+            const file=params.files[0],change=repo.changes.find(change=>change.path===file&&change.kind==='conflict');
+            if(!change||!inside(root,file))throw new Error('Choose a conflicted file in this repository.');
+            const stat=await fs.lstat(file).catch(error=>{if(error.code==='ENOENT')return null;throw error;});
+            if(stat){
+              if(!stat.isFile()||stat.isSymbolicLink()||stat.size>5*1024*1024)throw new Error('Resolve this file with external Git tools.');
+              if(/^(?:<{7} |={7}\r?$|>{7} |\|{7} )/m.test(await fs.readFile(file,'utf8')))throw new Error('Remove conflict markers and save the file before marking it resolved.');
+            }
+            await git(['add','--all','--',change.relativePath]);
+          }
+        }else if(['stage','unstage','commitAll'].includes(job.action)){
+          if(job.action==='commitAll'){
+            if(repo.limited)throw new Error('Too many changes to commit all. Use Advanced to review and stage a smaller selection.');
+            await this.requireIdle(repo);
+            if(repo.detached||repo.branch!==params.branch||repo.head!==params.head)throw new Error('The current branch changed. Refresh and try again.');
+            if(typeof params.message!=='string'||!params.message.trim()||params.message.length>10000||params.message.includes('\0'))throw new Error('Enter a commit message.');
+            if(params.indexState!==await this.indexState(repo))throw new Error('Staged changes have changed. Review them again before committing.');
+          }
           if(!Array.isArray(params.files)||!params.files.length||params.files.length>8000)throw new Error('Choose changed files to stage or unstage.');
           const selected=[];
           for(const file of params.files){
@@ -195,7 +226,7 @@ class GitWorkflow {
             const change=repo.changes.find(change=>change.path===file);if(!change)throw new Error('Git changes have changed. Refresh and try again.');
             if(change.kind==='conflict')throw new Error('Resolve Git conflicts before staging changes.');
             selected.push(change.relativePath);
-            if((job.action==='unstage'&&change.index==='R'||job.action==='stage'&&change.worktree==='R')&&change.originalPath)selected.push(path.relative(root,change.originalPath));
+            if((job.action==='unstage'&&change.index==='R'||['stage','commitAll'].includes(job.action)&&change.worktree==='R')&&change.originalPath)selected.push(path.relative(root,change.originalPath));
           }
           // Small literal-path batches avoid OS argv limits and also work with
           // older host Git versions. Each batch can be cancelled independently.
@@ -203,8 +234,9 @@ class GitWorkflow {
           for(let i=0;i<paths.length;){
             const batch=[];let size=0;
             while(i<paths.length&&batch.length<64&&(size+paths[i].length<12000||!batch.length)){size+=paths[i].length+1;batch.push(paths[i++]);}
-            await git(job.action==='stage'?['add','--all','--',...batch]:repo.head?['reset','--quiet',repo.head,'--',...batch]:['rm','--cached','--quiet','--force','--ignore-unmatch','--',...batch]);
+            await git(job.action!=='unstage'?['add','--all','--',...batch]:repo.head?['reset','--quiet',repo.head,'--',...batch]:['rm','--cached','--quiet','--force','--ignore-unmatch','--',...batch]);
           }
+          if(job.action==='commitAll')await git(['commit','-m',params.message]);
         }else if(job.action==='commit'){
           if(repo.detached)throw new Error('Check out a branch before committing.');
           if(params.branch!==repo.branch)throw new Error('The current branch changed. Refresh and try again.');
@@ -261,7 +293,7 @@ class GitWorkflow {
           if(typeof params.name!=='string'||!params.name.trim()||params.name.length>200||/[\0\r\n<>]/.test(params.name)||typeof params.email!=='string'||!/^\S+@\S+\.\S+$/.test(params.email)||params.email.length>254||/[<>\0\r\n]/.test(params.email))throw new Error('Enter a name and email for commits.');
           await git(['config','--local','user.name',params.name.trim()]);await git(['config','--local','user.email',params.email]);
         }else{
-          if(!['fetch','pull','push'].includes(job.action))throw new Error('Invalid Git operation.');
+          if(!['fetch','pull','push','update'].includes(job.action))throw new Error('Invalid Git operation.');
           const remotes=text(await this.service.run(root,['remote'])).split('\n');
           if(typeof params.remote!=='string'||!params.remote||params.remote.startsWith('-')||!remotes.includes(params.remote))throw new Error('Choose an existing Git remote.');
           if(job.action==='fetch')await git(['fetch','--progress','--',params.remote]);
@@ -271,7 +303,17 @@ class GitWorkflow {
             const target=params.target??repo.branch;
             if(typeof target!=='string'||!target||target.length>1024||target.startsWith('-')||/[\0\r\n]/.test(target))throw new Error('Choose a remote branch.');
             await git(['check-ref-format','refs/heads/'+target]);
-            if(job.action==='pull'){
+            if(job.action==='update'){
+              if(repo.head!==params.head)throw new Error('The current branch changed. Refresh and try again.');
+              await this.requireClean(repo);
+              await git(['-c','fetch.recurseSubmodules=false','fetch','--no-tags','--no-recurse-submodules','--progress','--',params.remote,'refs/heads/'+target]);
+              const incoming=text(await this.service.run(root,['rev-parse','--verify','FETCH_HEAD^{commit}']));
+              if(!/^[0-9a-f]{40,64}$/.test(incoming))throw new Error('Invalid remote commit.');
+              const current=await this.service.inspect(root);
+              if(current.branch!==repo.branch||current.head!==repo.head)throw new Error('The current branch changed. Refresh and try again.');
+              await this.requireClean(current);
+              await git(['-c','merge.autoStash=false','-c','rerere.enabled=false','merge','--ff','--no-squash','--commit','--no-edit','--no-autostash',incoming]);
+            }else if(job.action==='pull'){
               if(repo.changes.length)throw new Error('Commit or move local changes before pulling.');
               await git(['-c','fetch.recurseSubmodules=false','pull','--ff-only','--no-rebase','--no-autostash','--no-recurse-submodules','--progress','--',params.remote,'refs/heads/'+target]);
             }else{

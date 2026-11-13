@@ -12,7 +12,7 @@ const KNOWN_ERRORS=new Set([
   'File exceeds the 5 MB editor limit'
 ]);
 class RemoteActivity {
-  constructor({changed=()=>{},now=Date.now}={}){this.changed=changed;this.now=now;this.connections=new Map();this.operations=new Map();this.lastProgress=0;this.revision=0;}
+  constructor({changed=()=>{},now=Date.now}={}){this.changed=changed;this.now=now;this.connections=new Map();this.operations=new Map();this.progressState=new Map();this.revision=0;}
   snapshot(){return {revision:this.revision,connections:[...this.connections.values()].map(c=>({...c})),operations:[...this.operations.values()].map(o=>({...o}))};}
   emit(){++this.revision;try{this.changed(this.snapshot());}catch{/* The UI must not break filesystem operations. */}}
   connection(root,uri,status){
@@ -27,10 +27,20 @@ class RemoteActivity {
     const entry=this.operations.get(id);if(!entry||['completed','failed'].includes(entry.status))return;
     const phaseChanged=change.phase&&entry.phase!==change.phase,totalChanged=change.total!==undefined&&entry.total!==change.total;
     Object.assign(entry,change);
-    if(!progress||phaseChanged||totalChanged||this.now()-this.lastProgress>=100){this.lastProgress=this.now();this.emit();}
+    const previous=this.progressState.get(id),now=this.now();
+    // Fast transfers can finish inside the throttle window. Always publish
+    // their first bytes and each phase's final count before finish() changes
+    // the phase to Complete. Each operation gets its own throttle window.
+    const firstBytes=entry.transferred>0&&(!previous||previous.phase!==entry.phase||previous.transferred===0);
+    const finalBytes=entry.total!==null&&entry.transferred>=entry.total&&
+      (previous?.transferred!==entry.transferred||previous?.total!==entry.total);
+    if(!progress||phaseChanged||totalChanged||firstBytes||finalBytes||!previous||now-previous.time>=100){
+      this.progressState.set(id,{time:now,phase:entry.phase,transferred:entry.transferred,total:entry.total});this.emit();
+    }
   }
   finish(id,cause){
     const entry=this.operations.get(id);if(!entry)return;
+    this.progressState.delete(id);
     Object.assign(entry,{status:cause?'failed':'completed',phase:cause?'Failed':'Complete',finished:this.now(),retryable:!!cause&&['read','list','save'].includes(entry.kind),error:cause?(KNOWN_ERRORS.has(cause.message)?cause.message:'Remote operation failed. Check the connection and server permissions.'):''});this.prune();this.emit();
   }
   prune(){

@@ -90,3 +90,37 @@ test('real SFTP transfers report byte progress and reconnect without exposing th
  assert.ok(events.some(e=>e.operations.some(o=>o.phase==='Uploading'&&o.transferred>0)));
  await remote.reconnect(connection.root);assert.equal(remote.activity.snapshot().connections[0].status,'connected');assert.equal(JSON.stringify(events).includes('test-password'),false);
 });
+
+test('fast transfers emit their first bytes and final byte counts even within one throttle interval',()=>{
+ const events=[],activity=new RemoteActivity({now:()=>1000,changed:event=>events.push(event)});
+ const read=activity.start('/root','/root/file.txt','read');
+ activity.update(read,{status:'running',phase:'Downloading'});
+ activity.update(read,{phase:'Downloading',transferred:0,total:100},true);
+ activity.update(read,{phase:'Downloading',transferred:40,total:100},true);
+ activity.update(read,{phase:'Downloading',transferred:100,total:100},true);
+ activity.finish(read);
+ const progress=events.flatMap(event=>event.operations.filter(op=>op.id===read&&op.phase==='Downloading'));
+ assert.ok(progress.some(op=>op.transferred===40),'the first nonzero byte count must be observable');
+ assert.ok(progress.some(op=>op.transferred===100),'completed bytes must be observable before the Complete phase');
+ const save=activity.start('/root','/root/file.txt','save');
+ for(const phase of ['Uploading','Verifying']){
+  activity.update(save,{phase,transferred:0,total:50},true);
+  activity.update(save,{phase,transferred:25,total:50},true);
+  activity.update(save,{phase,transferred:50,total:50},true);
+ }
+ activity.finish(save);
+ for(const phase of ['Uploading','Verifying'])assert.ok(events.some(event=>event.operations.some(op=>op.id===save&&op.phase===phase&&op.transferred===50)));
+});
+
+test('ordinary progress stays throttled per operation and terminal updates cannot revive it',()=>{
+ let now=1000;const events=[],activity=new RemoteActivity({now:()=>now,changed:event=>events.push(event)});
+ const first=activity.start('/root','/root/a','read'),second=activity.start('/root','/root/b','read');
+ for(const id of [first,second])activity.update(id,{phase:'Downloading',transferred:0,total:100},true);
+ activity.update(first,{transferred:10},true);let count=events.length;
+ activity.update(first,{transferred:20},true);assert.equal(events.length,count);
+ activity.update(second,{transferred:10},true);assert.equal(events.length,count+1);
+ count=events.length;now+=100;activity.update(first,{transferred:30},true);assert.equal(events.length,count+1);
+ activity.update(first,{transferred:100},true);activity.finish(first);const finished=activity.snapshot();
+ activity.update(first,{transferred:999},true);assert.deepEqual(activity.snapshot(),finished);
+ assert.equal(activity.progressState.has(first),false);
+});

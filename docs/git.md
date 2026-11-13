@@ -2,15 +2,30 @@
 
 The desktop app can inspect local Git repositories using the Git installed on your computer. Open a repository folder, or a saved file inside one. The status bar shows the current branch; detached checkouts show **Detached HEAD** and a short commit ID. Multiple workspace folders can belong to different repositories. Select a file or folder to switch the branch display to its repository.
 
+## Current project
+
+Simple actions use the current branch’s configured upstream, or `origin` and the current branch name when no upstream is configured. Manual target selections remain in Advanced.
+
+The Git sidebar opens in a simple mode focused on the repository containing your active file (or your current project folder). It shows the current branch, target, and incoming/outgoing commit counts from the last fetch. **Check for updates** refreshes those counts without changing files.
+
+1. Review the **Changed files** list. Click a file to compare it with the last commit.
+2. Enter a **Commit message** and choose **Save and commit all**. This saves open documents, stages all reviewed changed files (including new files), and creates a local commit. The entire displayed repository is used, including when you opened a subfolder. Review `.gitignore` and changes before committing.
+3. Choose **Update project** to fetch and integrate the target branch. Saved documents and a clean working tree are required. The app fast-forwards when possible and otherwise creates a merge commit preserving local and remote history. It does not force-push, rebase, stash, or discard changes automatically.
+4. Choose **Upload commits** to push the current branch. If GitHub rejects an upload because new commits arrived, use **Update project**, then retry the upload.
+
+When an update stops on conflicts, open each conflicted file using **Open file**, edit and save the combined result, then choose **Mark resolved**. Conflict markers must be removed before a text file can be marked resolved. Once all conflicts are resolved, choose **Finish merge**. **Abort merge** returns to the pre-merge commit and discards edits made to resolve that merge; save any unsaved editor buffers first. Binary, submodule and oversized conflicts may need external Git tools.
+
+Expand **Advanced** for GitHub sign-in, cloning, repository creation, remote and identity settings, branch switching, manual staging, staged-only commits, the original fast-forward-only Pull, and Git output. Advanced also lets you select another repository in a workspace. Sign-in remains optional for repositories already using SSH or an existing credential helper.
+
 ## Connect GitHub and clone
 
-Open the Git sidebar and expand **GitHub connection**. Install [GitHub CLI](https://cli.github.com/) (`gh`) on your computer, then choose **Connect GitHub**. The output shows a one-time code; complete authorization in your browser. **Open verification page** opens GitHub's device authorization page if the browser did not open automatically. On success, Jotta configures GitHub CLI as Git's HTTPS credential helper. GitHub CLI manages credential storage; any storage warnings appear in Git output. Jotta does not request or save your password or copy access tokens into editor settings.
+Open the Git sidebar and expand **Advanced → GitHub connection**. Install [GitHub CLI](https://cli.github.com/) (`gh`) on your computer, then choose **Connect GitHub**. The output shows a one-time code; complete authorization in your browser. **Open verification page** opens GitHub's device authorization page if the browser did not open automatically. On success, Jotta configures GitHub CLI as Git's HTTPS credential helper. GitHub CLI manages credential storage; any storage warnings appear in Git output. Jotta does not request or save your password or copy access tokens into editor settings.
 
 The connection uses the active GitHub.com account in GitHub CLI. **Check connection** refreshes its status. **Sign out** signs that account out of GitHub CLI too; it is a shared login. Existing SSH keys, agents and Git Credential Manager setups remain usable for Git operations without connecting through this panel. GitHub Enterprise account management is not included in this release.
 
 ## Publish a project
 
-Open a local project folder, then expand **Publish project to GitHub** in the Git sidebar. Select the project folder. If it is inside an existing repository, the picker identifies that repository's full root: publishing includes its committed history, not just the selected subfolder.
+Open a local project folder, then expand **Advanced → Publish project to GitHub** in the Git sidebar. Select the project folder. If it is inside an existing repository, the picker identifies that repository's full root: publishing includes its committed history, not just the selected subfolder.
 
 For a folder without Git, choose **Initialize Git**. This creates a `main` branch without staging or committing files. If GitHub is connected, initialization sets that account's GitHub `noreply` email and profile name as this repository's commit identity. Otherwise configure **Remote and identity → Commit identity** before committing. Review the changed files and `.gitignore`, stage the files you want to upload, and commit them through the existing controls.
 
@@ -46,7 +61,7 @@ Expand **Remote and identity** to choose an existing **Remote** and check the **
 - **Pull** updates the current branch using fast-forward only. Save documents and commit or move local changes first, including untracked files. Diverged branches stop with an error instead of starting a merge or rebase. Resolve that situation with your existing Git tools.
 - **Push** sends the current local branch to the selected remote branch and sets its upstream. Rejected pushes are reported; this interface never requests force push.
 
-The editor checks that the current branch has not changed before committing, pulling or pushing. Detached HEAD cannot commit, pull or push through these controls. Replacing or removing remotes, interactive merge resolution, rebasing and pull requests remain tasks for external Git tools. Rejected pushes show recovery guidance for private commit emails, authentication problems and divergent histories; existing local commits are kept.
+The editor checks that the current branch has not changed before committing, pulling or pushing. Detached HEAD cannot commit, pull or push through these controls. Replacing or removing remotes, rebasing and pull requests remain tasks for external Git tools. Text merge conflicts can be resolved through the simple workflow above. Rejected pushes show recovery guidance for private commit emails, authentication problems and divergent histories; existing local commits are kept.
 
 Git output streams progress and errors. **Cancel Git operation** stops the running command and its child processes. Only one write/network operation runs at a time. Cancellation is not an undo: staging, commits or transfers that already completed remain applied. Refresh and review the repository after interruption.
 
