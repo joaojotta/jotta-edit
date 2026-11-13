@@ -2,6 +2,8 @@
 
 ## 1.3.3 — Automatic releases (13 Nov 2026)
 
+- Publish successful `main` builds using the package version and create the matching tag at the built commit; a separate tag push is no longer required.
+
 - Verify all five expected release downloads before publication, include SHA-256 checksums, and link the release from the Actions run summary.
 - Automatically publish GitHub Releases for matching version tags after all app builds and source uploads succeed. Keep incomplete uploads in draft and preserve already published releases.
 - Update desktop, web and package metadata to version 1.3.3.

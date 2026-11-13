@@ -18,6 +18,8 @@ concurrency:
 jobs:
   checks:
     name: Validate and test
+    outputs:
+      release_tag: ${{ steps.version.outputs.release_tag }}
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -28,6 +30,9 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Resolve release version
+        id: version
+        run: node -e 'require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, "release_tag=v" + require("./package.json").version + "\n")'
       - name: Check release tag matches package version
         if: github.ref_type == 'tag'
         run: |
@@ -80,13 +85,17 @@ jobs:
 
   release:
     name: Publish release
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     needs: [checks, windows, flatpak, appimage, web]
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
       - name: Download all packages
         uses: actions/download-artifact@v8
         with:
@@ -95,7 +104,7 @@ jobs:
           merge-multiple: true
       - name: Verify release downloads and generate checksums
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.checks.outputs.release_tag }}
         working-directory: packages
         run: |
           version="${RELEASE_TAG#v}"
@@ -125,16 +134,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.checks.outputs.release_tag }}
         run: |
+          release_exists=false
           if gh release view "$RELEASE_TAG" --json isDraft > release.json; then
+            release_exists=true
             if ! jq -e '.isDraft == true' release.json > /dev/null; then
               echo 'This release is already published. Download rebuilt packages from the Actions artifacts.' >&2
               echo "Release already published: https://github.com/${GH_REPO}/releases/tag/${RELEASE_TAG}" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-          else
-            gh release create "$RELEASE_TAG" --verify-tag --draft \
+          fi
+          if git rev-parse --verify "refs/tags/${RELEASE_TAG}" > /dev/null 2>&1; then
+            if [ "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" != "$GITHUB_SHA" ]; then
+              echo "Tag ${RELEASE_TAG} points to another commit. Bump package.json before publishing a new version." >&2
+              exit 1
+            fi
+          fi
+          if [ "$release_exists" = false ]; then
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" --draft \
               --title "Jotta Edit ${RELEASE_TAG#v}" --generate-notes
           fi
           gh release upload "$RELEASE_TAG" packages/* --clobber
