@@ -29,6 +29,7 @@ function fixture(files = {}) {
     openFolder:async()=>{}, activateWorkspaceFolder(){},
     openFile:async file => {try {const data=await context.api.readFile(file);context.addDocument(data.path,data.content);} catch {}}
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../src/session-files.js'), 'utf8').replace('export async function*', 'async function*'), context);
   vm.runInContext(source.slice(source.indexOf('function addDocument('), source.indexOf('function newMarkdown(')), context);
   vm.runInContext(source.slice(source.indexOf('async function restoreSavedSession('), source.indexOf('async function chooseFile(')), context);
   return {state, metrics, restore:saved => context.restoreSavedSession(saved)};

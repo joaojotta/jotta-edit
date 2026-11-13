@@ -1,8 +1,6 @@
-import {markdownFragment} from './markdown-renderer.js';
 import {markdownEdits} from './markdown-formatting.js';
 import {markdownTarget} from '../shared/markdown-paths.mjs';
 import {tr} from './i18n.js';
-import {exportMarkdownDocument} from './markdown-export.js';
 
 const tools=[
   ['bold','Bold','bold.svg'],['italic','Italic','italic.svg'],['underline','Underline','underline.svg'],['strike','Strikethrough','strikethrough.svg'],
@@ -68,6 +66,7 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
       // Snapshot before the chooser opens, so later edits cannot mix documents.
       const active=doc,source=active.model.getValue(),name=active.name,documentPath=active.path,root=getRoot();
       reportExport(tr(api.chooseMarkdownExport?'Choose where to export Markdown.':'Preparing Markdown export…'));
+      const {exportMarkdownDocument}=await import('./markdown-export.js');
       const result=await exportMarkdownDocument({format,source,name,documentPath,root,api,
         getProtectedPaths:()=>getDocuments().map(item=>item.path).filter(Boolean)},
         {onPreparing:()=>reportExport(tr('Preparing Markdown export…'))});
@@ -115,6 +114,8 @@ export function installMarkdownPanel({monaco,api,getRoot,getEditor,getDocument,g
     if(new TextEncoder().encode(source).length>1024*1024){content.replaceChildren();$('markdown-status').textContent=tr('Preview supports up to 1 MiB. The complete file remains editable.');return;}
     const scroll=content.scrollTop;
     try{
+      const {markdownFragment}=await import('./markdown-renderer.js');
+      if(run!==revision||doc!==active||!valid()||!shown)return;
       current=markdownFragment(source);content.replaceChildren(current.fragment);content.scrollTop=scroll;
       if(!source.trim()){const empty=document.createElement('p');empty.className='markdown-empty';empty.textContent=tr('Start writing Markdown to see the preview.');content.appendChild(empty);}
       let next=0,failed=0;

@@ -1,5 +1,11 @@
 # Version history — Jotta Edit
 
+## 1.3.4 — Faster startup (13 Nov 2026)
+
+- Reduce startup work by loading Markdown rendering/export libraries on demand and discovering system fonts when Settings opens.
+- Read recovered session files in batches of four while preserving tab order, selection, and unsaved buffers.
+- Update desktop, web and package metadata to version 1.3.4.
+
 ## 1.3.3 — Automatic releases (13 Nov 2026)
 
 - Verify all five expected release downloads before publication, include SHA-256 checksums, and link the release from the Actions run summary.

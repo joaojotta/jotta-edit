@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.3.3</strong> &nbsp;·&nbsp; Automatic releases
+  <strong>Version 1.3.4</strong> &nbsp;·&nbsp; Faster startup
 </p>
 
 <p align="center">

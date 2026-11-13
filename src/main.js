@@ -1,3 +1,4 @@
+import { readSessionFiles } from './session-files.js';
 import '@fontsource/rubik/400.css';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/600.css';
@@ -147,6 +148,7 @@ let remoteFoldersPanel, folderPicker;
 let sidebarViews,outlinePanel,remoteConnectionPanel;
 let markdownPanel;
 let settingsDrag = null,settingsTabs,shortcutEditor;
+let loadSettingsFonts = () => {};
 const shortcuts=createKeyboardShortcuts(localStorage,()=>queueMicrotask(refreshShortcutHints));
 let workspaceRevision=0;
 let editor;
@@ -452,7 +454,7 @@ async function restoreSavedSession(saved) {
     // Activating every recovered file creates unnecessary layouts and previews.
     const restoredTabs = [];
     const options = {activate:false, render:false};
-    for (const item of saved.tabs) {
+    for await (const {item, disk, error:readError} of readSessionFiles(saved.tabs, file => api.readFile(file))) {
       if (!item || typeof item !== 'object') { restoredTabs.push(null); continue; }
       let restored = null;
       if (!item.path) {
@@ -467,7 +469,7 @@ async function restoreSavedSession(saved) {
         }
       } else {
         try {
-          const disk = await api.readFile(item.path);
+          if (readError) throw readError;
           const dirty = item.dirty && typeof item.text === 'string';
           const doc = addDocument(disk.path, dirty ? item.text : disk.content, disk.mtimeMs, {...options,image:disk.image,font:disk.font});
           restored = doc;
@@ -1870,6 +1872,7 @@ function updateRestartNotice() {
   $('frame-note').classList.toggle('hidden', !changed);
 }
 function openSettings() {
+  loadSettingsFonts();
   updateProjectSettingsControls();
   $('setting-preview-browser').value = state.previewBrowser;
   updatePreviewBrowserIcon();
@@ -2429,7 +2432,11 @@ function setupDialogs() {
     catch (err) { showStatus(`Window setting: ${err.message}`); }
   });
   $('settings-restart').onclick = safelyRestart;
-  api.listFonts().then(fonts => { fontMenu.setFonts(fonts); uiFontMenu.setFonts(fonts); }).catch(() => {});
+  let fontsLoading;
+  loadSettingsFonts = () => {
+    fontsLoading ||= api.listFonts().then(fonts => { fontMenu.setFonts(fonts); uiFontMenu.setFonts(fonts); })
+      .catch(() => { fontsLoading = null; });
+  };
   $('settings-close').addEventListener('click', fontMenu.hide);
   $('settings-close').addEventListener('click', uiFontMenu.hide);
   $('settings-done').addEventListener('click', fontMenu.hide);

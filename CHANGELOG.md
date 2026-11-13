@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.4 — Faster startup (13 Nov 2026)
+
+- Reduce startup work by loading Markdown rendering/export libraries on demand and discovering system fonts when Settings opens.
+- Read recovered session files in batches of four while preserving tab order, selection, and unsaved buffers.
+- Update desktop, web and package metadata to version 1.3.4.
+
 ## 1.3.3 — Automatic releases (13 Nov 2026)
 
 - Publish successful `main` builds using the package version and create the matching tag at the built commit; a separate tag push is no longer required.
