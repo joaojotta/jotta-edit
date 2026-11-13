@@ -52,7 +52,7 @@ test('failed flushes leave original remote contents intact',async t=>{
 test('remote folders retain both GitHub palettes and the web adapter has no account integration',async()=>{
  const read=name=>fs.readFile(path.join(__dirname,'..',name),'utf8');
  const {syntaxPalettes,syntaxThemeChoices}=await import('../src/syntax-themes.js');
- assert.equal(require('../package.json').version,'1.3.2');
+ assert.equal(require('../package.json').version,'1.3.3');
  assert.equal(syntaxPalettes['github-dark'].background,'#0d1117');
  assert.ok(syntaxThemeChoices.some(theme=>theme.id==='github-dark'));
  assert.ok(syntaxThemeChoices.some(theme=>theme.id==='github-light'));assert.equal(syntaxPalettes['github-light'].background,'#ffffff');

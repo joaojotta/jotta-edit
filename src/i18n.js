@@ -728,7 +728,7 @@ const PT = {
   'Enter the new name:':'Introduza o novo nome:', 'Delete permanently?':'Eliminar definitivamente?',
   'New name':'Novo nome', 'Moved successfully':'Movido com sucesso', 'Renamed successfully':'Nome alterado', 'Deleted permanently':'Eliminado definitivamente',
   'Choose where to export Markdown.':'Escolha onde exportar o Markdown.',
-  'untitled':'sem-título', 'Version 1.3.2':'Versão 1.3.2',
+  'untitled':'sem-título', 'Version 1.3.3':'Versão 1.3.3',
   'Name (optional)':'Nome (opcional)',
   'New favourite colour name':'Nome da nova cor favorita',
   'Favourite colour name':'Nome da cor favorita',

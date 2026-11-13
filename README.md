@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.3.2</strong> &nbsp;·&nbsp; Simpler project Git workflow
+  <strong>Version 1.3.3</strong> &nbsp;·&nbsp; Automatic releases
 </p>
 
 <p align="center">
@@ -88,11 +88,11 @@ The [Build all packages workflow](.github/workflows/build-desktop.yml) validates
 
 - **Automatic builds:** pushes to `main` build all four targets. Pull requests targeting `main` run checks, tests and the web build; desktop packaging runs after merging.
 - **Try a build:** commit and push the workflows, open **Actions → Build all packages → Run workflow**, and select a branch. Each individual build workflow also has its own **Run workflow** button. Download the packages from **Artifacts** on the completed run (kept for 14 days). Individual workflows check and build their target; the all-packages workflow also runs the full test suite.
-- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.3.2` followed by `git push origin v1.3.2`. The all-packages workflow checks that the tag matches `package.json`, builds every target, and attaches the four downloads and source archive to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact. Manual builds produce artifacts without creating a release.
+- **Publish a release automatically:** commit the desired version and push a matching tag, for example `git tag v1.3.3` followed by `git push origin v1.3.3`. The all-packages workflow checks that the tag matches `package.json`, builds every target, uploads the four downloads and source archive, and automatically publishes the GitHub Release after every build succeeds. The workflow verifies that all five downloads are present and nonempty, attaches `SHA256SUMS.txt` for download verification, and adds the release link to the Actions run summary. The release stays in draft until all uploads finish. Re-running the workflow can complete an unfinished draft; published releases are left intact. Manual builds produce artifacts without creating a release.
 
 Extract the `Jotta-Edit-<version>-Web-PWA-DEPLOY.zip` from the web artifact and upload its contents to your web host. It includes the compiled `index.html`, assets, fonts, manifest and offline worker. The workflow produces a deployable ZIP; it does not need hosting credentials. See [web deployment](docs/web-app.md).
 
-GitHub Actions must be enabled for the repository. Builds use Node.js 24, locked npm dependencies and GitHub's built-in token; no personal access token is required. Only the draft-release job requests write access. Windows packages are unsigned unless you configure code signing. Flatpak installs the runtime, SDK and BaseApp versions declared in `package.json`; AppImage builds run independently of Flatpak.
+GitHub Actions must be enabled for the repository. Builds use Node.js 24, locked npm dependencies and GitHub's built-in token; no personal access token is required. Only the release job requests write access. Windows packages are unsigned unless you configure code signing. Flatpak installs the runtime, SDK and BaseApp versions declared in `package.json`; AppImage builds run independently of Flatpak.
 
 For local builds, use Node.js 24, run `npm ci` and `npx --no-install install-electron --no`, then `npm run dist:windows` on Windows, `npm run dist:appimage` on Linux, or `bash scripts/build-flatpak.sh` for Flatpak (including runtime setup). `npm run dist:linux` builds both Linux formats once the Flatpak prerequisites are installed. Outputs go to `release/`.
 

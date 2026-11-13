@@ -79,7 +79,7 @@ jobs:
     uses: ./.github/workflows/web.yml
 
   release:
-    name: Prepare draft release
+    name: Publish release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs: [checks, windows, flatpak, appimage, web]
     runs-on: ubuntu-22.04
@@ -93,7 +93,35 @@ jobs:
           pattern: package-*
           path: packages
           merge-multiple: true
-      - name: Create or update draft with all packages
+      - name: Verify release downloads and generate checksums
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        working-directory: packages
+        run: |
+          version="${RELEASE_TAG#v}"
+          files=(
+            "Jotta-Edit-${version}-Windows-x64-Portable.exe"
+            "Jotta-Edit-${version}-linux-x86_64.flatpak"
+            "Jotta-Edit-${version}-linux-x86_64.AppImage"
+            "Jotta-Edit-${version}-Web-PWA-DEPLOY.zip"
+            "Jotta-Edit-${version}-Source.tar.gz"
+          )
+          for file in "${files[@]}"; do
+            if [ ! -s "$file" ]; then
+              echo "Missing or empty release download: $file" >&2
+              exit 1
+            fi
+          done
+          # Reject unexpected files rather than publishing stale or unrelated assets.
+          shopt -s nullglob dotglob
+          downloads=(*)
+          if [ "${#downloads[@]}" -ne "${#files[@]}" ]; then
+            echo 'Expected exactly five release downloads.' >&2
+            exit 1
+          fi
+          sha256sum "${files[@]}" > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
+      - name: Upload all packages and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -102,10 +130,13 @@ jobs:
           if gh release view "$RELEASE_TAG" --json isDraft > release.json; then
             if ! jq -e '.isDraft == true' release.json > /dev/null; then
               echo 'This release is already published. Download rebuilt packages from the Actions artifacts.' >&2
-              exit 1
+              echo "Release already published: https://github.com/${GH_REPO}/releases/tag/${RELEASE_TAG}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
           else
             gh release create "$RELEASE_TAG" --verify-tag --draft \
               --title "Jotta Edit ${RELEASE_TAG#v}" --generate-notes
           fi
           gh release upload "$RELEASE_TAG" packages/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false
+          echo "Published release: https://github.com/${GH_REPO}/releases/tag/${RELEASE_TAG}" >> "$GITHUB_STEP_SUMMARY"

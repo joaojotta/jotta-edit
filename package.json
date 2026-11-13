@@ -1,8 +1,8 @@
 {
   "name": "jotta-edit",
   "productName": "Jotta Edit",
-  "version": "1.3.2",
-  "description": "Jotta Edit 1.3.2: Simpler project Git workflow",
+  "version": "1.3.3",
+  "description": "Jotta Edit 1.3.3: Automatic releases",
   "author": "João Jotta",
   "license": "GPL-2.0-or-later",
   "private": true,

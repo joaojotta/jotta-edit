@@ -1,5 +1,11 @@
 # Version history — Jotta Edit
 
+## 1.3.3 — Automatic releases (13 Nov 2026)
+
+- Verify all five expected release downloads before publication, include SHA-256 checksums, and link the release from the Actions run summary.
+- Automatically publish GitHub Releases for matching version tags after all app builds and source uploads succeed. Keep incomplete uploads in draft and preserve already published releases.
+- Update desktop, web and package metadata to version 1.3.3.
+
 ## 1.3.2 — Simpler project Git workflow (13 Nov 2026)
 
 - Focus the Git sidebar on the current project with Check for updates, Save and commit all, Update project and Upload commits. Move repository setup, cloning, branch tools, manual staging and detailed output into Advanced.
