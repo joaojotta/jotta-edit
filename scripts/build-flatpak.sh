@@ -12,6 +12,7 @@ done
 
 # Catch unsupported electron-builder keys before installing dependencies or building Vite.
 node scripts/validate-build-config.cjs
+node scripts/check-flatpak-tools.cjs
 appstreamcli validate --no-net assets/linux/pt.jotta.edit.metainfo.xml
 
 # Flatpak applications use a runtime and SDK installed from a remote.

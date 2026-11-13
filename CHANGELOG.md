@@ -6,6 +6,7 @@
 - Fetch and merge divergent remote changes from the app, preserving both histories. Open conflicted files, mark saved resolutions, finish or abort a merge with stale-state and unsaved-buffer checks.
 - Refresh editor files and Explorer after updates and merge operations. Keep existing remote authentication and never force-push or automatically discard local changes.
 - Fix fast remote transfers losing visible byte progress inside the throttle interval, which could fail the SFTP integration test in GitHub Actions. Keep first and final counts visible and throttle operations independently.
+- Fix Flatpak CI metadata composition with SDK 25.08 by building on Ubuntu 24.04 with flatpak-builder 1.4+ and host AppStream compose support. Check the toolchain early in CI and local packaging instead of failing at export.
 - Update desktop, web and package metadata to version 1.3.2.
 
 ## 1.3.1 — WebDAV connections (12 Nov 2026)

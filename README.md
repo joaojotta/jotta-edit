@@ -96,4 +96,6 @@ GitHub Actions must be enabled for the repository. Builds use Node.js 24, locked
 
 For local builds, use Node.js 24, run `npm ci` and `npx --no-install install-electron --no`, then `npm run dist:windows` on Windows, `npm run dist:appimage` on Linux, or `bash scripts/build-flatpak.sh` for Flatpak (including runtime setup). `npm run dist:linux` builds both Linux formats once the Flatpak prerequisites are installed. Outputs go to `release/`.
 
+Flatpak builds require `flatpak-builder` **1.4.0 or newer** and working `appstreamcli compose` on the build host. The Flatpak workflow uses Ubuntu 24.04 and installs `appstream-compose` explicitly. Older builders call the removed `appstream-compose` tool inside SDK 25.08 and cannot package this app’s metadata. On Arch, update `flatpak-builder` and `appstream`; on Ubuntu 24.04, install `flatpak flatpak-builder appstream appstream-compose fuse3`. The packaging commands check these prerequisites before starting.
+
 Flatpak packaging prints its runtime, export and compression progress, plus an elapsed-time message during quiet stages. The standard build tests do not launch your installed `clangd`; optional real-server checks are described in [language tools](docs/language-tools.md#integration-checks).
