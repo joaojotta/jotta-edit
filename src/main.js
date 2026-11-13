@@ -112,7 +112,7 @@ const state = {
   root: null, folders: [], workspacePaths: [], nodes: [], files: [], tabs: [], active: null, nextUntitled: 1,
   removedFolders: new Set(), iconColours: {},
   expanded: new Set(), sidebarOpen: stored('sidebar', 'true') !== 'false',
-  sidebarWidth: Number(stored('sidebar-width', '230')),
+  sidebarWidth: Number(stored('sidebar-width', '250')),
   theme: stored('theme', 'dark'),
   syntaxTheme: normalizeSyntaxTheme(stored('syntaxTheme', 'auto')),
   explorerIconPalette: normalizeExplorerIconPalette(stored('explorerIconPalette', 'auto')),
@@ -1310,7 +1310,7 @@ function applyExplorerTypography() {
   const sidebar = $('sidebar');
   sidebar.style.setProperty('--explorer-font-size', `${state.explorerFontSize}px`);
   sidebar.style.setProperty('--explorer-icon-size', `${Math.round(state.explorerFontSize * 1.14)}px`);
-  sidebar.style.setProperty('--explorer-row-height', `${Math.max(25, Math.round(state.explorerFontSize * 1.95))}px`);
+  sidebar.style.setProperty('--explorer-row-height', `${Math.max(24, Math.round(state.explorerFontSize * 1.7))}px`);
   remember('explorerFontSize', state.explorerFontSize);
 }
 function adjustExplorerFont(delta) {

@@ -25,6 +25,7 @@ const required = [
   ['FTP client', 'node_modules/basic-ftp/package.json'],
   ['SFTP client', 'node_modules/ssh2-sftp-client/package.json'],
   ['SMB client', 'node_modules/smb3-client/package.json'],
+  ['WebDAV client', 'node_modules/webdav/package.json'],
 ];
 const missing = required.filter(([, file]) => !fs.existsSync(path.join(root, file)));
 for (const [moduleName, expected] of [['monaco-editor', pkg.dependencies['monaco-editor']], ['vite', pkg.devDependencies.vite], ['emmet', pkg.dependencies.emmet], ['prettier', pkg.dependencies.prettier], ['@prettier/plugin-php', pkg.dependencies['@prettier/plugin-php']]]) {

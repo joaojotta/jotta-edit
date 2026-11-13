@@ -19,6 +19,7 @@ function uploadStream(bytes,onProgress=()=>{}){
 // These clients speak to the server from Electron. No processes, mount drivers,
 // desktop services, native dialogs or shell credential handoffs are involved.
 async function createRemoteClient(location,credentials,{verifyHostKey,registerClose=()=>{},onDisconnect=()=>{}}={}){
+  if(['http','https'].includes(location.protocol))return require('./webdav-client.cjs').createWebDavClient(location,credentials,{registerClose});
   const url=new URL(location.uri),username=decodeURIComponent(url.username);
   const host=url.hostname.replace(/^\[|\]$/g,'');
   if(location.protocol==='ftp'){

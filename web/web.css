@@ -1,11 +1,11 @@
-.jotta-web .web-toolbar {display:flex;align-items:center;gap:18px;flex:0 0 auto;min-height:64px;padding:11px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
-.jotta-web .web-identity {display:flex;align-items:center;gap:9px;flex:0 0 auto;min-width:138px}
-.jotta-web .web-identity img {width:32px;height:32px;border-radius:7px;object-fit:contain}
+.jotta-web .web-toolbar {display:flex;align-items:center;gap:10px;flex:0 0 auto;min-height:36px;padding:3px 8px;background:var(--surface);border-bottom:1px solid var(--line)}
+.jotta-web .web-identity {display:flex;align-items:center;gap:6px;flex:0 0 auto;min-width:115px}
+.jotta-web .web-identity img {width:20px;height:20px;border-radius:3px;object-fit:contain}
 .jotta-web .web-identity div {display:flex;flex-direction:column;gap:2px}
 .jotta-web .web-identity strong {font-weight:650;font-size:var(--ui-font-size)}
 .jotta-web .web-identity small {font-size:9px;letter-spacing:1.5px;color:var(--muted)}
-.jotta-web .web-workspace-actions {display:flex;align-items:center;gap:10px;flex:1;min-width:0}
-.jotta-web .web-workspace-actions button {display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;border:1px solid var(--line);border-radius:5px;padding:6px 10px;background:var(--surface-alt);color:var(--ink);white-space:nowrap;font-size:calc(var(--ui-font-size) - 2px)}
+.jotta-web .web-workspace-actions {display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.jotta-web .web-workspace-actions button {display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:max(26px, calc(var(--ui-font-size) + 12px));border:1px solid var(--line);border-radius:5px;padding:3px 7px;background:var(--surface-alt);color:var(--ink);white-space:nowrap;font-size:calc(var(--ui-font-size) - 2px)}
 .jotta-web .web-workspace-actions button:hover {background:var(--hover)}
 .jotta-web .web-workspace-actions button:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
 .jotta-web .web-workspace-actions button:disabled {opacity:.45;cursor:default}
@@ -15,7 +15,7 @@
 .jotta-web .web-workspace-actions .web-project-toggle {width:100%;border-color:transparent;background:transparent;font-weight:600}
 .jotta-web #web-workspace-name {overflow:hidden;text-overflow:ellipsis;min-width:0}
 .jotta-web .web-project-toggle>.web-icon:first-child {color:var(--accent)}
-.jotta-web .web-toolbar-divider {height:24px;flex:0 0 1px;background:var(--line);margin:0 3px}
+.jotta-web .web-toolbar-divider {height:18px;flex:0 0 1px;background:var(--line);margin:0 3px}
 .jotta-web .web-save-location {display:flex;align-items:center;gap:7px;margin-left:auto;min-width:0;color:var(--muted);font-size:calc(var(--ui-font-size) - 3px);white-space:nowrap}
 .jotta-web #web-save-status {overflow:hidden;text-overflow:ellipsis}
 .jotta-web .web-save-dot {width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:var(--muted)}
@@ -29,7 +29,7 @@
 .jotta-web .web-workspace-actions .web-export:hover {background:var(--hover);color:var(--ink)}
 .jotta-web .web-menu {position:fixed;z-index:36;min-width:210px;max-width:calc(100vw - 16px);max-height:calc(100vh - 80px);overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:5px;box-shadow:0 10px 30px #0005}
 .jotta-web .web-menu[hidden] {display:none}
-.jotta-web .web-workspace-actions .web-menu button {display:flex;justify-content:flex-start;width:100%;min-height:36px;border:0;background:transparent;text-align:left;padding:8px 10px}
+.jotta-web .web-workspace-actions .web-menu button {display:flex;justify-content:flex-start;width:100%;min-height:28px;border:0;background:transparent;text-align:left;padding:4px 7px}
 .jotta-web .web-workspace-actions .web-menu button:hover,.jotta-web .web-workspace-actions .web-menu button:focus {background:var(--hover);outline:1px solid var(--accent);outline-offset:-1px}
 .jotta-web .titlebar,.jotta-web.custom-frame .titlebar {display:none}
 .jotta-web .workbench {min-height:0}
@@ -38,7 +38,7 @@
 .jotta-web label:has(> #setting-frame) {display:none}
 .jotta-web #frame-note,.jotta-web #settings-restart {display:none !important}
 @media(max-width:1100px) {
- .jotta-web .web-toolbar {gap:10px;padding:9px 12px}
+ .jotta-web .web-toolbar {gap:7px;padding:3px 8px}
  .jotta-web .web-identity {min-width:120px}
  .jotta-web .web-workspace-actions {gap:6px}
  .jotta-web .web-project-group {max-width:135px}
@@ -51,7 +51,7 @@
  .jotta-web .web-save-location {max-width:none}
 }
 @media(max-width:600px) {
- .jotta-web .web-toolbar {padding:8px;gap:7px}
+ .jotta-web .web-toolbar {padding:3px 6px;gap:5px}
  .jotta-web .web-identity {min-width:auto}
  .jotta-web .web-save-location {flex:1 1 auto;margin-left:0}
  .jotta-web .web-toolbar-divider {display:none}

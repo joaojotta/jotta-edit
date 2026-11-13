@@ -70,3 +70,25 @@ test('listing errors remain visible and inaccessible entries do not open files',
   await blocked.panel.browse('/project',null,'/project');blocked.popup.children[3].children[0].onclick();
   assert.deepEqual(blocked.opened,[]);assert.deepEqual(blocked.status,['Access denied']);
 });
+
+test('status-bar folder navigation opens above its trigger and clears stale positioning',async()=>{
+  const f=await fixture(async()=>({nodes:[]}));
+  const trigger=f.host.children[0];
+  const viewportHeight=globalThis.innerHeight || 700;
+  trigger.getBoundingClientRect=()=>({left:40,top:viewportHeight-24,bottom:viewportHeight-2});
+  await f.panel.browse('/project',trigger,'/project');
+  assert.equal(f.popup.style.top,'auto');
+  assert.equal(f.popup.style.bottom,'28px');
+  assert.equal(f.popup.style.maxHeight,`${viewportHeight-36}px`);
+  trigger.getBoundingClientRect=()=>({left:40,top:30,bottom:50});
+  await f.panel.browse('/project',trigger,'/project');
+  assert.equal(f.popup.style.bottom,'auto');
+  assert.equal(f.popup.style.top,'50px');
+});
+
+test('the status-bar path is hidden without a document and restored for drafts',async()=>{
+  const f=await fixture(async()=>({nodes:[]}));
+  f.panel.render(null);assert.equal(f.host.hidden,true);
+  f.panel.render({name:'untitled-1'});assert.equal(f.host.hidden,false);
+  assert.equal(f.host.children[0].textContent,'untitled-1');
+});

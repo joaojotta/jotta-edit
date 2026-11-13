@@ -12,7 +12,7 @@ test('remote addresses accept FTP, SFTP and SMB and reject passwords and invalid
  assert.equal(remoteLocation('sftp://alice@host:2222/path with spaces').uri,'sftp://alice@host:2222/path%20with%20spaces');
  assert.equal(remoteLocation('ftp://host').protocol,'ftp');
  assert.equal(smbPath(remoteLocation('smb://host/share/a%20b')),'\\\\host\\share\\a b');
- for(const address of ['http://host','file:///tmp','sftp://alice:secret@host/home','smb://host','ftp://host/path?x=1','sftp://host/path#hash','sftp://host/%00','sftp://host/a%2Fb','sftp://host/%XX','sftp://host/a\nb']){
+ for(const address of ['ws://host','file:///tmp','sftp://alice:secret@host/home','smb://host','ftp://host/path?x=1','sftp://host/path#hash','sftp://host/%00','sftp://host/a%2Fb','sftp://host/%XX','sftp://host/a\nb']){
   assert.throws(()=>remoteLocation(address));
  }
  assert.throws(()=>smbPath(remoteLocation('smb://host:444/share')),/Map this SMB/);
@@ -52,7 +52,7 @@ test('failed flushes leave original remote contents intact',async t=>{
 test('remote folders retain both GitHub palettes and the web adapter has no account integration',async()=>{
  const read=name=>fs.readFile(path.join(__dirname,'..',name),'utf8');
  const {syntaxPalettes,syntaxThemeChoices}=await import('../src/syntax-themes.js');
- assert.equal(require('../package.json').version,'1.2.2');
+ assert.equal(require('../package.json').version,'1.3.1');
  assert.equal(syntaxPalettes['github-dark'].background,'#0d1117');
  assert.ok(syntaxThemeChoices.some(theme=>theme.id==='github-dark'));
  assert.ok(syntaxThemeChoices.some(theme=>theme.id==='github-light'));assert.equal(syntaxPalettes['github-light'].background,'#ffffff');

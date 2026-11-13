@@ -3,13 +3,14 @@ export function remoteLocation(value,credentials={}) {
   const {username='',password=''}=credentials;
   if([username,password].some(value=>typeof value!=='string'||value.length>4096||/[\x00-\x1f\x7f]/.test(value)))throw new Error('Enter a valid username and password.');
   try{encodeURIComponent(username);encodeURIComponent(password);}catch{throw new Error('Enter a valid username and password.');}
-  if(typeof value!=='string'||value.length>4096||/[\x00-\x1f\x7f]/.test(value)||! /^(ftp|sftp|smb):\/\//i.test(value.trim()))
-    throw new Error('Enter an ftp://, sftp:// or smb:// folder address.');
+  if(typeof value!=='string'||value.length>4096||/[\x00-\x1f\x7f]/.test(value)||! /^(ftp|sftp|smb|https?):\/\//i.test(value.trim()))
+    throw new Error('Enter an ftp://, sftp://, smb://, http:// or https:// folder address.');
   let url;
   try {url=new URL(value.trim());} catch {throw new Error('Enter a valid remote folder address.');}
   if(!url.hostname||url.search||url.hash)throw new Error('Use a server and folder path without a query or fragment.');
   if(url.password)throw new Error('Leave passwords out of the address. Use the Password field.');
   if(username)url.username=encodeURIComponent(username);
+  if(['http:','https:'].includes(url.protocol)&&decodeURIComponent(url.username).includes(':'))throw new Error('Enter a valid username and password.');
   if(password&&!url.username)throw new Error('Enter a username when providing a password.');
   let parts;
   try {parts=url.pathname.split('/').filter(Boolean).map(decodeURIComponent);decodeURIComponent(url.username);}

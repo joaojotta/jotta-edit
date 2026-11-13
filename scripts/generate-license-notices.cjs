@@ -21,6 +21,15 @@ function generateLicenseNotices(output = path.join(root, 'public', 'licenses')) 
     const files = fs.readdirSync(dir, {withFileTypes:true})
       .filter(entry => entry.isFile() && (/^(?:licen[cs]e|copying|copyright)(?:[.-]|$)/i.test(entry.name) || /notice/i.test(entry.name)))
       .map(entry => entry.name).sort();
+    // A few upstream tarballs omit standalone licence files. Preserve their
+    // original notices/metadata, with a repository licence for entities.
+    const omittedLicences = {
+      '@nodable/entities@3.1.0': path.relative(dir, path.join(root, 'licenses/nodable-entities-MIT.txt')),
+      'byte-length@1.0.2': 'package.json',
+      'data-uri-to-buffer@4.0.1': 'README.md'
+    };
+    const fallback = omittedLicences[`${metadata.name}@${metadata.version}`];
+    if (!files.length && fallback) files.push(fallback);
     if (!files.length) throw new Error(`Missing licence text for ${metadata.name}`);
     packages.set(dir, {dir, metadata, files});
     for (const dependency of Object.keys(metadata.dependencies || {})) visit(dependency, dir);

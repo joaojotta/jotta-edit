@@ -5,7 +5,7 @@
 <h1 align="center">Jotta Edit</h1>
 
 <p align="center">
-  <strong>Version 1.2.2</strong> &nbsp;·&nbsp; Git review, language tools and faster startup
+  <strong>Version 1.3.1</strong> &nbsp;·&nbsp; WebDAV connections
 </p>
 
 <p align="center">
@@ -65,7 +65,7 @@ Jotta Edit is a personal code editor created by **João Jotta**. Its goal is to 
 - **Session recovery** — Restore your tabs, unsaved drafts and pending edits when you reopen the app.
 - **Local history** — Browse saved versions, compare them with your current draft and restore changes with Undo support.
 - **Recent workspaces & favourites** — Return to recent projects and save favourite local folders or remote servers.
-- **Remote folders** — Edit directly over **FTP, SFTP or SMB** on desktop, with optional encrypted credential saving and checks for server-side changes before saving.
+- **Remote folders** — Edit directly over **FTP, SFTP, SMB or WebDAV** on desktop, with optional encrypted credential saving and checks for server-side changes before saving.
 - **Connection activity** — See server state, transfer progress and failed operations in the Connections sidebar. Reconnect sessions and retry supported operations without leaving the editor. See [sidebar panels](docs/sidebar-panels.md).
 
 ## Desktop or browser
@@ -88,7 +88,7 @@ The [Build all packages workflow](.github/workflows/build-desktop.yml) validates
 
 - **Automatic builds:** pushes to `main` build all four targets. Pull requests targeting `main` run checks, tests and the web build; desktop packaging runs after merging.
 - **Try a build:** commit and push the workflows, open **Actions → Build all packages → Run workflow**, and select a branch. Each individual build workflow also has its own **Run workflow** button. Download the packages from **Artifacts** on the completed run (kept for 14 days). Individual workflows check and build their target; the all-packages workflow also runs the full test suite.
-- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.2.2` followed by `git push origin v1.2.2`. The all-packages workflow checks that the tag matches `package.json`, builds every target, and attaches the four downloads and source archive to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact. Manual builds produce artifacts without creating a release.
+- **Prepare a release:** commit the desired version and push a matching tag, for example `git tag v1.3.1` followed by `git push origin v1.3.1`. The all-packages workflow checks that the tag matches `package.json`, builds every target, and attaches the four downloads and source archive to a **draft** GitHub Release. Review the draft under **Releases** and publish it when ready. Re-running the workflow can replace assets in an existing draft; published releases are left intact. Manual builds produce artifacts without creating a release.
 
 Extract the `Jotta-Edit-<version>-Web-PWA-DEPLOY.zip` from the web artifact and upload its contents to your web host. It includes the compiled `index.html`, assets, fonts, manifest and offline worker. The workflow produces a deployable ZIP; it does not need hosting credentials. See [web deployment](docs/web-app.md).
 

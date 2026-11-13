@@ -11,6 +11,9 @@
   <div id="app">
     <header class="titlebar">
       <div class="brand drag-zone"><img class="logo" src="/icon.png" alt="" draggable="false"><span class="brand-name">JOTTA</span><span class="brand-sub">EDIT</span></div>
+      <nav id="custom-menubar" class="custom-menubar" aria-label="Application menu">
+        <button data-menu="File">File</button><button data-menu="Edit">Edit</button><button data-menu="Selection">Selection</button><button data-menu="View">View</button><button data-menu="Go">Go</button><button data-menu="Tools">Tools</button><button data-menu="Help">Help</button>
+      </nav>
       <div class="title-project drag-zone" id="window-title">Untitled workspace</div>
       <div class="window-actions no-drag">
         <button id="btn-minimize" class="win-action" title="Minimize" aria-label="Minimize">─</button>
@@ -18,18 +21,25 @@
         <button id="btn-close" class="win-action close-action" title="Close" aria-label="Close">×</button>
       </div>
     </header>
-    <nav id="custom-menubar" class="custom-menubar" aria-label="Application menu">
-      <button data-menu="File">File</button><button data-menu="Edit">Edit</button><button data-menu="Selection">Selection</button><button data-menu="View">View</button><button data-menu="Go">Go</button><button data-menu="Tools">Tools</button><button data-menu="Help">Help</button>
-    </nav>
+
     <div id="menu-layer" class="menu-layer hidden" aria-hidden="true"></div>
     <div class="workbench">
       <aside id="sidebar" class="sidebar">
+        <div class="sidebar-rail">
+          <div class="sidebar-views" role="group" aria-label="Sidebar view">
+            <button id="btn-explorer" type="button" aria-pressed="true" aria-controls="explorer-view" title="Explorer" aria-label="Explorer"><img class="button-icon" src="/ui-icons/folder.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button>
+          </div>
+          <nav class="sidebar-panel-tabs" aria-label="Document and connection panels">
+            <button id="btn-git" type="button" aria-pressed="false" aria-controls="git-panel" title="Git changes" aria-label="Git changes" hidden><img class="button-icon" src="/ui-icons/github.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-problems" type="button" aria-pressed="false" aria-controls="problems-panel" title="Problems" aria-label="Problems"><img class="button-icon" src="/ui-icons/problem.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-outline" type="button" aria-pressed="false" aria-controls="document-outline" title="Document outline" aria-label="Document outline"><img class="button-icon" src="/ui-icons/outline.svg" alt="" aria-hidden="true" draggable="false"></button>
+            <button id="btn-connections" type="button" aria-pressed="false" aria-controls="remote-connections" title="Remote connections" aria-label="Remote connections" hidden><img class="button-icon" src="/ui-icons/connections.svg" alt="" aria-hidden="true" draggable="false"></button>
+          </nav>
+        </div>
         <div class="sidebar-header">
           <div class="sidebar-heading">
-            <div class="sidebar-views" role="group" aria-label="Sidebar view">
-              <button id="btn-explorer" type="button" aria-pressed="true" aria-controls="explorer-view" title="Explorer" aria-label="Explorer"><img class="button-icon" src="/ui-icons/folder.svg" alt="" aria-hidden="true" draggable="false"></button>
-              <button id="btn-project-search" type="button" aria-pressed="false" title="Search in project (Ctrl+Shift+F)" aria-label="Search in project"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"></button>
-            </div>
+            <span class="section-caption">Explorer</span>
             <button id="btn-reload" class="sidebar-refresh" type="button" title="Refresh folder" aria-label="Refresh folder"><img class="refresh-icon" src="/ui-icons/refresh.svg" alt="" aria-hidden="true" draggable="false"></button>
           </div>
           <div class="sidebar-actions" role="group" aria-label="Explorer">
@@ -41,12 +51,7 @@
           </div>
         </div>
 
-        <nav class="sidebar-panel-tabs" aria-label="Document and connection panels">
-          <button id="btn-git" type="button" aria-pressed="false" aria-controls="git-panel" title="Git changes" aria-label="Git changes" hidden><img class="button-icon" src="/ui-icons/github.svg" alt="" aria-hidden="true" draggable="false"></button>
-          <button id="btn-problems" type="button" aria-pressed="false" aria-controls="problems-panel" title="Problems" aria-label="Problems"><img class="button-icon" src="/ui-icons/problem.svg" alt="" aria-hidden="true" draggable="false"></button>
-          <button id="btn-outline" type="button" aria-pressed="false" aria-controls="document-outline" title="Document outline" aria-label="Document outline"><img class="button-icon" src="/ui-icons/outline.svg" alt="" aria-hidden="true" draggable="false"></button>
-          <button id="btn-connections" type="button" aria-pressed="false" aria-controls="remote-connections" title="Remote connections" aria-label="Remote connections" hidden><img class="button-icon" src="/ui-icons/connections.svg" alt="" aria-hidden="true" draggable="false"></button>
-        </nav>
+
         <section id="git-panel" class="sidebar-panel" aria-label="Git changes" hidden>
           <header class="sidebar-panel-heading"><h2>Git changes</h2><button id="git-refresh" type="button" title="Refresh Git status" aria-label="Refresh Git status">↻</button></header>
           <div id="git-workflow" hidden></div>
@@ -108,7 +113,6 @@
           <button id="btn-quick" type="button" role="menuitem" tabindex="-1" title="Quick open (Ctrl+P)"><img class="button-icon" src="/ui-icons/search.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Quick open</span><span class="menu-accel" aria-hidden="true">Ctrl+P</span></button>
           <button id="btn-palette" type="button" role="menuitem" tabindex="-1" title="Command palette (Ctrl+Shift+P)"><img class="button-icon" src="/ui-icons/command.svg" alt="" aria-hidden="true" draggable="false"><span class="menu-label">Command palette</span><span class="menu-accel" aria-hidden="true">Ctrl+Shift+P</span></button>
         </div>
-        <div id="breadcrumbs" class="breadcrumbs">START</div>
         <div id="markdown-tools" class="markdown-tools" role="toolbar" aria-label="Markdown formatting" hidden></div>
         <div id="editor-wrap" class="editor-wrap"><section id="editor-stage" class="editor-stage"><div id="editor" class="editor"></div>
           <div id="welcome" class="welcome"><img class="welcome-mark" src="/icon.png" alt="Jotta Edit" draggable="false"><h1>Jotta Edit</h1><p>A clean space for code.</p><div class="welcome-shortcuts"><div><kbd>Ctrl</kbd> + <kbd>P</kbd><span>Quick open</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd><span>Commands</span></div><div><kbd>Ctrl</kbd> + <kbd>O</kbd><span>Open file</span></div><div><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>O</kbd><span>Open folder</span></div><div><kbd>Ctrl</kbd> + <kbd>N</kbd><span>New file</span></div></div><section id="welcome-favourites" class="welcome-recents" hidden><h2>Favourites</h2><div id="welcome-favourites-list"></div></section><section id="welcome-recents" class="welcome-recents" hidden><h2>Recent Workspaces</h2><div id="welcome-recents-list"></div></section></div>
@@ -122,7 +126,7 @@
         </div>
       </main>
     </div>
-    <footer class="statusbar"><div class="status-left"><button id="btn-sidebar" type="button" title="Hide sidebar (Ctrl+B)" aria-label="Hide sidebar (Ctrl+B)" aria-controls="sidebar" aria-expanded="true"><img id="sidebar-toggle-icon" class="sidebar-toggle-icon" src="/ui-icons/sidebar-fold.svg" alt="" aria-hidden="true" draggable="false"></button><button id="status-git" type="button" title="Git changes" aria-label="Git branch" hidden></button><span id="status-message">Ready</span></div><div class="status-right"><button id="status-position">Ln 1, Col 1</button><button id="status-indent">Spaces: 2</button><button id="status-encoding">UTF-8</button><button id="status-format" title="Toggle format on save">Fmt Save: On</button><button id="status-language">Plain Text</button><button id="status-theme" title="Toggle theme" aria-label="Toggle light and dark theme"><img class="button-icon" src="/ui-icons/theme.svg" alt="" aria-hidden="true" draggable="false"></button></div></footer>
+    <footer class="statusbar"><div class="status-left"><button id="btn-sidebar" type="button" title="Hide sidebar (Ctrl+B)" aria-label="Hide sidebar (Ctrl+B)" aria-controls="sidebar" aria-expanded="true"><img id="sidebar-toggle-icon" class="sidebar-toggle-icon" src="/ui-icons/sidebar-fold.svg" alt="" aria-hidden="true" draggable="false"></button><button id="status-git" type="button" title="Git changes" aria-label="Git branch" hidden></button><div id="breadcrumbs" class="breadcrumbs" hidden></div><span id="status-message">Ready</span></div><div class="status-right"><button id="status-position">Ln 1, Col 1</button><button id="status-indent">Spaces: 2</button><button id="status-encoding">UTF-8</button><button id="status-format" title="Toggle format on save">Fmt Save: On</button><button id="status-language">Plain Text</button><button id="status-theme" title="Toggle theme" aria-label="Toggle light and dark theme"><img class="button-icon" src="/ui-icons/theme.svg" alt="" aria-hidden="true" draggable="false"></button></div></footer>
   </div>
   <div id="overlay" class="jotta-modal-overlay hidden" aria-hidden="true"><div class="palette-dialog" role="dialog" aria-modal="true"><div class="palette-top"><span id="palette-symbol">⌕</span><input id="palette-input" type="text" autocomplete="off" spellcheck="false" placeholder="Search..." aria-label="Search"></div><div id="palette-list" class="palette-list"></div><div class="palette-hint"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span><kbd>Enter</kbd> Select</span><span><kbd>Esc</kbd> Close</span></div></div></div>
 
@@ -313,7 +317,7 @@
       <form id="remote-form">
         <label for="remote-location">Folder address</label>
         <input id="remote-location" type="text" placeholder="sftp://server/path" autocomplete="off" spellcheck="false" aria-describedby="remote-help" required>
-        <p id="remote-help">FTP, SFTP or SMB. Include a share in SMB addresses, for example smb://server/share.</p>
+        <p id="remote-help">FTP, SFTP, SMB or WebDAV (https:// or http://). Include a share in SMB addresses, for example smb://server/share.</p>
         <div class="remote-credentials">
           <label for="remote-username">Username (optional)<input id="remote-username" name="username" type="text" autocomplete="off" spellcheck="false" maxlength="4096" aria-describedby="remote-auth-help"></label>
           <label for="remote-password">Password (optional)<input id="remote-password" name="password" type="password" autocomplete="off" maxlength="4096" aria-describedby="remote-auth-help"></label>
@@ -331,7 +335,7 @@
   <div id="about-overlay" class="jotta-modal-overlay modal-center hidden" aria-hidden="true">
     <section class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-title">
       <div class="modal-header"><h2 id="about-title">About Jotta Edit</h2><button id="about-close" class="modal-close" aria-label="Close About">×</button></div>
-      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.2.2</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
+      <div class="about-content"><img src="/icon.png" alt="" class="about-icon"><h2>Jotta Edit</h2><div class="version">Version 1.3.1</div><p>A focused cross-platform code editor powered by Electron and Monaco, with Emmet, Prettier and optional language-server completion.</p><p>Developed by João Jotta</p><p>Licensed under the GNU General Public License, version 2 or later (GPL-2.0-or-later).</p><p>Monaco, Electron, Emmet and Prettier retain their respective third-party licenses.</p></div>
       <div class="modal-actions"><button id="about-done" class="primary">Close</button></div>
     </section>
   </div>

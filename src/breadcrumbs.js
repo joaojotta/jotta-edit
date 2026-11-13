@@ -56,7 +56,12 @@ export function installBreadcrumbs({host, list, open, reveal, notify = () => {},
     const entries=documentRef.createElement('div');entries.className='breadcrumb-entries';popup.append(entries);
     const rect=trigger?.getBoundingClientRect?.();
     popup.style.left=`${Math.max(8,Math.min((globalThis.innerWidth || 1000)-Math.min(340,(globalThis.innerWidth || 1000)-16)-8,rect?.left || 8))}px`;
-    popup.style.top=`${Math.max(8,Math.min((globalThis.innerHeight || 700)-180,rect?.bottom || 80))}px`;
+    const viewportHeight=globalThis.innerHeight || 700;
+    // Status-bar paths open upwards, leaving the folder listing inside the viewport.
+    const above=rect && rect.top > viewportHeight / 2;
+    popup.style.top=above?'auto':`${Math.max(8,Math.min(viewportHeight-180,rect?.bottom || 80))}px`;
+    popup.style.bottom=above?`${Math.max(8,viewportHeight-rect.top+4)}px`:'auto';
+    popup.style.maxHeight=`${Math.max(80,above?rect.top-12:viewportHeight-(rect?.bottom || 80)-8)}px`;
     try {
       const result=await list(path);
       if(request!==generation)return;
@@ -82,12 +87,13 @@ export function installBreadcrumbs({host, list, open, reveal, notify = () => {},
     close();host.setAttribute('aria-label',tr('File path'));popup.setAttribute('aria-label',tr('Folder contents'));
   });
   function render(context) {
+    host.hidden=!context;
     const segments=breadcrumbSegments(context?.path,{root:context?.root,label:context?.name || tr('START'),platform:context?.platform});
     const boundary=segments.find(item=>item.folder)?.path || null;
     if(boundary!==contextRoot){close();contextRoot=boundary;}
     host.replaceChildren();
     for(const [index,item] of segments.entries()){
-      if(index){const divider=documentRef.createElement('span');divider.className='breadcrumb-separator';divider.textContent='›';divider.setAttribute('aria-hidden','true');host.append(divider);}
+      if(index){const divider=documentRef.createElement('span');divider.className='breadcrumb-separator';divider.textContent='/';divider.setAttribute('aria-hidden','true');host.append(divider);}
       if(item.folder){
         const crumb=button(item.label,()=>{if(!popup.hidden&&folder===item.path)close();else void browse(item.path,crumb,boundary);},'breadcrumb-folder');
         crumb.title=item.path;crumb.setAttribute('aria-haspopup','dialog');crumb.setAttribute('aria-expanded',String(!popup.hidden&&folder===item.path));

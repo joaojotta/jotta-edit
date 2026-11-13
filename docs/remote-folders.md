@@ -6,9 +6,10 @@ Use **File → Open Remote Folder…**, the Explorer cloud-folder button or the 
 ftp://server.example/project
 sftp://user@server.example:2222/home/user/project
 smb://server.example/share/project
+https://cloud.example/remote.php/dav/files/username/project
 ```
 
-FTP, SFTP and SMB connections run directly inside Jotta Edit on Linux, Windows and macOS. The packaged app includes the protocol clients. No KIO, GVfs, Python, mount driver, desktop file manager or desktop portal is used to connect, browse or edit remote folders. Flatpak requires its existing network permission. Rebuild/update an installed Flatpak to use this implementation.
+FTP, SFTP, SMB and WebDAV connections run directly inside Jotta Edit on Linux, Windows and macOS. The packaged app includes the protocol clients. No KIO, GVfs, Python, mount driver, desktop file manager or desktop portal is used to connect, browse or edit remote folders. Flatpak requires its existing network permission. Rebuild/update an installed Flatpak to use this implementation.
 
 For hosting aliases, you can also connect directly to an address such as `ftp://server.example/public_html`. FTP resolves a selected directory using the server's CWD/PWD response, including aliases whose listing exposes a physical server path.
 
@@ -17,6 +18,16 @@ FTP enters each directory before requesting its listing, including the LIST fall
 Expanding an empty or unscanned Explorer folder requests its immediate contents again. Child folders load when expanded, so a cached empty result can recover without reopening the workspace. An intentionally shallow listing does not report the file limit as reached.
 
 The folder opens in the ordinary Explorer. Files are read from the server as needed; the app does not download a project copy or mount a drive. Local **Open Folder** uses an in-app browser with an editable path, home/parent navigation and a hidden-folder option. That browser only sees locations allowed by the app's filesystem permissions; remote connections do not require filesystem grants.
+
+## WebDAV
+
+Use **Open Remote Folder…** or **Connections → Connect…** and enter the server's full WebDAV endpoint as an `https://` or `http://` address, then fill in **Username** and **Password**. For services such as Nextcloud, use the WebDAV URL shown in the service's file settings and an app password when required. HTTP and HTTPS addresses in this dialog are treated as WebDAV endpoints, not ordinary websites.
+
+WebDAV supports Basic and Digest authentication. Prefer HTTPS; HTTP does not encrypt the connection. HTTPS verifies the server's certificate using the runtime trust store. Self-signed certificates must be trusted by the runtime; Jotta Edit does not bypass certificate verification. OAuth browser sign-in and client certificates are not supported.
+
+Save connections with **Save to favourites**, and optionally **Save credentials** using the existing encrypted credential store. Browse, edit, create and rename files through Explorer; deleted entries move to the connection's `.jotta-trash` folder. Saving uploads a temporary sibling, checks for external edits, moves the staged file over the destination, then verifies the saved content. The server must allow PROPFIND, GET, PUT, MKCOL, MOVE and DELETE. Servers without MOVE support cannot use this save workflow.
+
+Use the final endpoint URL. Redirects are rejected, except a same-server trailing slash for a collection lookup. Folder listings are bounded to 8 MB; downloads retain the existing 5 MB text and 20 MB image/font limits. Credentials stay in the desktop process. The browser/web edition does not provide remote connections.
 
 ## Signing in
 

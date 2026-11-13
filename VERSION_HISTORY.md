@@ -1,5 +1,18 @@
 # Version history — Jotta Edit
 
+## 1.3.1 — WebDAV connections (12 Nov 2026)
+
+- Add desktop WebDAV connections over HTTP/HTTPS alongside FTP, SFTP and SMB, with Basic/Digest authentication, saved favourites, remote Explorer operations and guarded saves.
+- Update desktop, web and package metadata to version 1.3.1.
+
+## 1.3.0 — Compact editor interface (12 Nov 2026)
+
+- Apply the approved compact layout with shorter tabs, a slimmer toolbar and status bar, tighter Explorer rows and a vertical sidebar icon rail.
+- Move file-path navigation into the bottom-left status bar after the branch indicator, separated by a subtle divider, and open folder menus upwards, freeing the row below the tabs for the editor.
+- Combine the desktop application menu with the custom title bar. Keep native window frames and compact the web workspace toolbar.
+- Preserve existing interface colours, syntax themes, icon palettes and saved typography preferences. Scale compact controls with interface text size.
+- Update desktop, web and package metadata to version 1.3.0.
+
 ## 1.2.2 — Git review, language tools and faster startup (1 Nov 2026)
 
 - Add separate GitHub Actions builds for Windows, Flatpak, AppImage and web/PWA, with checks on pushes and pull requests, verified downloadable artifacts and draft releases containing all packages and corresponding source.
